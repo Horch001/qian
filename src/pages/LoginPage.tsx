@@ -64,7 +64,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
       );
 
       if (authResult && authResult.user) {
-        // 保存用户信息
+        // 保存用户信息（统一使用 userInfo 键名）
         const userInfo = {
           username: authResult.user.username,
           uid: authResult.user.uid,
@@ -72,7 +72,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
           isPiUser: true,
         };
 
-        localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+        // TODO: 将 accessToken 发送到后端验证
+        // const verified = await fetch('/api/verify-pi-token', {
+        //   method: 'POST',
+        //   body: JSON.stringify({ accessToken: authResult.accessToken })
+        // });
+
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
         onLoginSuccess(userInfo);
         
         // 显示成功提示

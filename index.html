@@ -13,9 +13,14 @@
     <script>
       window.addEventListener('load', function() {
         if (typeof Pi !== 'undefined') {
-          // 只传 version，让 Pi 自动检测是 sandbox 还是 production
-          Pi.init({ version: "2.0" });
-          console.log('Pi SDK initialized');
+          // 测试网环境 - 使用真实测试币
+          Pi.init({ 
+            version: "2.0",
+            sandbox: false  // false = 测试网真实环境
+          });
+          console.log('Pi SDK initialized in testnet mode');
+        } else {
+          console.warn('Pi SDK not available - not in Pi Browser');
         }
       });
     </script>
