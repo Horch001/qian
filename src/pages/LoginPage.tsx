@@ -30,6 +30,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
     console.log(message);
   };
 
+  // 页面加载时检查 Pi SDK
+  React.useEffect(() => {
+    addDebugLog('📱 页面加载完成');
+    addDebugLog(`🌐 User Agent: ${navigator.userAgent.substring(0, 50)}...`);
+    addDebugLog(`🔍 window.Pi 存在: ${!!window.Pi}`);
+    if (window.Pi) {
+      addDebugLog(`✅ Pi SDK 已加载`);
+      addDebugLog(`Pi.authenticate: ${typeof window.Pi.authenticate}`);
+    } else {
+      addDebugLog(`❌ Pi SDK 未加载`);
+    }
+  }, []);
+
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
@@ -152,8 +165,36 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc] flex flex-col">
-      <div className="flex-1 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc] flex flex-col relative">
+      {/* 固定在左上角的调试面板 */}
+      <div className="fixed top-2 left-2 right-2 z-50 max-w-md">
+        <div className="bg-black/80 rounded-lg border border-white/30 backdrop-blur-md p-3 shadow-2xl">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-xs font-bold text-yellow-300">🔧 调试面板</h3>
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="text-xs text-white/80 hover:text-white px-2 py-1 bg-white/10 rounded"
+            >
+              {showDebug ? '收起' : '展开'}
+            </button>
+          </div>
+          {showDebug && (
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {debugLogs.length === 0 ? (
+                <div className="text-xs text-white/60">等待日志...</div>
+              ) : (
+                debugLogs.map((log, index) => (
+                  <div key={index} className="text-xs text-white/90 font-mono break-all leading-relaxed">
+                    {log}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-4 pt-32">
         <div className="w-full max-w-md">
           {/* 标题 */}
           <div className="text-center mb-8">
@@ -220,38 +261,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
               })}
             </p>
           </div>
-
-          {/* 调试面板 */}
-          {showDebug && debugLogs.length > 0 && (
-            <div className="mt-6 p-4 bg-black/40 rounded-lg border border-white/20 backdrop-blur-md">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xs font-bold text-white">🔧 调试信息</h3>
-                <button
-                  onClick={() => setShowDebug(false)}
-                  className="text-xs text-white/60 hover:text-white"
-                >
-                  隐藏
-                </button>
-              </div>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {debugLogs.map((log, index) => (
-                  <div key={index} className="text-xs text-white/80 font-mono break-all">
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 显示调试按钮 */}
-          {!showDebug && debugLogs.length > 0 && (
-            <button
-              onClick={() => setShowDebug(true)}
-              className="mt-6 w-full py-2 px-4 text-center text-white/60 text-xs hover:text-white transition-colors"
-            >
-              显示调试信息
-            </button>
-          )}
 
           {/* 返回首页 */}
           <button
