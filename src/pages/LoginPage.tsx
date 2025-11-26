@@ -30,10 +30,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
       script.async = true;
       script.onload = () => {
         if (window.Pi) {
-          window.Pi.init({ version: '2.0', appId: 'sichouzhilu' });
+          // 使用 Sandbox 模式进行测试
+          window.Pi.init({ 
+            version: '2.0', 
+            sandbox: true  // 开发测试模式
+          });
+          console.log('Pi SDK 初始化完成 (Sandbox 模式)');
         }
       };
       document.body.appendChild(script);
+    } else if (window.Pi) {
+      // SDK 已存在，确保已初始化
+      window.Pi.init({ 
+        version: '2.0', 
+        sandbox: true 
+      });
+      console.log('Pi SDK 已存在，重新初始化');
     }
   }, []);
 
@@ -49,21 +61,20 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         attempts++;
       }
 
-      if (window.Pi && window.Pi.authenticate) {
+      if (window.Pi && typeof window.Pi.authenticate === 'function') {
         // Pi SDK 已加载，尝试真实登录
         console.log('Pi SDK 已加载，开始认证...');
-        const scopes = ['username', 'payments'];
         
-        const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
-          console.log('Pi Network 认证回调:', payment);
-        });
+        // 根据官方文档，authenticate 只需要 scopes 参数，不需要回调
+        const scopes = ['username', 'payments'];
+        const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
 
         console.log('Pi 认证结果:', authResult);
 
         // 保存用户信息
         const userInfo = {
-          username: authResult.user?.username || 'Pi User',
-          uid: authResult.user?.uid || 'pi_' + Date.now(),
+          username: authResult.user.username,
+          uid: authResult.user.uid,
           accessToken: authResult.accessToken,
           isPiUser: true,
         };
@@ -73,6 +84,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         
         // 显示成功提示
         setShowSuccess(true);
+        setIsLoading(false);
         
         // 2秒后自动返回首页
         setTimeout(() => {
@@ -97,6 +109,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
           
           setShowSuccess(true);
           setIsTestAccount(false);
+          setIsLoading(false);
           
           setTimeout(() => {
             navigate('/');
@@ -108,6 +121,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
       setError(err.message || '登录失败，请重试');
       setIsLoading(false);
     }
+  };
+
+  // Pi SDK 回调函数：处理未完成的支付
+  const onIncompletePaymentFound = (payment: any) => {
+    console.log('发现未完成的支付:', payment);
+    // 这里可以处理未完成的支付逻辑
   };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
