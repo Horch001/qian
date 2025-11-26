@@ -27,9 +27,56 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
     setError(null);
 
     try {
-      // 检查 Pi SDK 是否可用
-      if (!window.Pi || typeof window.Pi.authenticate !== 'function') {
-        // 不在 Pi 浏览器中，使用测试账号
+      // 直接尝试调用 Pi SDK 认证
+      // 如果不在 Pi 浏览器中，会抛出错误，然后使用测试账号
+      if (!window.Pi) {
+        throw new Error('PI_SDK_NOT_AVAILABLE');
+      }
+
+      console.log('Attempting Pi authentication...');
+      
+      // Pi SDK 真实认证
+      const scopes = ['username', 'payments'];
+      const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+
+      console.log('Pi authentication result:', authResult);
+
+      if (authResult && authResult.user) {
+        // 保存用户信息
+        const userInfo = {
+          username: authResult.user.username,
+          uid: authResult.user.uid,
+          accessToken: authResult.accessToken,
+          isPiUser: true,
+        };
+
+        console.log('Pi user authenticated:', userInfo.username);
+
+        // TODO: 将 accessToken 发送到后端验证
+        // const verified = await fetch('/api/verify-pi-token', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({ accessToken: authResult.accessToken })
+        // });
+
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        onLoginSuccess(userInfo);
+        
+        setShowSuccess(true);
+        setIsLoading(false);
+        
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } else {
+        throw new Error('认证失败：未获取到用户信息');
+      }
+    } catch (err: any) {
+      console.error('Pi authentication error:', err);
+      
+      // 如果是 Pi SDK 不可用，使用测试账号
+      if (err.message === 'PI_SDK_NOT_AVAILABLE' || !window.Pi) {
+        console.log('Pi SDK not available, using test account');
         setIsTestAccount(true);
         
         setTimeout(() => {
@@ -52,50 +99,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
             navigate('/');
           }, 2000);
         }, 800);
-        return;
-      }
-
-      // Pi SDK 可用，进行真实认证
-      const authResult = await window.Pi.authenticate(
-        ['username', 'payments'],
-        (payment: any) => {
-          return payment.identifier;
-        }
-      );
-
-      if (authResult && authResult.user) {
-        // 保存用户信息（统一使用 userInfo 键名）
-        const userInfo = {
-          username: authResult.user.username,
-          uid: authResult.user.uid,
-          accessToken: authResult.accessToken,
-          isPiUser: true,
-        };
-
-        // TODO: 将 accessToken 发送到后端验证
-        // const verified = await fetch('/api/verify-pi-token', {
-        //   method: 'POST',
-        //   body: JSON.stringify({ accessToken: authResult.accessToken })
-        // });
-
-        localStorage.setItem('userInfo', JSON.stringify(userInfo));
-        onLoginSuccess(userInfo);
-        
-        // 显示成功提示
-        setShowSuccess(true);
-        setIsLoading(false);
-        
-        // 2秒后自动返回首页
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
       } else {
-        throw new Error('认证失败：未获取到用户信息');
+        // 其他错误
+        setError(err.message || '登录失败，请重试');
+        setIsLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message || '登录失败，请重试');
-      setIsLoading(false);
     }
+  };
+
+  // Pi SDK 支付回调函数
+  const onIncompletePaymentFound = (payment: any) => {
+    console.log('Incomplete payment found:', payment);
+    return payment.identifier;
   };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
