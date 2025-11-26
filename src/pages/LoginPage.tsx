@@ -23,95 +23,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   const [isTestAccount, setIsTestAccount] = useState(false);
 
   useEffect(() => {
-    // 加载 Pi Network SDK
-    const loadPiSDK = () => {
-      if (!window.Pi) {
-        const script = document.createElement('script');
-        script.src = 'https://sdk.minepi.com/pi-sdk.js';
-        script.async = true;
-        script.onload = () => {
-          if (window.Pi) {
-            // 参考可工作的应用：sandbox: false
-            window.Pi.init({ 
-              version: '2.0', 
-              sandbox: false,
-              scope: ['username', 'payments']
-            });
-            console.log('Pi SDK 初始化完成');
-          }
-        };
-        script.onerror = () => {
-          console.error('Pi SDK 加载失败');
-        };
-        document.body.appendChild(script);
-      } else if (window.Pi) {
-        // SDK 已存在，确保已初始化
-        try {
-          window.Pi.init({ 
-            version: '2.0', 
-            sandbox: false,
-            scope: ['username', 'payments']
-          });
-          console.log('Pi SDK 已存在，重新初始化');
-        } catch (err) {
-          console.error('Pi SDK 初始化错误:', err);
-        }
-      }
-    };
-
-    loadPiSDK();
+    // SDK 已在 index.html 中加载和初始化
+    // 这里只需要检查是否可用
+    console.log('Pi SDK 状态:', window.Pi ? '已加载' : '未加载');
+    console.log('User Agent:', navigator.userAgent);
   }, []);
 
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
 
+    console.log('=== 开始登录流程 ===');
+    console.log('window.Pi 存在:', !!window.Pi);
+    console.log('Pi.authenticate 存在:', window.Pi && typeof window.Pi.authenticate === 'function');
+
     try {
-      // 等待 SDK 加载（最多等待 5 秒）
-      let attempts = 0;
-      while (!window.Pi && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-
-      if (window.Pi && typeof window.Pi.authenticate === 'function') {
-        // Pi SDK 已加载，尝试真实登录
-        console.log('Pi SDK 已加载，开始认证...');
-        
-        // 参考可工作的应用：authenticate 不需要传 scopes（已在 init 中设置）
-        const authResult = await window.Pi.authenticate(
-          ['username', 'payments'],
-          onIncompletePaymentFound
-        );
-
-        console.log('Pi 认证结果:', authResult);
-
-        if (authResult && authResult.user) {
-          // 保存用户信息
-          const userInfo = {
-            username: authResult.user.username,
-            uid: authResult.user.uid,
-            accessToken: authResult.accessToken,
-            isPiUser: true,
-          };
-
-          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
-          onLoginSuccess(userInfo);
-          
-          // 显示成功提示
-          setShowSuccess(true);
-          setIsLoading(false);
-          
-          // 2秒后自动返回首页
-          setTimeout(() => {
-            navigate('/');
-          }, 2000);
-        } else {
-          throw new Error('认证失败：未获取到用户信息');
-        }
-      } else {
-        // Pi SDK 未加载或不在 Pi 浏览器中，使用测试账号
-        console.log('Pi SDK 未检测到，使用测试账号登录');
+      // 检查 Pi SDK 是否可用
+      if (!window.Pi || typeof window.Pi.authenticate !== 'function') {
+        console.log('Pi SDK 不可用，使用测试账号');
+        // 不在 Pi 浏览器中，使用测试账号
         setIsTestAccount(true);
         
         setTimeout(() => {
@@ -134,6 +64,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
             navigate('/');
           }, 2000);
         }, 800);
+        return;
+      }
+
+      // Pi SDK 可用，进行真实认证
+      console.log('Pi SDK 可用，开始认证...');
+      
+      const authResult = await window.Pi.authenticate(
+        ['username', 'payments'],
+        onIncompletePaymentFound
+      );
+
+      console.log('Pi 认证结果:', authResult);
+
+      if (authResult && authResult.user) {
+        // 保存用户信息
+        const userInfo = {
+          username: authResult.user.username,
+          uid: authResult.user.uid,
+          accessToken: authResult.accessToken,
+          isPiUser: true,
+        };
+
+        localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+        onLoginSuccess(userInfo);
+        
+        // 显示成功提示
+        setShowSuccess(true);
+        setIsLoading(false);
+        
+        // 2秒后自动返回首页
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } else {
+        throw new Error('认证失败：未获取到用户信息');
       }
     } catch (err: any) {
       console.error('Pi Network 登录错误:', err);
