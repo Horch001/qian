@@ -24,29 +24,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
 
   useEffect(() => {
     // 加载 Pi Network SDK
-    if (!window.Pi) {
-      const script = document.createElement('script');
-      script.src = 'https://sdk.minepi.com/pi-sdk.js';
-      script.async = true;
-      script.onload = () => {
-        if (window.Pi) {
-          // 使用 Sandbox 模式进行测试
+    const loadPiSDK = () => {
+      if (!window.Pi) {
+        const script = document.createElement('script');
+        script.src = 'https://sdk.minepi.com/pi-sdk.js';
+        script.async = true;
+        script.onload = () => {
+          if (window.Pi) {
+            // 参考可工作的应用：sandbox: false
+            window.Pi.init({ 
+              version: '2.0', 
+              sandbox: false,
+              scope: ['username', 'payments']
+            });
+            console.log('Pi SDK 初始化完成');
+          }
+        };
+        script.onerror = () => {
+          console.error('Pi SDK 加载失败');
+        };
+        document.body.appendChild(script);
+      } else if (window.Pi) {
+        // SDK 已存在，确保已初始化
+        try {
           window.Pi.init({ 
             version: '2.0', 
-            sandbox: true  // 开发测试模式
+            sandbox: false,
+            scope: ['username', 'payments']
           });
-          console.log('Pi SDK 初始化完成 (Sandbox 模式)');
+          console.log('Pi SDK 已存在，重新初始化');
+        } catch (err) {
+          console.error('Pi SDK 初始化错误:', err);
         }
-      };
-      document.body.appendChild(script);
-    } else if (window.Pi) {
-      // SDK 已存在，确保已初始化
-      window.Pi.init({ 
-        version: '2.0', 
-        sandbox: true 
-      });
-      console.log('Pi SDK 已存在，重新初始化');
-    }
+      }
+    };
+
+    loadPiSDK();
   }, []);
 
   const handlePiLogin = async () => {
@@ -54,9 +67,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
     setError(null);
 
     try {
-      // 等待 SDK 加载（最多等待 3 秒）
+      // 等待 SDK 加载（最多等待 5 秒）
       let attempts = 0;
-      while (!window.Pi && attempts < 30) {
+      while (!window.Pi && attempts < 50) {
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
       }
@@ -65,31 +78,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         // Pi SDK 已加载，尝试真实登录
         console.log('Pi SDK 已加载，开始认证...');
         
-        // 根据官方文档，authenticate 只需要 scopes 参数，不需要回调
-        const scopes = ['username', 'payments'];
-        const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+        // 参考可工作的应用：authenticate 不需要传 scopes（已在 init 中设置）
+        const authResult = await window.Pi.authenticate(
+          ['username', 'payments'],
+          onIncompletePaymentFound
+        );
 
         console.log('Pi 认证结果:', authResult);
 
-        // 保存用户信息
-        const userInfo = {
-          username: authResult.user.username,
-          uid: authResult.user.uid,
-          accessToken: authResult.accessToken,
-          isPiUser: true,
-        };
+        if (authResult && authResult.user) {
+          // 保存用户信息
+          const userInfo = {
+            username: authResult.user.username,
+            uid: authResult.user.uid,
+            accessToken: authResult.accessToken,
+            isPiUser: true,
+          };
 
-        localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
-        onLoginSuccess(userInfo);
-        
-        // 显示成功提示
-        setShowSuccess(true);
-        setIsLoading(false);
-        
-        // 2秒后自动返回首页
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
+          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+          onLoginSuccess(userInfo);
+          
+          // 显示成功提示
+          setShowSuccess(true);
+          setIsLoading(false);
+          
+          // 2秒后自动返回首页
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        } else {
+          throw new Error('认证失败：未获取到用户信息');
+        }
       } else {
         // Pi SDK 未加载或不在 Pi 浏览器中，使用测试账号
         console.log('Pi SDK 未检测到，使用测试账号登录');
@@ -126,7 +145,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   // Pi SDK 回调函数：处理未完成的支付
   const onIncompletePaymentFound = (payment: any) => {
     console.log('发现未完成的支付:', payment);
-    // 这里可以处理未完成的支付逻辑
+    return payment.identifier;
   };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
