@@ -8,19 +8,14 @@
   <body>
     <div id="root"></div>
     
-    <!-- Pi Network SDK - 必须在应用加载前加载 -->
+    <!-- Pi Network SDK -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script>
-      // 确保 Pi SDK 在页面加载时初始化
       window.addEventListener('load', function() {
         if (typeof Pi !== 'undefined') {
-          Pi.init({ 
-            version: "2.0", 
-            sandbox: false
-          });
-          console.log('Pi SDK 已初始化');
-        } else {
-          console.log('Pi SDK 未加载（可能不在 Pi 浏览器中）');
+          // 只传 version，让 Pi 自动检测是 sandbox 还是 production
+          Pi.init({ version: "2.0" });
+          console.log('Pi SDK initialized');
         }
       });
     </script>
