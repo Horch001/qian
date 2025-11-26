@@ -31,14 +31,66 @@ const HomePage: React.FC<{
   onLogout: () => void;
   onLoginSuccess: (userInfo: any) => void;
 }> = ({ language, onLanguageChange, isLoggedIn, onLogout, onLoginSuccess }) => {
+  const [debugInfo, setDebugInfo] = React.useState<string[]>([]);
+  const [showDebug, setShowDebug] = React.useState(true);
+
+  React.useEffect(() => {
+    const logs: string[] = [];
+    logs.push(`⏰ 时间: ${new Date().toLocaleString()}`);
+    logs.push(`🌐 User Agent: ${navigator.userAgent}`);
+    logs.push(`📱 平台: ${navigator.platform}`);
+    logs.push(`-------------------`);
+    logs.push(`🔍 检查 window.Pi...`);
+    logs.push(`window.Pi 存在: ${!!window.Pi}`);
+    logs.push(`window.Pi 类型: ${typeof window.Pi}`);
+    
+    if (window.Pi) {
+      logs.push(`✅ Pi SDK 已加载！`);
+      logs.push(`Pi 对象: ${JSON.stringify(Object.keys(window.Pi))}`);
+      logs.push(`Pi.authenticate 存在: ${!!window.Pi.authenticate}`);
+      logs.push(`Pi.authenticate 类型: ${typeof window.Pi.authenticate}`);
+    } else {
+      logs.push(`❌ Pi SDK 未加载`);
+      logs.push(`⚠️ 可能原因:`);
+      logs.push(`1. 不在 Pi 浏览器中`);
+      logs.push(`2. SDK 脚本加载失败`);
+      logs.push(`3. SDK 初始化未完成`);
+    }
+    
+    setDebugInfo(logs);
+  }, []);
+
   return (
     <div className="h-screen w-full bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc] font-sans text-white selection:bg-purple-300 overflow-hidden flex justify-center relative">
+      {/* 全局调试面板 - 固定在顶部 */}
+      <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 border-b-4 border-yellow-400 shadow-2xl">
+        <div className="max-w-4xl mx-auto p-2">
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="text-sm font-bold text-white">🔧 Pi SDK 状态检测</h3>
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="text-sm text-white font-bold px-3 py-1 bg-yellow-500 rounded hover:bg-yellow-400"
+            >
+              {showDebug ? '▲ 收起' : '▼ 展开'}
+            </button>
+          </div>
+          {showDebug && (
+            <div className="bg-black/95 rounded p-2 max-h-96 overflow-y-auto">
+              {debugInfo.map((log, index) => (
+                <div key={index} className="text-xs text-green-300 font-mono break-all leading-relaxed py-0.5">
+                  {log}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       {/* 背景光效装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-400/10 rounded-full blur-3xl"></div>
       </div>
-      <div className="w-full max-w-md h-full flex flex-col relative shadow-2xl bg-transparent z-10">
+      <div className="w-full max-w-md h-full flex flex-col relative shadow-2xl bg-transparent z-10" style={{ paddingTop: showDebug ? '200px' : '60px' }}>
         {/* Fixed Top Section */}
         <div className="flex-none z-20">
           <AnnouncementBar language={language} translations={TRANSLATIONS} />
