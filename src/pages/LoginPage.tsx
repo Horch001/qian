@@ -32,14 +32,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
 
   // 页面加载时检查 Pi SDK
   React.useEffect(() => {
-    addDebugLog('📱 页面加载完成');
+    addDebugLog('🚀🚀🚀 登录页面已加载 🚀🚀🚀');
+    addDebugLog('📱 当前页面: LoginPage.tsx');
+    addDebugLog(`⏰ 时间: ${new Date().toLocaleString()}`);
     addDebugLog(`🌐 User Agent: ${navigator.userAgent.substring(0, 50)}...`);
     addDebugLog(`🔍 window.Pi 存在: ${!!window.Pi}`);
     if (window.Pi) {
       addDebugLog(`✅ Pi SDK 已加载`);
       addDebugLog(`Pi.authenticate: ${typeof window.Pi.authenticate}`);
+      addDebugLog(`⚠️ 准备就绪，可以点击登录按钮`);
     } else {
       addDebugLog(`❌ Pi SDK 未加载`);
+      addDebugLog(`⚠️ 将使用测试账号登录`);
     }
   }, []);
 
