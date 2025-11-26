@@ -46,7 +46,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
-    setDebugLogs([]);
+    // 不要清空日志，保留页面加载时的信息
+    addDebugLog('-------------------');
+    addDebugLog('🔘 用户点击登录按钮');
 
     try {
       // 检查 Pi SDK 是否存在
@@ -166,25 +168,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc] flex flex-col relative">
-      {/* 固定在左上角的调试面板 */}
-      <div className="fixed top-2 left-2 right-2 z-50 max-w-md">
-        <div className="bg-black/80 rounded-lg border border-white/30 backdrop-blur-md p-3 shadow-2xl">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-xs font-bold text-yellow-300">🔧 调试面板</h3>
+      {/* 固定在顶部的调试面板 - 超级明显 */}
+      <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 border-b-4 border-yellow-400 p-2 shadow-2xl">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="text-sm font-bold text-white">🔧 Pi SDK 调试面板</h3>
             <button
               onClick={() => setShowDebug(!showDebug)}
-              className="text-xs text-white/80 hover:text-white px-2 py-1 bg-white/10 rounded"
+              className="text-sm text-white font-bold px-3 py-1 bg-yellow-500 rounded hover:bg-yellow-400"
             >
-              {showDebug ? '收起' : '展开'}
+              {showDebug ? '▲ 收起' : '▼ 展开'}
             </button>
           </div>
           {showDebug && (
-            <div className="space-y-1 max-h-64 overflow-y-auto">
+            <div className="bg-black/90 rounded p-2 max-h-80 overflow-y-auto">
               {debugLogs.length === 0 ? (
-                <div className="text-xs text-white/60">等待日志...</div>
+                <div className="text-sm text-yellow-300 font-bold">⏳ 等待日志...</div>
               ) : (
                 debugLogs.map((log, index) => (
-                  <div key={index} className="text-xs text-white/90 font-mono break-all leading-relaxed">
+                  <div key={index} className="text-sm text-green-300 font-mono break-all leading-relaxed py-0.5">
                     {log}
                   </div>
                 ))
@@ -194,7 +196,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center px-4 pt-32">
+      <div className="flex-1 flex items-center justify-center px-4" style={{ paddingTop: showDebug ? '280px' : '80px' }}>
         <div className="w-full max-w-md">
           {/* 标题 */}
           <div className="text-center mb-8">
