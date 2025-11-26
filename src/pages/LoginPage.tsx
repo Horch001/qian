@@ -21,25 +21,41 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isTestAccount, setIsTestAccount] = useState(false);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [showDebug, setShowDebug] = useState(true);
+
+  const addDebugLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+    console.log(message);
+  };
 
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
+    setDebugLogs([]);
 
     try {
-      // 直接尝试调用 Pi SDK 认证
-      // 如果不在 Pi 浏览器中，会抛出错误，然后使用测试账号
+      // 检查 Pi SDK 是否存在
+      addDebugLog('🔍 开始检查 Pi SDK...');
+      addDebugLog(`window.Pi 存在: ${!!window.Pi}`);
+      addDebugLog(`window.Pi 类型: ${typeof window.Pi}`);
+      
       if (!window.Pi) {
+        addDebugLog('❌ Pi SDK 未找到');
         throw new Error('PI_SDK_NOT_AVAILABLE');
       }
 
-      console.log('Attempting Pi authentication...');
+      addDebugLog('✅ Pi SDK 已找到');
+      addDebugLog(`Pi.authenticate 类型: ${typeof window.Pi.authenticate}`);
+      addDebugLog('🚀 开始调用 Pi.authenticate()...');
       
       // Pi SDK 真实认证
       const scopes = ['username', 'payments'];
       const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
 
-      console.log('Pi authentication result:', authResult);
+      addDebugLog('✅ 认证成功！');
+      addDebugLog(`用户名: ${authResult?.user?.username || '未知'}`);
 
       if (authResult && authResult.user) {
         // 保存用户信息
@@ -50,7 +66,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
           isPiUser: true,
         };
 
-        console.log('Pi user authenticated:', userInfo.username);
+        addDebugLog(`💾 保存用户信息: ${userInfo.username}`);
 
         // TODO: 将 accessToken 发送到后端验证
         // const verified = await fetch('/api/verify-pi-token', {
@@ -72,11 +88,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         throw new Error('认证失败：未获取到用户信息');
       }
     } catch (err: any) {
-      console.error('Pi authentication error:', err);
+      addDebugLog(`❌ 错误: ${err.message}`);
       
       // 如果是 Pi SDK 不可用，使用测试账号
       if (err.message === 'PI_SDK_NOT_AVAILABLE' || !window.Pi) {
-        console.log('Pi SDK not available, using test account');
+        addDebugLog('⚠️ Pi SDK 不可用，使用测试账号');
         setIsTestAccount(true);
         
         setTimeout(() => {
@@ -204,6 +220,38 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
               })}
             </p>
           </div>
+
+          {/* 调试面板 */}
+          {showDebug && debugLogs.length > 0 && (
+            <div className="mt-6 p-4 bg-black/40 rounded-lg border border-white/20 backdrop-blur-md">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xs font-bold text-white">🔧 调试信息</h3>
+                <button
+                  onClick={() => setShowDebug(false)}
+                  className="text-xs text-white/60 hover:text-white"
+                >
+                  隐藏
+                </button>
+              </div>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {debugLogs.map((log, index) => (
+                  <div key={index} className="text-xs text-white/80 font-mono break-all">
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 显示调试按钮 */}
+          {!showDebug && debugLogs.length > 0 && (
+            <button
+              onClick={() => setShowDebug(true)}
+              className="mt-6 w-full py-2 px-4 text-center text-white/60 text-xs hover:text-white transition-colors"
+            >
+              显示调试信息
+            </button>
+          )}
 
           {/* 返回首页 */}
           <button
