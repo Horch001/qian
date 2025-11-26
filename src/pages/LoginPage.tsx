@@ -67,21 +67,26 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
       
       // Pi SDK 真实认证
       const scopes = ['username', 'payments'];
-      const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+      
+      try {
+        const authResult = await window.Pi.authenticate(scopes, onIncompletePaymentFound);
+        
+        addDebugLog('✅ Pi.authenticate 调用完成');
+        addDebugLog(`返回结果类型: ${typeof authResult}`);
+        addDebugLog(`返回结果: ${JSON.stringify(authResult)}`);
+        addDebugLog(`authResult.user 存在: ${!!authResult?.user}`);
+        addDebugLog(`用户名: ${authResult?.user?.username || '未知'}`);
 
-      addDebugLog('✅ 认证成功！');
-      addDebugLog(`用户名: ${authResult?.user?.username || '未知'}`);
+        if (authResult && authResult.user) {
+          // 保存用户信息
+          const userInfo = {
+            username: authResult.user.username,
+            uid: authResult.user.uid,
+            accessToken: authResult.accessToken,
+            isPiUser: true,
+          };
 
-      if (authResult && authResult.user) {
-        // 保存用户信息
-        const userInfo = {
-          username: authResult.user.username,
-          uid: authResult.user.uid,
-          accessToken: authResult.accessToken,
-          isPiUser: true,
-        };
-
-        addDebugLog(`💾 保存用户信息: ${userInfo.username}`);
+          addDebugLog(`💾 保存用户信息: ${userInfo.username}`);
 
         // TODO: 将 accessToken 发送到后端验证
         // const verified = await fetch('/api/verify-pi-token', {
@@ -90,20 +95,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         //   body: JSON.stringify({ accessToken: authResult.accessToken })
         // });
 
-        localStorage.setItem('userInfo', JSON.stringify(userInfo));
-        onLoginSuccess(userInfo);
-        
-        setShowSuccess(true);
-        setIsLoading(false);
-        
-        setTimeout(() => {
-          navigate('/');
-        }, 2000);
-      } else {
-        throw new Error('认证失败：未获取到用户信息');
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+          onLoginSuccess(userInfo);
+          
+          setShowSuccess(true);
+          setIsLoading(false);
+          
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        } else {
+          addDebugLog('⚠️ authResult 或 authResult.user 不存在');
+          throw new Error('认证失败：未获取到用户信息');
+        }
+      } catch (authError: any) {
+        addDebugLog(`❌ Pi.authenticate 调用异常: ${authError.message}`);
+        addDebugLog(`异常类型: ${authError.name}`);
+        addDebugLog(`异常堆栈: ${authError.stack?.substring(0, 200)}`);
+        throw authError;
       }
     } catch (err: any) {
-      addDebugLog(`❌ 错误: ${err.message}`);
+      addDebugLog(`❌ 外层错误: ${err.message}`);
       
       // 如果是 Pi SDK 不可用，使用测试账号
       if (err.message === 'PI_SDK_NOT_AVAILABLE' || !window.Pi) {
