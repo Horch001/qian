@@ -37,62 +37,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
     }
   }, []);
 
-  const isPiBrowser = () => {
-    // 检查是否在 Pi 浏览器中
-    return !!(window.Pi && window.Pi.request && typeof window.Pi.request === 'function');
-  };
-
-  const handleTestLogin = () => {
-    setIsLoading(true);
-    setError(null);
-    setIsTestAccount(true);
-
-    // 模拟登录延迟
-    setTimeout(() => {
-      // 创建测试账号信息
-      const testUserInfo = {
-        username: 'TestUser',
-        uid: 'test_' + Date.now(),
-        email: 'test@example.com',
-        balance: '0.00',
-        isTestAccount: true,
-      };
-
-      // 保存用户信息（使用 userInfo 而不是 piUserInfo，以区分测试账号）
-      localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-      onLoginSuccess(testUserInfo);
-      
-      // 显示成功提示
-      setShowSuccess(true);
-      setIsTestAccount(false);
-      
-      // 2秒后自动返回首页
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
-    }, 800); // 模拟800ms的登录延迟
-  };
-
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
-    
-    // 检查是否在 Pi 浏览器中
-    if (!isPiBrowser()) {
-      // 不在Pi浏览器中，直接使用测试账号登录
-      handleTestLogin();
-      return;
-    }
 
     try {
-      if (window.Pi) {
-        // 请求用户认证
-        const scopes = ['wallet', 'username', 'payments'];
-        const userInfo = await window.Pi.authenticate(scopes, () => {
-          console.log('Pi Network 认证成功');
+      // 等待 SDK 加载（最多等待 3 秒）
+      let attempts = 0;
+      while (!window.Pi && attempts < 30) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (window.Pi && window.Pi.authenticate) {
+        // Pi SDK 已加载，尝试真实登录
+        console.log('Pi SDK 已加载，开始认证...');
+        const scopes = ['username', 'payments'];
+        
+        const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
+          console.log('Pi Network 认证回调:', payment);
         });
 
+        console.log('Pi 认证结果:', authResult);
+
         // 保存用户信息
+        const userInfo = {
+          username: authResult.user?.username || 'Pi User',
+          uid: authResult.user?.uid || 'pi_' + Date.now(),
+          accessToken: authResult.accessToken,
+          isPiUser: true,
+        };
+
         localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
         onLoginSuccess(userInfo);
         
@@ -104,12 +79,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
           navigate('/');
         }, 2000);
       } else {
-        throw new Error('Pi Network SDK 未加载');
+        // Pi SDK 未加载或不在 Pi 浏览器中，使用测试账号
+        console.log('Pi SDK 未检测到，使用测试账号登录');
+        setIsTestAccount(true);
+        
+        setTimeout(() => {
+          const testUserInfo = {
+            username: 'TestUser',
+            uid: 'test_' + Date.now(),
+            email: 'test@example.com',
+            balance: '0.00',
+            isTestAccount: true,
+          };
+
+          localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+          onLoginSuccess(testUserInfo);
+          
+          setShowSuccess(true);
+          setIsTestAccount(false);
+          
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        }, 800);
       }
     } catch (err: any) {
-      setError(err.message || '登录失败，请重试');
       console.error('Pi Network 登录错误:', err);
-    } finally {
+      setError(err.message || '登录失败，请重试');
       setIsLoading(false);
     }
   };
