@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle, CheckCircle } from 'lucide-react';
 import { Language, Translations } from '../types';
@@ -22,25 +22,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
   const [showSuccess, setShowSuccess] = useState(false);
   const [isTestAccount, setIsTestAccount] = useState(false);
 
-  useEffect(() => {
-    // SDK 已在 index.html 中加载和初始化
-    // 这里只需要检查是否可用
-    console.log('Pi SDK 状态:', window.Pi ? '已加载' : '未加载');
-    console.log('User Agent:', navigator.userAgent);
-  }, []);
-
   const handlePiLogin = async () => {
     setIsLoading(true);
     setError(null);
 
-    console.log('=== 开始登录流程 ===');
-    console.log('window.Pi 存在:', !!window.Pi);
-    console.log('Pi.authenticate 存在:', window.Pi && typeof window.Pi.authenticate === 'function');
-
     try {
       // 检查 Pi SDK 是否可用
       if (!window.Pi || typeof window.Pi.authenticate !== 'function') {
-        console.log('Pi SDK 不可用，使用测试账号');
         // 不在 Pi 浏览器中，使用测试账号
         setIsTestAccount(true);
         
@@ -68,14 +56,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
       }
 
       // Pi SDK 可用，进行真实认证
-      console.log('Pi SDK 可用，开始认证...');
-      
       const authResult = await window.Pi.authenticate(
         ['username', 'payments'],
-        onIncompletePaymentFound
+        (payment: any) => {
+          return payment.identifier;
+        }
       );
-
-      console.log('Pi 认证结果:', authResult);
 
       if (authResult && authResult.user) {
         // 保存用户信息
@@ -101,16 +87,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
         throw new Error('认证失败：未获取到用户信息');
       }
     } catch (err: any) {
-      console.error('Pi Network 登录错误:', err);
       setError(err.message || '登录失败，请重试');
       setIsLoading(false);
     }
-  };
-
-  // Pi SDK 回调函数：处理未完成的支付
-  const onIncompletePaymentFound = (payment: any) => {
-    console.log('发现未完成的支付:', payment);
-    return payment.identifier;
   };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -165,7 +144,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ language, translations, on
                 {getText({ zh: '正在使用测试账号登录', en: 'Logging in with test account', ko: '테스트 계정으로 로그인 중', vi: 'Đang đăng nhập bằng tài khoản thử nghiệm' })}
               </p>
               <p className="text-xs text-blue-300/80">
-                {getText({ zh: '如需使用完整服务，请使用Pi浏览器进行登录', en: 'For full features, please use Pi Browser to login', ko: '전체 기능을 사용하려면 Pi 브라우저에서 로그인하세요', vi: 'Để sử dụng đầy đủ tính năng, vui lòng đăng nhập qua trình duyệt Pi' })}
+                {getText({ zh: '如需使用完整服务，请在Pi开发者平台注册应用', en: 'Register your app at Pi Developer Portal for full features', ko: 'Pi 개발자 포털에서 앱을 등록하세요', vi: 'Đăng ký ứng dụng tại Pi Developer Portal' })}
               </p>
             </div>
           )}
