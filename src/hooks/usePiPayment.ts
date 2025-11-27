@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { piPaymentApi, PiPaymentType } from '../services/api';
 
-// Pi SDK 类型定义（使用 any 避免与其他声明冲突）
+// Pi SDK 类型定义
 interface PiSDK {
   init: (config: { version: string; sandbox?: boolean }) => void;
   authenticate: (
@@ -11,7 +11,7 @@ interface PiSDK {
   createPayment: (
     paymentData: PaymentData,
     callbacks: PaymentCallbacks
-  ) => void;
+  ) => Promise<PiPaymentDTO>;  // createPayment 返回 Promise
 }
 
 interface AuthResult {
@@ -48,9 +48,10 @@ interface PiPaymentDTO {
   } | null;
 }
 
+// 根据 Pi 官方文档，回调函数签名
 interface PaymentCallbacks {
-  onReadyForServerApproval: (paymentId: string) => void;
-  onReadyForServerCompletion: (paymentId: string, txid: string) => void;
+  onReadyForServerApproval: (paymentId: string) => void;  // 必须同步，不能是 async
+  onReadyForServerCompletion: (paymentId: string, txid: string) => void;  // 必须同步
   onCancel: (paymentId: string) => void;
   onError: (error: Error, payment?: PiPaymentDTO) => void;
 }
@@ -102,6 +103,16 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
     }
   }, []);
 
+  // 用于存储 Promise 的 resolve/reject，以便在回调中使用
+  const paymentPromiseRef = useRef<{
+    resolve: (value: any) => void;
+    reject: (reason: any) => void;
+    amount: number;
+    type: PiPaymentType;
+    orderId?: string;
+    memo: string;
+  } | null>(null);
+
   // 发起支付
   const createPayment = useCallback(async (
     amount: number,
@@ -123,8 +134,11 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
         handleIncompletePayment
       );
 
-      // 创建支付
+      // 创建支付 - 使用 Promise 包装，但回调函数保持同步
       return new Promise((resolve, reject) => {
+        // 保存 Promise 的 resolve/reject 和支付信息，供回调使用
+        paymentPromiseRef.current = { resolve, reject, amount, type, orderId, memo };
+
         Pi.createPayment(
           {
             amount,
@@ -132,61 +146,73 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             metadata: { ...metadata, type, orderId },
           },
           {
-            // 服务端批准阶段 - 必须快速完成，否则会超时
-            onReadyForServerApproval: async (paymentId: string) => {
+            // 服务端批准阶段
+            // 重要：根据 Pi 官方文档，此回调必须是同步的！
+            // 不能使用 async/await，否则会导致支付超时
+            onReadyForServerApproval: (paymentId: string) => {
               console.log('Ready for server approval:', paymentId);
-              try {
-                // 直接调用批准接口，后端会同时创建记录并批准
-                // 这样只需要一次网络请求，更快完成
-                await piPaymentApi.approvePayment(paymentId);
-                console.log('Payment approved');
-                
-                // 批准成功后，异步创建本地记录（不阻塞支付流程）
-                piPaymentApi.createPayment({
-                  paymentId,
-                  amount,
-                  type,
-                  orderId,
-                  memo,
-                }).catch(err => {
-                  console.warn('Create payment record failed (non-blocking):', err);
+              
+              // 使用 .then() 而不是 await，保持回调同步返回
+              piPaymentApi.approvePayment(paymentId)
+                .then(() => {
+                  console.log('Payment approved successfully');
+                  // 异步创建本地记录（不阻塞）
+                  const info = paymentPromiseRef.current;
+                  if (info) {
+                    piPaymentApi.createPayment({
+                      paymentId,
+                      amount: info.amount,
+                      type: info.type,
+                      orderId: info.orderId,
+                      memo: info.memo,
+                    }).catch(err => {
+                      console.warn('Create payment record failed (non-blocking):', err);
+                    });
+                  }
+                })
+                .catch((err: any) => {
+                  console.error('Server approval failed:', err);
+                  setError(err.message || '服务端批准失败');
+                  setIsLoading(false);
+                  options.onError?.(err.message || '服务端批准失败');
+                  // 注意：这里不能 reject，因为 Pi SDK 会继续处理
                 });
-              } catch (err: any) {
-                console.error('Server approval failed:', err);
-                setError(err.message || '服务端批准失败');
-                reject(err);
-              }
             },
 
             // 用户完成支付后
-            onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+            // 同样保持同步
+            onReadyForServerCompletion: (paymentId: string, txid: string) => {
               console.log('Ready for server completion:', paymentId, txid);
-              try {
-                const result = await piPaymentApi.completePayment(paymentId, txid);
-                console.log('Payment completed:', result);
-                setIsLoading(false);
-                options.onSuccess?.(result);
-                resolve(result);
-              } catch (err: any) {
-                console.error('Server completion failed:', err);
-                setError(err.message || '完成支付失败');
-                setIsLoading(false);
-                reject(err);
-              }
+              
+              piPaymentApi.completePayment(paymentId, txid)
+                .then((result) => {
+                  console.log('Payment completed:', result);
+                  setIsLoading(false);
+                  options.onSuccess?.(result);
+                  paymentPromiseRef.current?.resolve(result);
+                })
+                .catch((err: any) => {
+                  console.error('Server completion failed:', err);
+                  setError(err.message || '完成支付失败');
+                  setIsLoading(false);
+                  options.onError?.(err.message || '完成支付失败');
+                  paymentPromiseRef.current?.reject(err);
+                });
             },
 
             // 用户取消
-            onCancel: async (paymentId: string) => {
+            onCancel: (paymentId: string) => {
               console.log('Payment cancelled:', paymentId);
-              try {
-                await piPaymentApi.cancelPayment(paymentId);
-              } catch (err) {
+              
+              // 异步取消记录，不阻塞
+              piPaymentApi.cancelPayment(paymentId).catch(err => {
                 console.error('Cancel payment record failed:', err);
-              }
+              });
+              
               setIsLoading(false);
               setError(null);
               options.onCancel?.();
-              reject(new Error('用户取消支付'));
+              paymentPromiseRef.current?.reject(new Error('用户取消支付'));
             },
 
             // 错误处理
@@ -195,7 +221,7 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
               setError(err.message || '支付出错');
               setIsLoading(false);
               options.onError?.(err.message);
-              reject(err);
+              paymentPromiseRef.current?.reject(err);
             },
           }
         );
