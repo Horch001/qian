@@ -12,11 +12,7 @@ interface BottomNavigationProps {
   onLoginSuccess?: (userInfo: any) => void;
 }
 
-declare global {
-  interface Window {
-    Pi?: any;
-  }
-}
+// Window.Pi 类型已在 vite-env.d.ts 中声明
 
 export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, translations, isLoggedIn, onLogout, onLoginSuccess }) => {
   const navigate = useNavigate();
