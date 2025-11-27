@@ -1,5 +1,12 @@
 // API 基础配置
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const getApiBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  // 确保 URL 以 /api/v1 结尾
+  if (url.endsWith('/api/v1')) return url;
+  if (url.endsWith('/')) return `${url}api/v1`;
+  return `${url}/api/v1`;
+};
+const API_BASE_URL = getApiBaseUrl();
 
 // 获取存储的 token
 const getToken = (): string | null => {
