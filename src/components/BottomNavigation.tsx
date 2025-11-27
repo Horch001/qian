@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, LogOut, User, LogIn, Mail, ShoppingCart } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { authApi } from '../services/api';
 
 interface BottomNavigationProps {
   language: Language;
@@ -46,10 +47,23 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     };
   }, []);
 
-  // 检测是否在Pi浏览器环境（只通过userAgent判断，不依赖SDK）
+  // 检测是否在Pi浏览器环境
   const isPiBrowser = () => {
-    const userAgent = navigator.userAgent.toLowerCase();
-    return userAgent.includes('pibrowser') || userAgent.includes('pi browser');
+    // 方法1: 检查 Pi SDK 是否存在且可用
+    if (window.Pi && typeof window.Pi.authenticate === 'function') {
+      return true;
+    }
+    // 方法2: 检查 userAgent（Pi Browser 的 userAgent 包含 "PiBrowser"）
+    const userAgent = navigator.userAgent;
+    if (userAgent.includes('PiBrowser') || userAgent.toLowerCase().includes('pibrowser')) {
+      return true;
+    }
+    // 方法3: 检查是否在 Pi 域名下运行（app-cdn.minepi.com 或 sandbox.minepi.com）
+    const hostname = window.location.hostname;
+    if (hostname.includes('minepi.com')) {
+      return true;
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -89,82 +103,94 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     setIsLoggingIn(true);
     setLoginError(null);
 
-    // 检测是否在Pi浏览器环境
-    const inPiBrowser = isPiBrowser();
-    console.log('isPiBrowser:', inPiBrowser);
-
-    // 非Pi浏览器，直接使用测试账号
-    if (!inPiBrowser) {
-      // 尝试调用后端API
+    // 优先尝试使用 Pi SDK 登录
+    if (window.Pi && typeof window.Pi.authenticate === 'function') {
+      console.log('检测到 Pi SDK，使用真实登录');
       try {
-        const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
-        const response = await fetch('http://localhost:3000/api/v1/auth/pi-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            piUid: testPiUid,
-            accessToken: 'test_token',
-            username: 'TestUser',
-          }),
+        const scopes = ['username', 'payments'];
+        const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
+          return payment.identifier;
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          localStorage.setItem('authToken', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          const testUserInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
-          localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-          onLoginSuccess?.(testUserInfo);
-          setIsTestAccount(true);
+
+        if (authResult && authResult.user) {
+          // 调用后端 API 完成登录
+          try {
+            const data = await authApi.piLogin({
+              piUid: authResult.user.uid,
+              accessToken: authResult.accessToken,
+              username: authResult.user.username,
+            });
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            const userInfo = { ...data.user, isPiUser: true, balance: data.user.balance || '0.00' };
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            onLoginSuccess?.(userInfo);
+          } catch (apiError) {
+            console.error('后端API调用失败，使用本地存储:', apiError);
+            // 后端不可用时，仍然保存用户信息
+            const userInfo = {
+              username: authResult.user.username,
+              uid: authResult.user.uid,
+              accessToken: authResult.accessToken,
+              isPiUser: true,
+              balance: '0.00',
+            };
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            onLoginSuccess?.(userInfo);
+          }
         } else {
-          throw new Error('API 调用失败');
+          throw new Error('认证失败：未获取到用户信息');
         }
-      } catch (error) {
-        console.error('后端API调用失败，使用本地模拟:', error);
-        // 后端不可用，使用本地模拟
-        const testUserInfo = {
-          id: 'local_test_' + Date.now(),
-          username: 'TestUser',
-          uid: 'test_' + Date.now(),
-          email: 'test@example.com',
-          balance: '0.00',
-          isTestAccount: true,
-        };
-        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-        localStorage.setItem('user', JSON.stringify(testUserInfo));
-        onLoginSuccess?.(testUserInfo);
-        setIsTestAccount(true);
+        setIsLoggingIn(false);
+        return;
+      } catch (err: any) {
+        console.error('Pi SDK 登录错误:', err);
+        setLoginError(err.message || 'Pi 登录失败');
+        setIsLoggingIn(false);
+        return;
       }
+    }
+
+    // Pi SDK 不可用，检查是否在 Pi 浏览器环境
+    const inPiBrowser = isPiBrowser();
+    console.log('Pi SDK 不可用，isPiBrowser:', inPiBrowser, 'userAgent:', navigator.userAgent);
+
+    if (inPiBrowser) {
+      // 在 Pi 浏览器但 SDK 未加载，等待加载
+      setLoginError('Pi SDK 正在加载，请稍后重试');
       setIsLoggingIn(false);
       return;
     }
 
-    // Pi浏览器环境，使用Pi SDK认证
+    // 非 Pi 浏览器环境，使用测试账号
+    console.log('非 Pi 浏览器环境，使用测试账号');
     try {
-      if (!window.Pi) {
-        throw new Error('Pi SDK 未加载');
-      }
-
-      const scopes = ['username', 'payments'];
-      const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
-        return payment.identifier;
+      const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
+      const data = await authApi.piLogin({
+        piUid: testPiUid,
+        accessToken: 'test_token',
+        username: 'TestUser',
       });
-
-      if (authResult && authResult.user) {
-        const userInfo = {
-          username: authResult.user.username,
-          uid: authResult.user.uid,
-          accessToken: authResult.accessToken,
-          isPiUser: true,
-        };
-        localStorage.setItem('userInfo', JSON.stringify(userInfo));
-        onLoginSuccess?.(userInfo);
-      } else {
-        throw new Error('认证失败：未获取到用户信息');
-      }
-    } catch (err: any) {
-      console.error('Pi SDK 登录错误:', err);
-      setLoginError(err.message || '登录失败');
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      const testUserInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
+      localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+      onLoginSuccess?.(testUserInfo);
+      setIsTestAccount(true);
+    } catch (error) {
+      console.error('后端API调用失败，使用本地模拟:', error);
+      const testUserInfo = {
+        id: 'local_test_' + Date.now(),
+        username: 'TestUser',
+        uid: 'test_' + Date.now(),
+        email: 'test@example.com',
+        balance: '0.00',
+        isTestAccount: true,
+      };
+      localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+      localStorage.setItem('user', JSON.stringify(testUserInfo));
+      onLoginSuccess?.(testUserInfo);
+      setIsTestAccount(true);
     }
     setIsLoggingIn(false);
   };
