@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
+import { usePiPayment } from '../hooks/usePiPayment';
 
 interface ProfilePageProps {
   language: Language;
@@ -22,6 +23,35 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showStoreDetails, setShowStoreDetails] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  
+  // Pi 支付 hook
+  const { recharge, isLoading: isPaymentLoading, error: paymentError } = usePiPayment({
+    onSuccess: (result) => {
+      // 充值成功，更新余额
+      const newBalance = (parseFloat(userInfo?.balance || '0') + parseFloat(rechargeAmount)).toFixed(2);
+      const updatedUser = { ...userInfo, balance: newBalance };
+      setUserInfo(updatedUser);
+      
+      // 更新 localStorage
+      if (localStorage.getItem('piUserInfo')) {
+        localStorage.setItem('piUserInfo', JSON.stringify(updatedUser));
+      } else {
+        localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+      }
+      
+      setShowRechargeModal(false);
+      setRechargeAmount('');
+      alert(getText({ zh: `充值成功！${rechargeAmount}π 已到账`, en: `Recharge successful! ${rechargeAmount}π added`, ko: `충전 성공! ${rechargeAmount}π 추가됨`, vi: `Nạp tiền thành công! ${rechargeAmount}π đã được thêm` }));
+    },
+    onError: (error) => {
+      alert(getText({ zh: `充值失败：${error}`, en: `Recharge failed: ${error}`, ko: `충전 실패: ${error}`, vi: `Nạp tiền thất bại: ${error}` }));
+    },
+    onCancel: () => {
+      // 用户取消，不做任何处理
+    }
+  });
   
   // 设置相关状态
   const [email, setEmail] = useState('');
@@ -396,7 +426,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               
               {/* 右侧充值提现按钮 - 上下结构，图标在左文字在右 */}
               <div className="flex flex-col gap-2">
-                <button className="inline-flex items-center gap-2 py-1.5 px-3 hover:opacity-80 transition-all active:scale-95">
+                <button 
+                  onClick={() => setShowRechargeModal(true)}
+                  className="inline-flex items-center gap-2 py-1.5 px-3 hover:opacity-80 transition-all active:scale-95"
+                >
                   <Wallet size={18} className="text-yellow-400" strokeWidth={2} />
                   <span className="text-sm font-bold text-white tracking-wide">{getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}</span>
                 </button>
@@ -994,6 +1027,111 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   className="flex-1 py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
                 >
                   {getText({ zh: '确认提现', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 充值弹窗 */}
+      {showRechargeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white">
+                {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
+              </h2>
+              <button onClick={() => setShowRechargeModal(false)} className="text-white/80 hover:text-white text-2xl">×</button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* 当前余额 */}
+              <div className="bg-white/10 rounded-lg p-4">
+                <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
+                <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
+              </div>
+              
+              {/* 充值金额 */}
+              <div>
+                <label className="text-white font-bold mb-2 block">
+                  {getText({ zh: '充值金额', en: 'Deposit Amount', ko: '충전 금액', vi: 'Số tiền nạp' })}
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={rechargeAmount}
+                    onChange={(e) => setRechargeAmount(e.target.value)}
+                    placeholder="0.00"
+                    min="0.01"
+                    step="0.01"
+                    className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-xl font-bold"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
+                </div>
+              </div>
+              
+              {/* 快捷金额选择 */}
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 5, 10, 50].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setRechargeAmount(amount.toString())}
+                    className={`py-2 rounded-lg font-bold transition-all ${
+                      rechargeAmount === amount.toString()
+                        ? 'bg-white text-purple-600'
+                        : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                  >
+                    {amount}π
+                  </button>
+                ))}
+              </div>
+              
+              {/* 提示信息 */}
+              <div className="bg-green-500/20 rounded-lg p-3 border border-green-400/30">
+                <p className="text-green-200 text-xs leading-relaxed">
+                  {getText({ 
+                    zh: '💡 充值说明：\n• 点击确认后将唤起 Pi 钱包\n• 输入密码或指纹完成支付\n• 充值即时到账', 
+                    en: '💡 Note:\n• Pi wallet will open after confirm\n• Enter password or fingerprint to pay\n• Instant deposit',
+                    ko: '💡 참고:\n• 확인 후 Pi 지갑이 열립니다\n• 비밀번호 또는 지문으로 결제\n• 즉시 충전',
+                    vi: '💡 Lưu ý:\n• Ví Pi sẽ mở sau khi xác nhận\n• Nhập mật khẩu hoặc vân tay để thanh toán\n• Nạp tiền ngay lập tức'
+                  })}
+                </p>
+              </div>
+              
+              {/* 错误提示 */}
+              {paymentError && (
+                <div className="bg-red-500/20 rounded-lg p-3 border border-red-400/30">
+                  <p className="text-red-200 text-xs">{paymentError}</p>
+                </div>
+              )}
+              
+              {/* 按钮 */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setShowRechargeModal(false)}
+                  disabled={isPaymentLoading}
+                  className="flex-1 py-3 px-4 bg-white/20 text-white rounded-lg font-bold hover:bg-white/30 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+                </button>
+                <button
+                  onClick={() => {
+                    const amount = parseFloat(rechargeAmount);
+                    if (!amount || amount <= 0) {
+                      alert(getText({ zh: '请输入有效的充值金额', en: 'Please enter a valid amount', ko: '유효한 금액을 입력하세요', vi: 'Vui lòng nhập số tiền hợp lệ' }));
+                      return;
+                    }
+                    recharge(amount);
+                  }}
+                  disabled={isPaymentLoading || !rechargeAmount}
+                  className="flex-1 py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPaymentLoading 
+                    ? getText({ zh: '处理中...', en: 'Processing...', ko: '처리 중...', vi: 'Đang xử lý...' })
+                    : getText({ zh: '确认充值', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })
+                  }
                 </button>
               </div>
             </div>

@@ -73,10 +73,10 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
     return window.Pi as PiSDK;
   }, []);
 
-  // 初始化 Pi SDK
+  // 初始化 Pi SDK（如果尚未初始化）
   const initPiSDK = useCallback(() => {
-    const Pi = getPiSDK();
-    Pi.init({ version: '2.0', sandbox: false });
+    // Pi SDK 已在 index.html 中初始化，这里只是确保它存在
+    getPiSDK();
   }, [getPiSDK]);
 
   // 处理未完成的支付
