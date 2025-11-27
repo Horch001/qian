@@ -122,9 +122,13 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     if (window.Pi && typeof window.Pi.authenticate === 'function') {
       try {
         const scopes = ['username', 'payments'];
-        const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
+        const authResult = await window.Pi.authenticate(scopes, async (payment: any) => {
           // 处理未完成的支付
-          return payment.identifier;
+          // 注意：这个回调在登录时被调用，此时可能还没有 authToken
+          // 所以我们只记录日志，不调用后端 API
+          console.log('Found incomplete payment during login:', payment.identifier);
+          // 返回 void，让 Pi SDK 知道我们已经处理了这个支付
+          // 实际的支付完成会在用户下次发起支付时通过 usePiPayment hook 处理
         });
 
         if (authResult && authResult.user) {
