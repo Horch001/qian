@@ -1,21 +1,17 @@
 import { useState, useCallback } from 'react';
 import { piPaymentApi, PiPaymentType } from '../services/api';
 
-// Pi SDK 类型定义
-declare global {
-  interface Window {
-    Pi?: {
-      init: (config: { version: string; sandbox?: boolean }) => void;
-      authenticate: (
-        scopes: string[],
-        onIncompletePaymentFound: (payment: PiPaymentDTO) => void
-      ) => Promise<AuthResult>;
-      createPayment: (
-        paymentData: PaymentData,
-        callbacks: PaymentCallbacks
-      ) => void;
-    };
-  }
+// Pi SDK 类型定义（使用 any 避免与其他声明冲突）
+interface PiSDK {
+  init: (config: { version: string; sandbox?: boolean }) => void;
+  authenticate: (
+    scopes: string[],
+    onIncompletePaymentFound: (payment: PiPaymentDTO) => void
+  ) => Promise<AuthResult>;
+  createPayment: (
+    paymentData: PaymentData,
+    callbacks: PaymentCallbacks
+  ) => void;
 }
 
 interface AuthResult {
@@ -69,13 +65,19 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 初始化 Pi SDK
-  const initPiSDK = useCallback(() => {
+  // 获取 Pi SDK 实例
+  const getPiSDK = useCallback((): PiSDK => {
     if (!window.Pi) {
       throw new Error('Pi SDK 未加载，请在 Pi Browser 中打开');
     }
-    window.Pi.init({ version: '2.0', sandbox: false });
+    return window.Pi as PiSDK;
   }, []);
+
+  // 初始化 Pi SDK
+  const initPiSDK = useCallback(() => {
+    const Pi = getPiSDK();
+    Pi.init({ version: '2.0', sandbox: false });
+  }, [getPiSDK]);
 
   // 处理未完成的支付
   const handleIncompletePayment = useCallback(async (payment: PiPaymentDTO) => {
@@ -113,16 +115,17 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
 
     try {
       initPiSDK();
+      const Pi = getPiSDK();
 
       // 先进行 Pi 认证
-      await window.Pi!.authenticate(
+      await Pi.authenticate(
         ['payments'],
         handleIncompletePayment
       );
 
       // 创建支付
       return new Promise((resolve, reject) => {
-        window.Pi!.createPayment(
+        Pi.createPayment(
           {
             amount,
             memo,
