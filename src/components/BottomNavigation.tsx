@@ -43,39 +43,45 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     };
   }, []);
 
-  // 检测是否在Pi浏览器环境
+  // 检测是否在Pi浏览器环境（不依赖 SDK 是否加载）
   const isPiBrowser = () => {
-    // 方法1: 检查 Pi SDK 是否存在且可用
-    if (window.Pi && typeof window.Pi.authenticate === 'function') {
+    // 检查 userAgent（Pi Browser 的 userAgent 包含 "PiBrowser"）
+    const userAgent = navigator.userAgent.toLowerCase();
+    if (userAgent.includes('pibrowser')) {
       return true;
     }
-    // 方法2: 检查 userAgent（Pi Browser 的 userAgent 包含 "PiBrowser"）
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('PiBrowser') || userAgent.toLowerCase().includes('pibrowser')) {
-      return true;
-    }
-    // 方法3: 检查是否在 Pi 域名下运行（app-cdn.minepi.com 或 sandbox.minepi.com）
+    // 检查是否在 Pi 域名下运行
     const hostname = window.location.hostname;
     if (hostname.includes('minepi.com')) {
+      return true;
+    }
+    // 检查 SDK 是否存在
+    if (window.Pi && typeof window.Pi.authenticate === 'function') {
       return true;
     }
     return false;
   };
 
-  useEffect(() => {
-    // 加载 Pi Network SDK
-    if (!window.Pi && !isLoggedIn) {
-      const script = document.createElement('script');
-      script.src = 'https://sdk.minepi.com/pi-sdk.js';
-      script.async = true;
-      script.onload = () => {
-        if (window.Pi) {
-          window.Pi.init({ version: '2.0', appId: 'sichouzhilu' });
+  // 等待 Pi SDK 加载完成
+  const waitForPiSDK = (maxWait = 3000): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (window.Pi && typeof window.Pi.authenticate === 'function') {
+        resolve(true);
+        return;
+      }
+      
+      const startTime = Date.now();
+      const checkInterval = setInterval(() => {
+        if (window.Pi && typeof window.Pi.authenticate === 'function') {
+          clearInterval(checkInterval);
+          resolve(true);
+        } else if (Date.now() - startTime > maxWait) {
+          clearInterval(checkInterval);
+          resolve(false);
         }
-      };
-      document.body.appendChild(script);
-    }
-  }, [isLoggedIn]);
+      }, 100);
+    });
+  };
 
   // 检查是否已有登录信息
   useEffect(() => {
@@ -99,94 +105,84 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     setIsLoggingIn(true);
     setLoginError(null);
 
-    // 优先尝试使用 Pi SDK 登录
+    // 检查是否在 Pi Browser 环境
+    const inPiBrowser = isPiBrowser();
+    
+    // 如果在 Pi Browser 中，等待 SDK 加载
+    if (inPiBrowser) {
+      const sdkReady = await waitForPiSDK(3000);
+      if (!sdkReady) {
+        setLoginError('Pi SDK 加载超时，请刷新页面重试');
+        setIsLoggingIn(false);
+        return;
+      }
+    }
+
+    // 使用 Pi SDK 登录
     if (window.Pi && typeof window.Pi.authenticate === 'function') {
-      console.log('检测到 Pi SDK，使用真实登录');
       try {
         const scopes = ['username', 'payments'];
         const authResult = await window.Pi.authenticate(scopes, (payment: any) => {
+          // 处理未完成的支付
           return payment.identifier;
         });
 
         if (authResult && authResult.user) {
-          // 调用后端 API 完成登录
-          try {
-            const data = await authApi.piLogin({
-              piUid: authResult.user.uid,
-              accessToken: authResult.accessToken,
-              username: authResult.user.username,
-            });
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            const userInfo = { ...data.user, isPiUser: true, balance: data.user.balance || '0.00' };
-            localStorage.setItem('userInfo', JSON.stringify(userInfo));
-            onLoginSuccess?.(userInfo);
-          } catch (apiError) {
-            console.error('后端API调用失败，使用本地存储:', apiError);
-            // 后端不可用时，仍然保存用户信息
-            const userInfo = {
-              username: authResult.user.username,
-              uid: authResult.user.uid,
-              accessToken: authResult.accessToken,
-              isPiUser: true,
-              balance: '0.00',
-            };
-            localStorage.setItem('userInfo', JSON.stringify(userInfo));
-            onLoginSuccess?.(userInfo);
-          }
+          // 调用后端 API 完成登录（必须成功才能进行支付）
+          const data = await authApi.piLogin({
+            piUid: authResult.user.uid,
+            accessToken: authResult.accessToken,
+            username: authResult.user.username,
+          });
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          const userInfo = { ...data.user, isPiUser: true, balance: data.user.balance || '0.00' };
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+          onLoginSuccess?.(userInfo);
         } else {
           throw new Error('认证失败：未获取到用户信息');
         }
         setIsLoggingIn(false);
         return;
       } catch (err: any) {
-        console.error('Pi SDK 登录错误:', err);
         setLoginError(err.message || 'Pi 登录失败');
         setIsLoggingIn(false);
         return;
       }
     }
 
-    // Pi SDK 不可用，检查是否在 Pi 浏览器环境
-    const inPiBrowser = isPiBrowser();
-    console.log('Pi SDK 不可用，isPiBrowser:', inPiBrowser, 'userAgent:', navigator.userAgent);
-
-    if (inPiBrowser) {
-      // 在 Pi 浏览器但 SDK 未加载，等待加载
-      setLoginError('Pi SDK 正在加载，请稍后重试');
-      setIsLoggingIn(false);
-      return;
-    }
-
     // 非 Pi 浏览器环境，使用测试账号
-    console.log('非 Pi 浏览器环境，使用测试账号');
-    try {
-      const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
-      const data = await authApi.piLogin({
-        piUid: testPiUid,
-        accessToken: 'test_token',
-        username: 'TestUser',
-      });
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      const testUserInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
-      localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-      onLoginSuccess?.(testUserInfo);
-      setIsTestAccount(true);
-    } catch (error) {
-      console.error('后端API调用失败，使用本地模拟:', error);
-      const testUserInfo = {
-        id: 'local_test_' + Date.now(),
-        username: 'TestUser',
-        uid: 'test_' + Date.now(),
-        email: 'test@example.com',
-        balance: '0.00',
-        isTestAccount: true,
-      };
-      localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-      localStorage.setItem('user', JSON.stringify(testUserInfo));
-      onLoginSuccess?.(testUserInfo);
-      setIsTestAccount(true);
+    if (!inPiBrowser) {
+      try {
+        const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
+        const data = await authApi.piLogin({
+          piUid: testPiUid,
+          accessToken: 'test_token',
+          username: 'TestUser',
+        });
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        const testUserInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+      } catch (error) {
+        const testUserInfo = {
+          id: 'local_test_' + Date.now(),
+          username: 'TestUser',
+          uid: 'test_' + Date.now(),
+          email: 'test@example.com',
+          balance: '0.00',
+          isTestAccount: true,
+        };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        localStorage.setItem('user', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+      }
+    } else {
+      setLoginError('Pi SDK 不可用，请刷新页面重试');
     }
     setIsLoggingIn(false);
   };

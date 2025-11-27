@@ -10,6 +10,7 @@ interface ImportMeta {
 
 // Pi Network SDK 类型声明
 interface Window {
+  piSDKReady?: boolean;
   Pi?: {
     init: (config: { version: string; sandbox?: boolean; appId?: string }) => void;
     authenticate: (

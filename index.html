@@ -8,21 +8,12 @@
   <body>
     <div id="root"></div>
     
-    <!-- Pi Network SDK -->
+    <!-- Pi Network SDK - 按官方文档要求放在 body 末尾 -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script>
-      window.addEventListener('load', function() {
-        if (typeof Pi !== 'undefined') {
-          // sandbox: true = 测试网（Testnet），sandbox: false = 主网（Mainnet）
-          Pi.init({ 
-            version: "2.0",
-            sandbox: false  // 主网模式，使用真实 Pi
-          });
-          console.log('Pi SDK initialized');
-        } else {
-          console.warn('Pi SDK not available - not in Pi Browser');
-        }
-      });
+      // 按照 Pi 官方文档初始化 SDK
+      // https://github.com/pi-apps/pi-platform-docs
+      Pi.init({ version: "2.0", sandbox: false });
     </script>
     
     <script type="module" src="/src/main.tsx"></script>
