@@ -128,10 +128,6 @@ export const OfflinePlaYPage: React.FC = () => {
                   <span className="text-red-600 font-bold text-base leading-none">{activity.price}π/h</span>
                   <div className="flex gap-2">
                     <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '评分' : 'Rating'}</span>
-                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{activity.rating}</span>
-                    </div>
-                    <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
                       <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{activity.sales}</span>
                     </div>
@@ -141,7 +137,13 @@ export const OfflinePlaYPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500">{activity.shop[language]}</div>
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span>{activity.shop[language]}</span>
+                  <span className="flex items-center gap-0.5 text-yellow-600">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="font-bold">{activity.rating}</span>
+                  </span>
+                </div>
               </div>
             </div>
             <button 

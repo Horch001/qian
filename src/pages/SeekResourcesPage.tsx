@@ -25,7 +25,7 @@ export const SeekResourcesPage: React.FC = () => {
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: true,
       publishTime: { zh: '2天前', en: '2 days ago', ko: '2일 전', vi: '2 ngày trước' },
-      deadline: { zh: '5天后截止', en: '5 days left', ko: '5일 남음', vi: 'Còn 5 ngày' },
+      deadline: { zh: '5天后', en: '5 days', ko: '5일', vi: '5 ngày' },
     },
     {
       id: '2',
@@ -37,7 +37,7 @@ export const SeekResourcesPage: React.FC = () => {
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: false,
       publishTime: { zh: '1周前', en: '1 week ago', ko: '1주 전', vi: '1 tuần trước' },
-      deadline: { zh: '3天后截止', en: '3 days left', ko: '3일 남음', vi: 'Còn 3 ngày' },
+      deadline: { zh: '3天后', en: '3 days', ko: '3일', vi: '3 ngày' },
     },
     {
       id: '3',
@@ -49,7 +49,7 @@ export const SeekResourcesPage: React.FC = () => {
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: false,
       publishTime: { zh: '3小时前', en: '3 hours ago', ko: '3시간 전', vi: '3 giờ trước' },
-      deadline: { zh: '7天后截止', en: '7 days left', ko: '7일 남음', vi: 'Còn 7 ngày' },
+      deadline: { zh: '7天后', en: '7 days', ko: '7일', vi: '7 ngày' },
     },
   ];
 
@@ -132,31 +132,38 @@ export const SeekResourcesPage: React.FC = () => {
                 <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
                   {request.resource[language]}
                 </h3>
-                <div className="flex items-center justify-between">
+                <div className="flex items-start justify-between">
                   <div className="flex flex-col">
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-gray-500">{language === 'zh' ? '首价' : 'Start'}</span>
                       <span className="text-red-600 font-bold text-sm leading-none">{request.initiatorPrice}π</span>
-                      <span className="text-[9px] text-gray-500 ml-3">{language === 'zh' ? '发布' : 'Posted'}</span>
-                      <span className="flex items-center gap-0.5 text-[9px] text-gray-500">
-                        <Clock className="w-3 h-3" />
-                        {request.publishTime[language]}
-                      </span>
-                      <span className="flex items-center gap-0.5 text-[9px] text-orange-600 font-bold ml-1">
-                        <Calendar className="w-3 h-3" />
-                        {request.deadline[language]}
-                      </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-gray-500">{language === 'zh' ? '总价' : 'Total'}</span>
                       <span className="text-green-600 font-bold text-sm leading-none">{request.initiatorPrice + request.additionalBids}π</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center bg-purple-50 rounded-lg px-2 py-1">
-                    <span className="text-[8px] text-gray-500 leading-none">{language === 'zh' ? '出价人数' : 'Bidders'}</span>
-                    <div className="flex items-center gap-0.5 mt-0.5">
-                      <Users className="w-3 h-3 text-purple-600" />
-                      <span className="text-sm text-purple-600 font-bold leading-none">{request.totalBidders}</span>
+                  <div className="flex items-start gap-2 ml-3">
+                    <div className="flex flex-col items-center py-0.5">
+                      <span className="text-[9px] text-gray-500 leading-none">{language === 'zh' ? '发布' : 'Posted'}</span>
+                      <span className="flex items-center gap-0.5 text-[10px] text-gray-600 font-bold mt-0.5">
+                        <Clock className="w-2.5 h-2.5" />
+                        {request.publishTime[language]}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center py-0.5">
+                      <span className="text-[9px] text-orange-600 font-bold leading-none">{language === 'zh' ? '截止' : 'Due'}</span>
+                      <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-bold mt-0.5">
+                        <Calendar className="w-2.5 h-2.5" />
+                        {request.deadline[language]}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-purple-50 rounded-lg px-2 py-0.5">
+                      <span className="text-[9px] text-gray-500 leading-none">{language === 'zh' ? '出价人数' : 'Bidders'}</span>
+                      <span className="flex items-center gap-0.5 text-[10px] text-purple-600 font-bold mt-0.5">
+                        <Users className="w-2.5 h-2.5" />
+                        {request.totalBidders}
+                      </span>
                     </div>
                   </div>
                 </div>
