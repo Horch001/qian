@@ -33,6 +33,8 @@ import { CustomerServicePage } from './pages/CustomerServicePage';
 import { JoinStorePage } from './pages/JoinStorePage';
 import { EscrowCreatePage } from './pages/EscrowCreatePage';
 import { VentureCreatePage } from './pages/VentureCreatePage';
+import ChatListPage from './pages/ChatListPage';
+import ChatRoomPage from './pages/ChatRoomPage';
 import './index.css';
 
 const HomePage: React.FC<{ 
@@ -187,6 +189,16 @@ export const App: React.FC = () => {
   // Venture create page
   if (location.pathname === '/venture-create') {
     return <VentureCreatePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Chat list page
+  if (location.pathname === '/chat') {
+    return <ChatListPage />;
+  }
+
+  // Chat room page
+  if (location.pathname.startsWith('/chat/')) {
+    return <ChatRoomPage />;
   }
 
   // Detail pages layout

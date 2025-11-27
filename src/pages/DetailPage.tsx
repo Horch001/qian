@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Star, Heart, Share2, ShoppingCart, MessageCircle, Clock, Shield, Award, Store, X, Plus, Minus, Send } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { chatApi, ChatMessage } from '../services/api';
+import socketService from '../services/socket';
 
 interface DetailPageProps {
   language: Language;
@@ -20,8 +22,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [showMerchantChat, setShowMerchantChat] = useState(false);
   const [selectedSpec, setSelectedSpec] = useState('');
   const [chatMessage, setChatMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState<{text: string; isUser: boolean; time: string}[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [favoriteCount, setFavoriteCount] = useState(0);
+  const [chatRoomId, setChatRoomId] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const item = location.state?.item || {
     id: '1',
@@ -121,21 +126,108 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     setShowOrderSuccessModal(true);
   };
 
-  const handleSendMessage = () => {
-    if (!chatMessage.trim()) return;
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    setChatMessages(prev => [...prev, { text: chatMessage, isUser: true, time: timeStr }]);
-    setChatMessage('');
+  const getCurrentUserId = () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user).id : null;
+  };
+
+  const currentUserId = getCurrentUserId();
+
+  const scrollToBottom = () => {
     setTimeout(() => {
-      const replyTime = new Date();
-      const replyTimeStr = `${replyTime.getHours().toString().padStart(2, '0')}:${replyTime.getMinutes().toString().padStart(2, '0')}`;
-      setChatMessages(prev => [...prev, { 
-        text: language === 'zh' ? '您好！感谢您的咨询，请问有什么可以帮您？' : 'Hello! Thank you for your inquiry. How can I help you?', 
-        isUser: false, 
-        time: replyTimeStr 
-      }]);
-    }, 1000);
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleOpenChat = async () => {
+    setShowMerchantChat(true);
+    setChatLoading(true);
+    
+    try {
+      // 获取商家用户ID（这里假设 item.merchantId 或 item.merchant?.userId 存在）
+      const merchantUserId = item.merchantId || item.merchant?.userId;
+      
+      if (!merchantUserId) {
+        // 如果没有真实商家ID，使用模拟聊天
+        setChatLoading(false);
+        return;
+      }
+
+      // 创建或获取聊天室
+      const room = await chatApi.getOrCreateRoom(merchantUserId);
+      setChatRoomId(room.id);
+
+      // 获取历史消息
+      const messages = await chatApi.getMessages(room.id);
+      setChatMessages(messages);
+
+      // 连接 Socket
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        socketService.connect(token);
+        socketService.joinRoom(room.id);
+
+        socketService.onNewMessage((message: ChatMessage) => {
+          setChatMessages(prev => [...prev, message]);
+          scrollToBottom();
+        });
+      }
+
+      scrollToBottom();
+    } catch (error) {
+      console.error('Failed to open chat:', error);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const handleCloseChat = () => {
+    setShowMerchantChat(false);
+    if (chatRoomId) {
+      socketService.leaveRoom(chatRoomId);
+      socketService.offNewMessage();
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim()) return;
+    
+    if (chatRoomId) {
+      // 使用真实聊天
+      await socketService.sendMessage(chatRoomId, chatMessage.trim(), 'TEXT');
+      setChatMessage('');
+    } else {
+      // 模拟聊天（没有真实商家时的降级方案）
+      const now = new Date();
+      const mockMessage: ChatMessage = {
+        id: Date.now().toString(),
+        roomId: 'mock',
+        senderId: currentUserId || 'user',
+        content: chatMessage,
+        type: 'TEXT',
+        isRead: true,
+        createdAt: now.toISOString(),
+        sender: { id: currentUserId || 'user', username: '我', avatar: undefined }
+      };
+      setChatMessages(prev => [...prev, mockMessage]);
+      setChatMessage('');
+      
+      // 模拟商家回复
+      setTimeout(() => {
+        const replyMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          roomId: 'mock',
+          senderId: 'merchant',
+          content: language === 'zh' ? '您好！感谢您的咨询，请问有什么可以帮您？' : 'Hello! Thank you for your inquiry. How can I help you?',
+          type: 'TEXT',
+          isRead: true,
+          createdAt: new Date().toISOString(),
+          sender: { id: 'merchant', username: item.shop?.[language] || '商家', avatar: undefined }
+        };
+        setChatMessages(prev => [...prev, replyMessage]);
+        scrollToBottom();
+      }, 1000);
+    }
   };
 
   const getActionButton = () => {
@@ -238,7 +330,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setShowMerchantChat(true)} className="flex flex-col items-center gap-0.5 px-3">
+          <button onClick={handleOpenChat} className="flex flex-col items-center gap-0.5 px-3">
             <MessageCircle className="w-5 h-5 text-gray-500" />
             <span className="text-[10px] text-gray-500">{language === 'zh' ? '客服' : 'Chat'}</span>
           </button>
@@ -387,7 +479,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
 
       {/* 商家聊天窗口 */}
       {showMerchantChat && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowMerchantChat(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={handleCloseChat}>
           <div className="bg-white w-full max-w-md h-[70vh] rounded-t-2xl flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center gap-3">
@@ -399,18 +491,30 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                   <p className="text-xs text-green-500">{language === 'zh' ? '在线' : 'Online'}</p>
                 </div>
               </div>
-              <button onClick={() => setShowMerchantChat(false)}><X className="w-5 h-5 text-gray-400" /></button>
+              <button onClick={handleCloseChat}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              <div className="text-center text-xs text-gray-400 mb-4">{language === 'zh' ? '欢迎咨询，商家将尽快回复您' : 'Welcome! Merchant will reply soon'}</div>
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.isUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[70%] px-3 py-2 rounded-lg ${msg.isUser ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
-                    <p className="text-sm">{msg.text}</p>
-                    <p className={`text-[10px] mt-1 ${msg.isUser ? 'text-purple-200' : 'text-gray-400'}`}>{msg.time}</p>
-                  </div>
-                </div>
-              ))}
+              {chatLoading ? (
+                <div className="text-center text-gray-400">{language === 'zh' ? '加载中...' : 'Loading...'}</div>
+              ) : (
+                <>
+                  <div className="text-center text-xs text-gray-400 mb-4">{language === 'zh' ? '欢迎咨询，商家将尽快回复您' : 'Welcome! Merchant will reply soon'}</div>
+                  {chatMessages.map((msg) => {
+                    const isMe = msg.senderId === currentUserId;
+                    const time = new Date(msg.createdAt);
+                    const timeStr = `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+                    return (
+                      <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[70%] px-3 py-2 rounded-lg ${isMe ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-800'}`}>
+                          <p className="text-sm">{msg.content}</p>
+                          <p className={`text-[10px] mt-1 ${isMe ? 'text-purple-200' : 'text-gray-400'}`}>{timeStr}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
             <div className="p-4 border-t flex gap-2">
               <input type="text" value={chatMessage} onChange={e => setChatMessage(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage()}

@@ -277,3 +277,63 @@ export const api = {
 };
 
 export default api;
+
+// ==================== 聊天 API ====================
+
+export interface ChatRoom {
+  id: string;
+  userId: string;
+  merchantId: string;
+  lastMessage?: string;
+  lastMessageAt?: string;
+  user: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  merchantUser: {
+    id: string;
+    username: string;
+    avatar?: string;
+    merchant?: {
+      shopName: string;
+      logo?: string;
+    };
+  };
+  messages?: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId: string;
+  senderId: string;
+  content: string;
+  type: 'TEXT' | 'IMAGE' | 'PRODUCT' | 'ORDER';
+  isRead: boolean;
+  createdAt: string;
+  sender: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+}
+
+export const chatApi = {
+  // 获取聊天室列表
+  getRooms: () => request<ChatRoom[]>('/chat/rooms'),
+
+  // 创建或获取与商家的聊天室
+  getOrCreateRoom: (merchantId: string) =>
+    request<ChatRoom>(`/chat/rooms/${merchantId}`, { method: 'POST' }),
+
+  // 获取聊天记录
+  getMessages: (roomId: string, page = 1, limit = 50) =>
+    request<ChatMessage[]>(`/chat/rooms/${roomId}/messages?page=${page}&limit=${limit}`),
+
+  // 标记消息已读
+  markAsRead: (roomId: string) =>
+    request(`/chat/rooms/${roomId}/read`, { method: 'POST' }),
+
+  // 获取未读消息数
+  getUnreadCount: () => request<{ count: number }>('/chat/unread'),
+};
