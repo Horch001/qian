@@ -164,20 +164,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   };
 
   const handleSaveSettings = () => {
-    // 验证必填项
-    if (!receiverName.trim()) {
-      alert(getText({ zh: '请填写收件人姓名', en: 'Please enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Vui lòng nhập tên người nhận' }));
-      return;
-    }
-    if (!receiverPhone.trim()) {
-      alert(getText({ zh: '请填写联系电话', en: 'Please enter phone number', ko: '전화번호를 입력하세요', vi: 'Vui lòng nhập số điện thoại' }));
-      return;
-    }
-    if (!selectedProvince || !selectedCity || !detailAddress.trim()) {
-      alert(getText({ zh: '请填写完整的收货地址', en: 'Please enter complete shipping address', ko: '전체 배송 주소를 입력하세요', vi: 'Vui lòng nhập địa chỉ giao hàng đầy đủ' }));
-      return;
-    }
-    
     // 商家必须填写邮箱
     if (isMerchant && !email.trim()) {
       alert(getText({ zh: '商家必须填写邮箱地址', en: 'Email is required for merchants', ko: '판매자는 이메일이 필요합니다', vi: 'Email là bắt buộc đối với người bán' }));
@@ -692,7 +678,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <User className="w-5 h-5" />
                   {getText({ zh: '收件人姓名', en: 'Receiver Name', ko: '수령인 이름', vi: 'Tên người nhận' })}
-                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
+                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
                 </label>
                 <input
                   type="text"
@@ -708,7 +694,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <Phone className="w-5 h-5" />
                   {getText({ zh: '联系电话', en: 'Phone Number', ko: '전화번호', vi: 'Số điện thoại' })}
-                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
+                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
                 </label>
                 <input
                   type="tel"
@@ -724,7 +710,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <MapPin className="w-5 h-5" />
                   {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
-                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
+                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
                 </label>
                 
                 {/* 省份选择 */}

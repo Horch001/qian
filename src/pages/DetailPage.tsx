@@ -79,6 +79,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   };
 
   const handleBuy = () => {
+    // 购买实物商品时检查收货信息是否完整
+    if (pageType === 'product') {
+      const receiverName = localStorage.getItem('receiverName');
+      const receiverPhone = localStorage.getItem('receiverPhone');
+      const addressProvince = localStorage.getItem('addressProvince');
+      const addressCity = localStorage.getItem('addressCity');
+      const addressDetail = localStorage.getItem('addressDetail');
+      
+      if (!receiverName || !receiverPhone || !addressProvince || !addressCity || !addressDetail) {
+        alert(language === 'zh' 
+          ? '购买实物商品需要填写收货信息，请先在个人中心设置中完善收件人姓名、联系电话和收货地址' 
+          : language === 'en' 
+          ? 'Please complete your shipping info (name, phone, address) in Profile Settings before purchasing physical products'
+          : language === 'ko'
+          ? '실물 상품 구매 전 프로필 설정에서 배송 정보를 완성해주세요'
+          : 'Vui lòng hoàn thành thông tin giao hàng trong Cài đặt hồ sơ trước khi mua sản phẩm');
+        navigate('/profile');
+        return;
+      }
+    }
+    
     setShowBuyModal(false);
     setShowPaymentModal(true);
   };
