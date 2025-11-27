@@ -1,13 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, Home, ShieldCheck, FileCheck, MapPin, TrendingUp, Heart } from 'lucide-react';
+import { Star, Home, ShieldCheck, FileCheck, MapPin, TrendingUp, Heart, Search, ChevronDown, Check } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
 export const HouseLeasePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+  const [selectedCity, setSelectedCity] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [showCityDropdown, setShowCityDropdown] = useState(false);
   const navigate = useNavigate();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCityDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 城市列表
+  const cities = [
+    { value: '', label: { zh: '全国', en: 'Nationwide', ko: '전국', vi: 'Toàn quốc' } },
+    { value: 'beijing', label: { zh: '北京', en: 'Beijing', ko: '베이징', vi: 'Bắc Kinh' } },
+    { value: 'shanghai', label: { zh: '上海', en: 'Shanghai', ko: '상하이', vi: 'Thượng Hải' } },
+    { value: 'guangzhou', label: { zh: '广州', en: 'Guangzhou', ko: '광저우', vi: 'Quảng Châu' } },
+    { value: 'shenzhen', label: { zh: '深圳', en: 'Shenzhen', ko: '선전', vi: 'Thâm Quyến' } },
+    { value: 'hangzhou', label: { zh: '杭州', en: 'Hangzhou', ko: '항저우', vi: 'Hàng Châu' } },
+    { value: 'chengdu', label: { zh: '成都', en: 'Chengdu', ko: '청두', vi: 'Thành Đô' } },
+    { value: 'wuhan', label: { zh: '武汉', en: 'Wuhan', ko: '우한', vi: 'Vũ Hán' } },
+    { value: 'xian', label: { zh: '西安', en: "Xi'an", ko: '시안', vi: 'Tây An' } },
+    { value: 'nanjing', label: { zh: '南京', en: 'Nanjing', ko: '난징', vi: 'Nam Kinh' } },
+    { value: 'chongqing', label: { zh: '重庆', en: 'Chongqing', ko: '충칭', vi: 'Trùng Khánh' } },
+  ];
+
+  const getCurrentCityLabel = () => {
+    const city = cities.find(c => c.value === selectedCity);
+    return city ? city.label[language] : cities[0].label[language];
+  };
 
   const goToDetail = (property: any) => {
     navigate('/detail', { state: { item: { ...property, title: property.type }, pageType: 'house' } });
@@ -58,7 +92,67 @@ export const HouseLeasePage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      <SimpleSearchBar language={language} translations={translations} />
+      {/* 带城市下拉框的搜索栏 - 与首页样式一致 */}
+      <div className="relative w-full" ref={dropdownRef}>
+        <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
+          {/* 城市选择按钮 */}
+          <button 
+            onClick={() => setShowCityDropdown(!showCityDropdown)}
+            className="flex items-center gap-1 pl-3 pr-2 h-9 cursor-pointer group hover:bg-gray-50 rounded-l-lg transition-colors shrink-0"
+          >
+            <MapPin size={14} className="text-purple-600" strokeWidth={2.5} />
+            <span className="text-[13px] font-bold text-gray-700 truncate max-w-[4.5rem]">
+              {getCurrentCityLabel()}
+            </span>
+            <ChevronDown 
+              size={12} 
+              className={`text-gray-400 transition-transform duration-200 ${showCityDropdown ? 'rotate-180' : ''}`} 
+              strokeWidth={2.5}
+            />
+          </button>
+
+          <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+
+          {/* 搜索框 */}
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder={language === 'zh' ? '搜索房源...' : language === 'en' ? 'Search listings...' : language === 'ko' ? '매물 검색...' : 'Tìm kiếm...'}
+            className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0"
+          />
+
+          <div className="absolute right-3 text-gray-500 pointer-events-none">
+            <Search size={18} strokeWidth={2.5} />
+          </div>
+        </div>
+
+        {/* 城市下拉菜单 */}
+        {showCityDropdown && (
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white/95 backdrop-blur-xl rounded-lg border border-white/50 shadow-xl overflow-hidden max-h-[60vh] flex flex-col z-50">
+            <div className="px-3 py-2 border-b border-gray-100 bg-purple-50/50 flex-none">
+              <span className="text-[11px] font-bold text-purple-900">
+                {language === 'zh' ? '选择城市' : language === 'en' ? 'Select City' : language === 'ko' ? '도시 선택' : 'Chọn thành phố'}
+              </span>
+            </div>
+            <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-purple-200 p-1">
+              {cities.map((city) => (
+                <button
+                  key={city.value}
+                  onClick={() => {
+                    setSelectedCity(city.value);
+                    setShowCityDropdown(false);
+                  }}
+                  className="w-full text-left px-3 py-2 text-[12px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded flex items-center justify-between"
+                >
+                  <span>{city.value === '' ? '🌍 ' : ''}{city.label[language]}</span>
+                  {selectedCity === city.value && <Check size={12} className="text-purple-600" strokeWidth={3} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       
       <div className="grid grid-cols-4 gap-1.5">
         {features.map((feature, idx) => (

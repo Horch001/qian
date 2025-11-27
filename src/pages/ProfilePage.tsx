@@ -34,6 +34,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [walletError, setWalletError] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [favoritesList, setFavoritesList] = useState<any[]>([]);
+  const [ordersList, setOrdersList] = useState<any[]>([]);
+  const [expandedFavorite, setExpandedFavorite] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   useEffect(() => {
     // 从 localStorage 获取用户信息
@@ -72,7 +78,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedReceiverName) setReceiverName(savedReceiverName);
     if (savedReceiverPhone) setReceiverPhone(savedReceiverPhone);
     
+    // 加载收藏和订单统计
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+    setFavoritesList(favorites);
+    setOrdersList(orders);
+    setFavoritesCount(favorites.length);
+    setOrdersCount(orders.length);
+    
     setIsLoading(false);
+  }, []);
+  
+  // 监听localStorage变化，实时更新统计
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+      setFavoritesList(favorites);
+      setOrdersList(orders);
+      setFavoritesCount(favorites.length);
+      setOrdersCount(orders.length);
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    // 每次页面获得焦点时也刷新
+    window.addEventListener('focus', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleStorageChange);
+    };
   }, []);
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -286,32 +321,90 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             >
               <ShoppingBag className="w-5 h-5 text-white" />
               <span className="font-bold text-white">{getText({ zh: '我的订单', en: 'My Orders', ko: '내 주문', vi: 'Đơn hàng của tôi' })}</span>
+              {ordersCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{ordersCount}</span>
+              )}
               <span className="ml-auto text-white/60">{showOrderDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
             
             {/* 订单状态卡片 */}
             {showOrderDetails && (
-              <div className="grid grid-cols-5 gap-2 px-3 pb-3">
-                <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <DollarSign className="w-5 h-5 text-yellow-300" />
-                  <span className="text-[10px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chưa thanh toán' })}</span>
-                </button>
-                <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <Package className="w-5 h-5 text-blue-300" />
-                  <span className="text-[10px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
-                </button>
-                <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <Truck className="w-5 h-5 text-green-300" />
-                  <span className="text-[10px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
-                </button>
-                <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <Star className="w-5 h-5 text-purple-300" />
-                  <span className="text-[10px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
-                </button>
-                <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <HeadphonesIcon className="w-5 h-5 text-orange-300" />
-                  <span className="text-[10px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
-                </button>
+              <div className="px-3 pb-3 space-y-2">
+                <div className="grid grid-cols-5 gap-2">
+                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <DollarSign className="w-5 h-5 text-yellow-300" />
+                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chưa thanh toán' })}</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors relative">
+                    <Package className="w-5 h-5 text-blue-300" />
+                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
+                    {ordersCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{ordersCount}</span>}
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <Truck className="w-5 h-5 text-green-300" />
+                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <Star className="w-5 h-5 text-purple-300" />
+                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <HeadphonesIcon className="w-5 h-5 text-orange-300" />
+                    <span className="text-[10px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
+                  </button>
+                </div>
+                {/* 订单列表 */}
+                {ordersList.length > 0 && (
+                  <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                    {ordersList.map((order: any, idx: number) => (
+                      <div key={order.id || idx} className="bg-white/10 rounded-lg overflow-hidden">
+                        <button 
+                          onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                          className="w-full p-2 flex items-center gap-2 hover:bg-white/5 transition-colors"
+                        >
+                          <span className="text-2xl">{order.item?.icon || '📦'}</span>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-white text-xs font-medium truncate">{order.item?.title?.[language] || order.item?.name?.[language] || '商品'}</p>
+                            <p className="text-white/60 text-[10px]">{order.item?.spec} × {order.quantity}</p>
+                          </div>
+                          <span className="text-yellow-400 font-bold text-sm">{order.totalPrice}π</span>
+                          <ChevronDown className={`w-4 h-4 text-white/60 transition-transform ${expandedOrder === order.id ? 'rotate-180' : ''}`} />
+                        </button>
+                        {/* 展开的订单详情 */}
+                        {expandedOrder === order.id && (
+                          <div className="px-3 pb-3 pt-1 border-t border-white/10 space-y-2">
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '订单编号', en: 'Order ID', ko: '주문 번호', vi: 'Mã đơn' })}</span>
+                                <p className="text-white font-mono">{order.id}</p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '下单时间', en: 'Order Time', ko: '주문 시간', vi: 'Thời gian' })}</span>
+                                <p className="text-white">{new Date(order.createdAt).toLocaleString()}</p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '支付方式', en: 'Payment', ko: '결제 방법', vi: 'Thanh toán' })}</span>
+                                <p className="text-white">{order.paymentMethod === 'pi' ? 'Pi钱包' : getText({ zh: '余额支付', en: 'Balance', ko: '잔액', vi: 'Số dư' })}</p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '订单状态', en: 'Status', ko: '상태', vi: 'Trạng thái' })}</span>
+                                <p className="text-green-400">{getText({ zh: '已支付', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
+                                {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
+                              </button>
+                              <button className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600">
+                                {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -324,20 +417,97 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             >
               <Heart className="w-5 h-5 text-white" />
               <span className="font-bold text-white">{getText({ zh: '我的收藏', en: 'My Favorites', ko: '내 즐겨찾기', vi: 'Yêu thích của tôi' })}</span>
+              {favoritesCount > 0 && (
+                <span className="bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">{favoritesCount}</span>
+              )}
               <span className="ml-auto text-white/60">{showFavoritesDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
             
-            {/* 收藏分类 */}
+            {/* 收藏分类和列表 */}
             {showFavoritesDetails && (
-              <div className="grid grid-cols-2 gap-2 px-3 pb-3">
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <ShoppingBag className="w-5 h-5 text-pink-300" />
-                  <span className="text-sm text-white font-bold">{getText({ zh: '收藏的商品', en: 'Products', ko: '제품', vi: 'Sản phẩm' })}</span>
-                </button>
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <Store className="w-5 h-5 text-cyan-300" />
-                  <span className="text-sm text-white font-bold">{getText({ zh: '收藏的店铺', en: 'Stores', ko: '상점', vi: 'Cửa hàng' })}</span>
-                </button>
+              <div className="px-3 pb-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors relative">
+                    <ShoppingBag className="w-5 h-5 text-pink-300" />
+                    <span className="text-sm text-white font-bold">{getText({ zh: '收藏的商品', en: 'Products', ko: '제품', vi: 'Sản phẩm' })}</span>
+                    {favoritesCount > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{favoritesCount}</span>}
+                  </button>
+                  <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <Store className="w-5 h-5 text-cyan-300" />
+                    <span className="text-sm text-white font-bold">{getText({ zh: '收藏的店铺', en: 'Stores', ko: '상점', vi: 'Cửa hàng' })}</span>
+                  </button>
+                </div>
+                {/* 收藏列表 */}
+                {favoritesList.length > 0 && (
+                  <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                    {favoritesList.map((fav: any, idx: number) => (
+                      <div key={fav.id || idx} className="bg-white/10 rounded-lg overflow-hidden">
+                        <button 
+                          onClick={() => setExpandedFavorite(expandedFavorite === fav.id ? null : fav.id)}
+                          className="w-full p-2 flex items-center gap-2 hover:bg-white/5 transition-colors"
+                        >
+                          <span className="text-2xl">{fav.icon || '📦'}</span>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-white text-xs font-medium truncate">{fav.title?.[language] || fav.name?.[language] || '商品'}</p>
+                            <p className="text-white/60 text-[10px]">{fav.shop?.[language] || ''}</p>
+                          </div>
+                          <span className="text-yellow-400 font-bold text-sm">{fav.price}π</span>
+                          <ChevronDown className={`w-4 h-4 text-white/60 transition-transform ${expandedFavorite === fav.id ? 'rotate-180' : ''}`} />
+                        </button>
+                        {/* 展开的商品详情 */}
+                        {expandedFavorite === fav.id && (
+                          <div className="px-3 pb-3 pt-1 border-t border-white/10 space-y-2">
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '商品评分', en: 'Rating', ko: '평점', vi: 'Đánh giá' })}</span>
+                                <p className="text-yellow-400 flex items-center gap-1">
+                                  <Star className="w-3 h-3 fill-yellow-400" />
+                                  {fav.rating || 4.8}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '已售数量', en: 'Sold', ko: '판매량', vi: 'Đã bán' })}</span>
+                                <p className="text-white">{fav.sales || 0}</p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '收藏人数', en: 'Favorites', ko: '즐겨찾기', vi: 'Yêu thích' })}</span>
+                                <p className="text-white">{fav.favorites || 0}</p>
+                              </div>
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '收藏时间', en: 'Added', ko: '추가됨', vi: 'Đã thêm' })}</span>
+                                <p className="text-white">{fav.addedAt ? new Date(fav.addedAt).toLocaleDateString() : '-'}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              <button 
+                                onClick={() => navigate('/detail', { state: { item: fav, pageType: 'product' } })}
+                                className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600"
+                              >
+                                {getText({ zh: '查看详情', en: 'View', ko: '보기', vi: 'Xem' })}
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+                                  const newFavorites = favorites.filter((f: any) => f.id !== fav.id);
+                                  localStorage.setItem('favorites', JSON.stringify(newFavorites));
+                                  setFavoritesList(newFavorites);
+                                  setFavoritesCount(newFavorites.length);
+                                  setExpandedFavorite(null);
+                                }}
+                                className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600"
+                              >
+                                {getText({ zh: '取消收藏', en: 'Remove', ko: '삭제', vi: 'Xóa' })}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {favoritesList.length === 0 && (
+                  <p className="text-white/50 text-xs text-center py-2">{getText({ zh: '暂无收藏', en: 'No favorites yet', ko: '즐겨찾기 없음', vi: 'Chưa có yêu thích' })}</p>
+                )}
               </div>
             )}
           </div>
