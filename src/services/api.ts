@@ -1,0 +1,279 @@
+// API 基础配置
+const API_BASE_URL = 'http://localhost:3000/api/v1';
+
+// 获取存储的 token
+const getToken = (): string | null => {
+  return localStorage.getItem('authToken');
+};
+
+// 通用请求方法
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const token = getToken();
+  
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: '请求失败' }));
+    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// ==================== 认证 API ====================
+
+export interface LoginResponse {
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    avatar?: string;
+    balance: string;
+    role: string;
+  };
+  token: string;
+}
+
+export const authApi = {
+  // 邮箱注册
+  register: (data: { email: string; password: string; username?: string }) =>
+    request<LoginResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 邮箱登录
+  login: (data: { email: string; password: string }) =>
+    request<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Pi Network 登录
+  piLogin: (data: { piUid: string; accessToken: string; username?: string }) =>
+    request<LoginResponse>('/auth/pi-login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取当前用户
+  getCurrentUser: () => request<LoginResponse['user']>('/auth/me'),
+};
+
+// ==================== 用户 API ====================
+
+export interface Address {
+  id: string;
+  receiverName: string;
+  receiverPhone: string;
+  province: string;
+  city: string;
+  district?: string;
+  detail: string;
+  isDefault: boolean;
+}
+
+export const userApi = {
+  // 更新个人资料
+  updateProfile: (data: { username?: string; avatar?: string }) =>
+    request('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取收货地址列表
+  getAddresses: () => request<Address[]>('/users/addresses'),
+
+  // 添加收货地址
+  createAddress: (data: Omit<Address, 'id'>) =>
+    request<Address>('/users/addresses', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 更新收货地址
+  updateAddress: (id: string, data: Partial<Address>) =>
+    request<Address>(`/users/addresses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 删除收货地址
+  deleteAddress: (id: string) =>
+    request(`/users/addresses/${id}`, { method: 'DELETE' }),
+
+  // 绑定钱包
+  bindWallet: (piAddress: string) =>
+    request('/users/wallet', {
+      method: 'POST',
+      body: JSON.stringify({ piAddress }),
+    }),
+
+  // 获取钱包信息
+  getWallet: () => request('/users/wallet'),
+};
+
+// ==================== 商品 API ====================
+
+export interface Product {
+  id: string;
+  title: string;
+  titleEn?: string;
+  description?: string;
+  price: string;
+  originalPrice?: string;
+  stock: number;
+  sales: number;
+  rating: number;
+  icon?: string;
+  images: string[];
+  merchant: {
+    id: string;
+    shopName: string;
+    rating: number;
+  };
+  category: {
+    id: string;
+    name: string;
+    type: string;
+  };
+}
+
+export interface ProductListResponse {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  nameEn?: string;
+  icon?: string;
+  type: string;
+  sortOrder: number;
+}
+
+export const productApi = {
+  // 获取商品列表
+  getProducts: (params?: {
+    categoryId?: string;
+    categoryType?: string;
+    keyword?: string;
+    sortBy?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    const query = searchParams.toString();
+    return request<ProductListResponse>(`/products${query ? `?${query}` : ''}`);
+  },
+
+  // 获取商品详情
+  getProduct: (id: string) => request<Product>(`/products/${id}`),
+
+  // 获取分类列表
+  getCategories: (type?: string) => {
+    const query = type ? `?type=${type}` : '';
+    return request<Category[]>(`/products/categories${query}`);
+  },
+};
+
+// ==================== 订单 API ====================
+
+export interface Order {
+  id: string;
+  orderNo: string;
+  totalAmount: string;
+  paymentStatus: string;
+  orderStatus: string;
+  createdAt: string;
+  items: {
+    id: string;
+    quantity: number;
+    price: string;
+    product: Product;
+  }[];
+}
+
+export const orderApi = {
+  // 获取订单列表
+  getOrders: (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return request<Order[]>(`/orders${query}`);
+  },
+
+  // 获取订单详情
+  getOrder: (id: string) => request<Order>(`/orders/${id}`),
+
+  // 创建订单
+  createOrder: (data: {
+    items: { productId: string; quantity: number; spec?: string }[];
+    addressId?: string;
+  }) =>
+    request<Order>('/orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 取消订单
+  cancelOrder: (id: string) =>
+    request(`/orders/${id}/cancel`, { method: 'PUT' }),
+
+  // 确认收货
+  confirmOrder: (id: string) =>
+    request(`/orders/${id}/confirm`, { method: 'PUT' }),
+};
+
+// ==================== 收藏 API ====================
+
+export const favoriteApi = {
+  // 获取收藏列表
+  getFavorites: () => request<Product[]>('/favorites'),
+
+  // 添加收藏
+  addFavorite: (productId: string) =>
+    request('/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
+
+  // 取消收藏
+  removeFavorite: (productId: string) =>
+    request(`/favorites/${productId}`, { method: 'DELETE' }),
+};
+
+// 导出所有 API
+export const api = {
+  auth: authApi,
+  user: userApi,
+  product: productApi,
+  order: orderApi,
+  favorite: favoriteApi,
+};
+
+export default api;
