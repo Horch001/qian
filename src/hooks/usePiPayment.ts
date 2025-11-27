@@ -132,22 +132,25 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             metadata: { ...metadata, type, orderId },
           },
           {
-            // 服务端批准阶段
+            // 服务端批准阶段 - 必须快速完成，否则会超时
             onReadyForServerApproval: async (paymentId: string) => {
               console.log('Ready for server approval:', paymentId);
               try {
-                // 1. 在后端创建支付记录
-                await piPaymentApi.createPayment({
+                // 直接调用批准接口，后端会同时创建记录并批准
+                // 这样只需要一次网络请求，更快完成
+                await piPaymentApi.approvePayment(paymentId);
+                console.log('Payment approved');
+                
+                // 批准成功后，异步创建本地记录（不阻塞支付流程）
+                piPaymentApi.createPayment({
                   paymentId,
                   amount,
                   type,
                   orderId,
                   memo,
+                }).catch(err => {
+                  console.warn('Create payment record failed (non-blocking):', err);
                 });
-
-                // 2. 批准支付
-                await piPaymentApi.approvePayment(paymentId);
-                console.log('Payment approved');
               } catch (err: any) {
                 console.error('Server approval failed:', err);
                 setError(err.message || '服务端批准失败');
