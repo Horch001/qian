@@ -7,7 +7,7 @@ export const PrivateTreeHolePage: React.FC = () => {
   const { language } = useOutletContext<{ language: Language; translations: Translations }>();
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState('latest');
-  const [confessions] = useState([
+  const [confessions, setConfessions] = useState([
     { id: '1', content: { zh: '工作压力太大了...', en: 'Too much work stress...', ko: '일 스트레스가 너무 크다...', vi: 'Áp lực công việc quá lớn...' }, fullContent: { zh: '工作压力太大了，每天加班到很晚，感觉身体和精神都快撑不住了。有时候真的很想放弃，但是又不知道该怎么办...', en: 'Too much work stress, working overtime every day until late, feeling like my body and mind can barely hold on. Sometimes I really want to give up, but I don\'t know what to do...', ko: '일 스트레스가 너무 크다, 매일 야근하고...', vi: 'Áp lực công việc quá lớn, làm thêm giờ mỗi ngày...' }, time: '2小时前', likes: 234, comments: 12, mood: 'sad' },
     { id: '2', content: { zh: '最近心情不太好', en: 'Not feeling great lately', ko: '요즘 기분이 좋지 않다', vi: 'Tâm trạng gần đây không tốt' }, fullContent: { zh: '最近心情不太好，也说不上来是什么原因，就是感觉很低落，什么都不想做。希望这种状态能快点过去...', en: 'Not feeling great lately, can\'t really say why, just feeling down and don\'t want to do anything. Hope this state passes soon...', ko: '요즘 기분이 좋지 않다...', vi: 'Tâm trạng gần đây không tốt...' }, time: '5小时前', likes: 456, comments: 23, mood: 'neutral' },
     { id: '3', content: { zh: '今天遇到了一件很开心的事', en: 'Something happy happened today', ko: '오늘 행복한 일이 있었다', vi: 'Hôm nay có chuyện vui' }, fullContent: { zh: '今天遇到了一件很开心的事！在路上遇到了多年不见的老朋友，我们聊了很久，感觉时光仿佛回到了从前。生活中还是有很多美好的事情值得期待的！', en: 'Something happy happened today! Met an old friend I haven\'t seen in years on the street, we talked for a long time, felt like time went back to the old days. There are still many beautiful things in life worth looking forward to!', ko: '오늘 행복한 일이 있었다...', vi: 'Hôm nay có chuyện vui...' }, time: '8小时前', likes: 789, comments: 45, favorites: 156, mood: 'happy' },
@@ -37,6 +37,30 @@ export const PrivateTreeHolePage: React.FC = () => {
   };
   const [isPostExpanded, setIsPostExpanded] = useState(false);
   const [postContent, setPostContent] = useState('');
+  const [selectedMood, setSelectedMood] = useState('neutral');
+
+  const handlePost = () => {
+    if (!postContent.trim()) {
+      alert(language === 'zh' ? '请输入内容' : 'Please enter content');
+      return;
+    }
+    
+    const newPost = {
+      id: Date.now().toString(),
+      content: { zh: postContent, en: postContent, ko: postContent, vi: postContent },
+      fullContent: { zh: postContent, en: postContent, ko: postContent, vi: postContent },
+      time: language === 'zh' ? '刚刚' : 'Just now',
+      likes: 0,
+      comments: 0,
+      favorites: 0,
+      mood: selectedMood,
+    };
+    
+    setConfessions([newPost, ...confessions]);
+    setPostContent('');
+    setIsPostExpanded(false);
+    setSelectedMood('neutral');
+  };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
@@ -164,7 +188,28 @@ export const PrivateTreeHolePage: React.FC = () => {
               rows={4}
               className="w-full px-3 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent resize-none text-sm bg-white shadow-inner"
             />
-            <button className="mt-3 w-full px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all">
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-gray-600">{getText({ zh: '心情', en: 'Mood', ko: '기분', vi: 'Tâm trạng' })}:</span>
+              <div className="flex gap-2">
+                {[
+                  { value: 'happy', emoji: '😊' },
+                  { value: 'neutral', emoji: '😐' },
+                  { value: 'sad', emoji: '😔' },
+                ].map((mood) => (
+                  <button
+                    key={mood.value}
+                    onClick={() => setSelectedMood(mood.value)}
+                    className={`text-2xl p-1 rounded-lg transition-all ${selectedMood === mood.value ? 'bg-purple-200 scale-110' : 'hover:bg-gray-100'}`}
+                  >
+                    {mood.emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button 
+              onClick={handlePost}
+              className="mt-3 w-full px-4 py-2 bg-gradient-to-r from-red-600 to-red-500 text-white rounded-lg hover:from-red-700 hover:to-red-600 font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all"
+            >
               {getText({ zh: '发布', en: 'Post', ko: '게시', vi: 'Đăng' })}
             </button>
           </div>

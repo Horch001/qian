@@ -43,6 +43,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [ordersList, setOrdersList] = useState<any[]>([]);
   const [expandedFavorite, setExpandedFavorite] = useState<string | null>(null);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [selectedOrderTab, setSelectedOrderTab] = useState<'all' | 'unpaid' | 'pending' | 'shipping' | 'review' | 'aftersale'>('all');
 
   useEffect(() => {
     // 从 localStorage 获取用户信息
@@ -264,6 +265,65 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     setWithdrawAmount('');
   };
 
+  // 处理退款/退货
+  const handleRefund = (order: any, needReturn: boolean) => {
+    const orderDate = new Date(order.createdAt);
+    const now = new Date();
+    const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysDiff > 7) {
+      alert(getText({ zh: '已超过7天无理由退款期限', en: 'The 7-day refund period has expired', ko: '7일 환불 기간이 만료되었습니다', vi: 'Thời hạn hoàn tiền 7 ngày đã hết' }));
+      return;
+    }
+
+    if (needReturn) {
+      // 已收货 - 需要退货，等待商家确认
+      const confirmMsg = getText({
+        zh: `确认申请退货退款？\n\n退款金额：${order.totalPrice}π\n\n请将商品寄回商家，商家确认收货后将退款到您的账户余额。\n\n注意：运费需自理`,
+        en: `Confirm return & refund?\n\nRefund: ${order.totalPrice}π\n\nPlease return the item. Refund will be processed after merchant confirms receipt.\n\nNote: Shipping cost is on you`,
+        ko: `반품 환불을 신청하시겠습니까?\n\n환불: ${order.totalPrice}π\n\n상품을 반송해주세요. 판매자 확인 후 환불됩니다.\n\n참고: 배송비는 본인 부담`,
+        vi: `Xác nhận trả hàng hoàn tiền?\n\nHoàn tiền: ${order.totalPrice}π\n\nVui lòng gửi trả hàng. Hoàn tiền sau khi người bán xác nhận.\n\nLưu ý: Phí vận chuyển tự chịu`
+      });
+      
+      if (confirm(confirmMsg)) {
+        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+        const updatedOrders = orders.map((o: any) => o.id === order.id ? { ...o, status: 'refund_pending', refundRequestedAt: new Date().toISOString() } : o);
+        localStorage.setItem('orders', JSON.stringify(updatedOrders));
+        setOrdersList(updatedOrders);
+        alert(getText({ zh: '退货申请已提交，请尽快将商品寄回商家', en: 'Return request submitted. Please ship the item back soon.', ko: '반품 신청이 완료되었습니다. 상품을 빨리 반송해주세요.', vi: 'Yêu cầu trả hàng đã gửi. Vui lòng gửi trả hàng sớm.' }));
+      }
+    } else {
+      // 未收货 - 直接退款
+      const confirmMsg = getText({
+        zh: `确认申请退款？\n\n退款金额：${order.totalPrice}π\n\n退款将立即返还到您的账户余额`,
+        en: `Confirm refund?\n\nRefund: ${order.totalPrice}π\n\nRefund will be returned to your balance immediately`,
+        ko: `환불을 신청하시겠습니까?\n\n환불: ${order.totalPrice}π\n\n즉시 잔액으로 환불됩니다`,
+        vi: `Xác nhận hoàn tiền?\n\nHoàn tiền: ${order.totalPrice}π\n\nHoàn tiền ngay vào số dư của bạn`
+      });
+      
+      if (confirm(confirmMsg)) {
+        // 退款到余额
+        const currentUserInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const currentBalance = parseFloat(currentUserInfo.balance || '0');
+        const newBalance = (currentBalance + order.totalPrice).toFixed(2);
+        currentUserInfo.balance = newBalance;
+        localStorage.setItem('userInfo', JSON.stringify(currentUserInfo));
+        setUserInfo(currentUserInfo);
+        
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.balance = newBalance;
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+        const updatedOrders = orders.map((o: any) => o.id === order.id ? { ...o, status: 'refunded', refundedAt: new Date().toISOString() } : o);
+        localStorage.setItem('orders', JSON.stringify(updatedOrders));
+        setOrdersList(updatedOrders);
+        
+        alert(getText({ zh: `退款成功！${order.totalPrice}π 已返还到您的账户余额`, en: `Refund successful! ${order.totalPrice}π returned to your balance`, ko: `환불 완료! ${order.totalPrice}π가 잔액으로 반환되었습니다`, vi: `Hoàn tiền thành công! ${order.totalPrice}π đã trả về số dư của bạn` }));
+      }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc]">
@@ -276,7 +336,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   }
 
   if (!userInfo) {
-    return (
+    navigate('/');
+    return null;
+  }
+
+  // 保留原来的未登录界面代码作为备用
+  const _unusedLoginPrompt = (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc] px-4">
         <div className="text-center">
           <User className="w-16 h-16 text-white/60 mx-auto mb-4" />
@@ -295,7 +360,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         </div>
       </div>
     );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#7c3aed] via-[#a855f7] to-[#c084fc]">
@@ -371,32 +435,61 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             {showOrderDetails && (
               <div className="px-3 pb-3 space-y-2">
                 <div className="grid grid-cols-5 gap-2">
-                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                  <button 
+                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'unpaid' ? 'all' : 'unpaid')}
+                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors ${selectedOrderTab === 'unpaid' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
                     <DollarSign className="w-5 h-5 text-yellow-300" />
                     <span className="text-[10px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chưa thanh toán' })}</span>
                   </button>
-                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors relative">
+                  <button 
+                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'pending' ? 'all' : 'pending')}
+                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'pending' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
                     <Package className="w-5 h-5 text-blue-300" />
                     <span className="text-[10px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
-                    {ordersCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{ordersCount}</span>}
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'paid').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
-                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                  <button 
+                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'shipping' ? 'all' : 'shipping')}
+                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'shipping' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
                     <Truck className="w-5 h-5 text-green-300" />
                     <span className="text-[10px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'shipped').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
-                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                  <button 
+                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'review' ? 'all' : 'review')}
+                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'review' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
                     <Star className="w-5 h-5 text-purple-300" />
                     <span className="text-[10px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'received' && !o.reviewed).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
-                  <button className="flex flex-col items-center gap-1.5 py-2 px-1 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                  <button 
+                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'aftersale' ? 'all' : 'aftersale')}
+                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'aftersale' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
                     <HeadphonesIcon className="w-5 h-5 text-orange-300" />
                     <span className="text-[10px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'refunded' || o.status === 'refund_pending').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                 </div>
                 {/* 订单列表 */}
-                {ordersList.length > 0 && (
+                {(() => {
+                  const filteredOrders = ordersList.filter((o: any) => {
+                    switch (selectedOrderTab) {
+                      case 'unpaid': return o.status === 'unpaid';
+                      case 'pending': return o.status === 'paid';
+                      case 'shipping': return o.status === 'shipped';
+                      case 'review': return o.status === 'received' && !o.reviewed;
+                      case 'aftersale': return o.status === 'refunded' || o.status === 'refund_pending';
+                      default: return true;
+                    }
+                  });
+                  return filteredOrders.length > 0 && (
                   <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
-                    {ordersList.map((order: any, idx: number) => (
+                    {filteredOrders.map((order: any, idx: number) => (
                       <div key={order.id || idx} className="bg-white/10 rounded-lg overflow-hidden">
                         <button 
                           onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
@@ -428,9 +521,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                               </div>
                               <div>
                                 <span className="text-white/50">{getText({ zh: '订单状态', en: 'Status', ko: '상태', vi: 'Trạng thái' })}</span>
-                                <p className="text-green-400">{getText({ zh: '已支付', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })}</p>
+                                <p className={order.status === 'refunded' ? 'text-gray-400' : order.status === 'refund_pending' ? 'text-orange-400' : 'text-green-400'}>
+                                  {order.status === 'refunded' ? getText({ zh: '已退款', en: 'Refunded', ko: '환불됨', vi: 'Đã hoàn tiền' })
+                                    : order.status === 'refund_pending' ? getText({ zh: '退货中', en: 'Return Pending', ko: '반품 중', vi: 'Đang trả hàng' })
+                                    : order.status === 'shipped' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' })
+                                    : order.status === 'received' ? getText({ zh: '已收货', en: 'Received', ko: '수령됨', vi: 'Đã nhận' })
+                                    : getText({ zh: '已支付', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })}
+                                </p>
                               </div>
                             </div>
+                            {/* 七天无理由退款提示 */}
+                            {order.status !== 'refunded' && order.status !== 'refund_pending' && (() => {
+                              const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                              const daysLeft = 7 - daysDiff;
+                              return daysLeft > 0 && <div className="text-[10px] text-yellow-300 bg-yellow-500/10 px-2 py-1 rounded">{getText({ zh: `七天无理由退款，剩余 ${daysLeft} 天`, en: `7-day refund, ${daysLeft} days left`, ko: `7일 환불, ${daysLeft}일 남음`, vi: `Hoàn tiền 7 ngày, còn ${daysLeft} ngày` })}</div>;
+                            })()}
                             <div className="flex gap-2 mt-2">
                               <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
                                 {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
@@ -439,12 +544,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
                               </button>
                             </div>
+                            {/* 退款/退货按钮 */}
+                            {order.status !== 'refunded' && order.status !== 'refund_pending' && (() => {
+                              const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                              if (daysDiff > 7) return null;
+                              const isReceived = order.status === 'received' || order.status === 'shipped';
+                              return (
+                                <div className="flex gap-2 mt-1">
+                                  {!isReceived ? (
+                                    <button onClick={() => handleRefund(order, false)} className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">
+                                      {getText({ zh: '申请退款', en: 'Refund', ko: '환불', vi: 'Hoàn tiền' })}
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => handleRefund(order, true)} className="flex-1 py-1.5 bg-orange-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-orange-600">
+                                      {getText({ zh: '退货退款', en: 'Return & Refund', ko: '반품 환불', vi: 'Trả hàng hoàn tiền' })}
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
-                )}
+                )})()}
               </div>
             )}
           </div>

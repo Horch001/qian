@@ -1,15 +1,32 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { chatApi, ChatRoom } from '../services/api';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ChatListPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 从详情页跳转过来时，直接打开与目标用户的聊天
+  const targetUser = location.state?.targetUser;
+  const targetName = location.state?.targetName;
+
   useEffect(() => {
-    loadRooms();
-  }, []);
+    if (targetUser || targetName) {
+      // 如果有目标用户或目标名称，直接打开聊天室
+      openChatWithUser();
+    } else {
+      loadRooms();
+    }
+  }, [targetUser, targetName]);
+
+  const openChatWithUser = async () => {
+    // 直接使用模拟聊天室（因为后端可能没有登录状态）
+    const mockId = targetUser || `mock-${Date.now()}`;
+    navigate(`/chat/${mockId}`, { replace: true, state: { targetName: targetName || '客服', isMock: true } });
+  };
 
   const loadRooms = async () => {
     try {
@@ -65,8 +82,11 @@ export default function ChatListPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 头部 */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4">
-        <h1 className="text-lg font-bold text-center">消息</h1>
+      <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4 flex items-center gap-3">
+        <button onClick={() => navigate(-1)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-lg font-bold flex-1 text-center pr-6">消息</h1>
       </div>
 
       {/* 聊天列表 */}

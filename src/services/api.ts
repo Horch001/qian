@@ -1,5 +1,5 @@
 // API 基础配置
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 
 // 获取存储的 token
 const getToken = (): string | null => {
@@ -267,6 +267,68 @@ export const favoriteApi = {
     request(`/favorites/${productId}`, { method: 'DELETE' }),
 };
 
+// ==================== Pi 支付 API ====================
+
+export type PiPaymentType = 'ORDER' | 'RECHARGE' | 'DEPOSIT' | 'ESCROW';
+export type PiPaymentStatus = 'CREATED' | 'APPROVED' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+
+export interface PiPayment {
+  id: string;
+  paymentId: string;
+  txId?: string;
+  userId: string;
+  orderId?: string;
+  amount: string;
+  memo?: string;
+  type: PiPaymentType;
+  status: PiPaymentStatus;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export const piPaymentApi = {
+  // 创建支付记录
+  createPayment: (data: {
+    paymentId: string;
+    amount: number;
+    type: PiPaymentType;
+    orderId?: string;
+    memo?: string;
+  }) =>
+    request<PiPayment>('/pi-payment/create', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 批准支付
+  approvePayment: (paymentId: string) =>
+    request<PiPayment>('/pi-payment/approve', {
+      method: 'POST',
+      body: JSON.stringify({ paymentId }),
+    }),
+
+  // 完成支付
+  completePayment: (paymentId: string, txId: string) =>
+    request<PiPayment>('/pi-payment/complete', {
+      method: 'POST',
+      body: JSON.stringify({ paymentId, txId }),
+    }),
+
+  // 取消支付
+  cancelPayment: (paymentId: string) =>
+    request(`/pi-payment/cancel/${paymentId}`, { method: 'POST' }),
+
+  // 获取支付详情
+  getPayment: (paymentId: string) =>
+    request<PiPayment>(`/pi-payment/${paymentId}`),
+
+  // 获取用户支付记录
+  getUserPayments: (type?: PiPaymentType) => {
+    const query = type ? `?type=${type}` : '';
+    return request<PiPayment[]>(`/pi-payment${query}`);
+  },
+};
+
 // 导出所有 API
 export const api = {
   auth: authApi,
@@ -274,6 +336,7 @@ export const api = {
   product: productApi,
   order: orderApi,
   favorite: favoriteApi,
+  piPayment: piPaymentApi,
 };
 
 export default api;

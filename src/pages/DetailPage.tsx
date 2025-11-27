@@ -110,12 +110,41 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   };
 
   const handlePayment = (method: 'pi' | 'balance') => {
+    const totalPrice = item.price * quantity;
+    
+    // 余额支付时检查余额是否足够
+    if (method === 'balance') {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const currentBalance = parseFloat(userInfo.balance || '0');
+      
+      if (currentBalance < totalPrice) {
+        alert(language === 'zh' 
+          ? `余额不足！当前余额: ${currentBalance}π，需要: ${totalPrice}π` 
+          : language === 'en'
+          ? `Insufficient balance! Current: ${currentBalance}π, Required: ${totalPrice}π`
+          : language === 'ko'
+          ? `잔액 부족! 현재: ${currentBalance}π, 필요: ${totalPrice}π`
+          : `Số dư không đủ! Hiện tại: ${currentBalance}π, Cần: ${totalPrice}π`);
+        return;
+      }
+      
+      // 扣减余额
+      const newBalance = (currentBalance - totalPrice).toFixed(2);
+      userInfo.balance = newBalance;
+      localStorage.setItem('userInfo', JSON.stringify(userInfo));
+      
+      // 同步更新 user 存储
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      user.balance = newBalance;
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+    
     const orders = JSON.parse(localStorage.getItem('orders') || '[]');
     const newOrder = {
       id: Date.now().toString(),
       item: { ...item, spec: selectedSpec },
       quantity,
-      totalPrice: item.price * quantity,
+      totalPrice,
       paymentMethod: method,
       status: 'paid',
       createdAt: new Date().toISOString(),

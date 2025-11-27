@@ -41,12 +41,25 @@ export const TreeHoleDetailPage: React.FC<TreeHoleDetailPageProps> = ({ language
     }
   };
 
-  // 模拟评论数据
-  const comments = [
+  // 评论数据
+  const [comments, setComments] = useState([
     { id: '1', content: { zh: '加油！一切都会好起来的', en: 'Cheer up! Everything will be fine', ko: '힘내세요! 다 잘 될 거예요', vi: 'Cố lên! Mọi thứ sẽ ổn thôi' }, time: '1小时前', likes: 23 },
     { id: '2', content: { zh: '我也有同样的感受', en: 'I feel the same way', ko: '저도 같은 느낌이에요', vi: 'Tôi cũng cảm thấy như vậy' }, time: '30分钟前', likes: 15 },
     { id: '3', content: { zh: '抱抱你~', en: 'Hugs~', ko: '안아줄게요~', vi: 'Ôm bạn~' }, time: '10分钟前', likes: 8 },
-  ];
+  ]);
+
+  const handleSendComment = () => {
+    if (!commentText.trim()) return;
+    
+    const newComment = {
+      id: Date.now().toString(),
+      content: { zh: commentText, en: commentText, ko: commentText, vi: commentText },
+      time: language === 'zh' ? '刚刚' : 'Just now',
+      likes: 0,
+    };
+    setComments([...comments, newComment]);
+    setCommentText('');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100 flex flex-col">
@@ -154,7 +167,10 @@ export const TreeHoleDetailPage: React.FC<TreeHoleDetailPageProps> = ({ language
             placeholder={language === 'zh' ? '写下你的评论...' : 'Write a comment...'}
             className="flex-1 px-4 py-2 bg-gray-100 rounded-full text-sm outline-none focus:ring-2 focus:ring-purple-500"
           />
-          <button className="p-2.5 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-full hover:opacity-90 active:scale-95 transition-all">
+          <button 
+            onClick={handleSendComment}
+            className="p-2.5 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-full hover:opacity-90 active:scale-95 transition-all"
+          >
             <Send className="w-5 h-5" />
           </button>
         </div>

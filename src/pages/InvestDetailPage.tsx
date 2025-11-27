@@ -213,7 +213,10 @@ export const InvestDetailPage: React.FC<InvestDetailPageProps> = ({ language }) 
       {/* Bottom Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
-          <button className="flex flex-col items-center gap-0.5 px-3">
+          <button 
+            onClick={() => navigate('/chat', { state: { targetUser: item.creatorId, targetName: language === 'zh' ? '项目方' : 'Project Owner' } })}
+            className="flex flex-col items-center gap-0.5 px-3"
+          >
             <MessageCircle className="w-5 h-5 text-gray-500" />
             <span className="text-[10px] text-gray-500">{language === 'zh' ? '咨询' : 'Ask'}</span>
           </button>

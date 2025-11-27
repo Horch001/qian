@@ -13,12 +13,12 @@
     <script>
       window.addEventListener('load', function() {
         if (typeof Pi !== 'undefined') {
-          // 测试网环境 - 使用真实测试币
+          // sandbox: true = 测试网（Testnet），sandbox: false = 主网（Mainnet）
           Pi.init({ 
             version: "2.0",
-            sandbox: false  // false = 测试网真实环境
+            sandbox: false  // 主网模式，使用真实 Pi
           });
-          console.log('Pi SDK initialized in testnet mode');
+          console.log('Pi SDK initialized');
         } else {
           console.warn('Pi SDK not available - not in Pi Browser');
         }
