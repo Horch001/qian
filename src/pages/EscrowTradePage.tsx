@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Shield, CheckCircle, Clock, DollarSign, Search, Info, AlertCircle } from 'lucide-react';
 import { Language, Translations } from '../types';
 
 export const EscrowTradePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (trade: any) => {
+    navigate('/escrow-detail', { state: { item: trade } });
+  };
 
   const trades = [
     {
@@ -102,7 +107,7 @@ export const EscrowTradePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* 搜索框 */}
       <div className="relative w-full">
         <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
@@ -128,7 +133,7 @@ export const EscrowTradePage: React.FC = () => {
       </div>
 
       {/* 说明卡片 */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <div className="bg-green-50 rounded-lg p-2 border border-green-200">
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
@@ -155,7 +160,7 @@ export const EscrowTradePage: React.FC = () => {
         {trades.map((trade) => (
           <div
             key={trade.id}
-            onClick={() => setSelectedTrade(trade.id)}
+            onClick={() => goToDetail(trade)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer bg-white
                        border ${selectedTrade === trade.id ? 'border-purple-400' : 'border-purple-100'}
                        shadow-sm hover:shadow-md active:shadow-sm`}
@@ -211,7 +216,9 @@ export const EscrowTradePage: React.FC = () => {
                 )}
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(trade); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all">
               {language === 'zh' ? '查看详情' : language === 'en' ? 'View Details' : language === 'ko' ? '세부정보 보기' : 'Xem chi tiết'}
             </button>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Globe, ChevronDown, ChevronUp, Link2, Shield, Users, Star, ExternalLink } from 'lucide-react';
 import { Language, Translations } from '../types';
 
@@ -8,6 +8,11 @@ export const FriendlyLinksPage: React.FC = () => {
   const [isApplyExpanded, setIsApplyExpanded] = useState(false);
   const [siteName, setSiteName] = useState('');
   const [siteUrl, setSiteUrl] = useState('');
+  const navigate = useNavigate();
+
+  const goToDetail = (link: any) => {
+    navigate('/link-detail', { state: { item: link } });
+  };
 
   const links = [
     { name: { zh: '技术社区', en: 'Tech Community', ko: '기술 커뮤니티', vi: 'Cộng đồng công nghệ' }, url: '#', icon: '💻', color: 'from-blue-500 to-cyan-500' },
@@ -25,7 +30,7 @@ export const FriendlyLinksPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* 特色功能 */}
       <div className="grid grid-cols-4 gap-1.5">
         {features.map((feature, idx) => (
@@ -39,9 +44,9 @@ export const FriendlyLinksPage: React.FC = () => {
       {/* 链接列表 */}
       <div className="space-y-2">
         {links.map((link, idx) => (
-          <a 
+          <div 
             key={idx} 
-            href={link.url} 
+            onClick={() => goToDetail(link)}
             className="group block bg-white rounded-xl p-3 border border-purple-100 hover:border-transparent hover:shadow-lg transition-all duration-300 cursor-pointer relative overflow-hidden"
           >
             {/* 悬停渐变背景 */}
@@ -60,7 +65,7 @@ export const FriendlyLinksPage: React.FC = () => {
               </div>
               <ExternalLink className="w-4 h-4 text-purple-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" />
             </div>
-          </a>
+          </div>
         ))}
       </div>
 

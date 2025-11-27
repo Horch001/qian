@@ -32,26 +32,22 @@ export const Layout: React.FC<LayoutProps> = ({ language, translations }) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
       {/* Header with back button */}
-      <header className="bg-white border-b border-blue-300 sticky top-0 z-40">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
+      <header className="bg-gradient-to-b from-blue-200 to-blue-300 sticky top-0 z-40">
+        <div className="max-w-md mx-auto px-4 py-2 flex items-center justify-center relative">
           <button
             onClick={() => navigate('/')}
-            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+            className="absolute left-4 p-2 hover:bg-blue-100/50 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-purple-600" />
           </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-gray-800">
-              {translations.platformTitle[language]}
-            </h1>
-            <span className="text-gray-400">·</span>
-            <span className="text-sm font-bold text-purple-600">{pageTitle}</span>
-          </div>
+          <h1 className="text-base font-bold text-purple-600">
+            {pageTitle}
+          </h1>
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-md w-full mx-auto px-4 py-4 overflow-auto bg-blue-200">
+      <main className="flex-1 max-w-md w-full mx-auto px-4 py-0.5 overflow-auto bg-blue-200">
         <Outlet context={{ language, translations }} />
       </main>
     </div>

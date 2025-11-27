@@ -25,6 +25,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isTestAccount, setIsTestAccount] = useState(false);
 
+  // 检测是否在Pi浏览器环境
+  const isPiBrowser = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    return userAgent.includes('pibrowser') || userAgent.includes('pi browser') || (typeof window !== 'undefined' && window.Pi !== undefined);
+  };
+
   useEffect(() => {
     // 加载 Pi Network SDK
     if (!window.Pi && !isLoggedIn) {
@@ -40,9 +46,49 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     }
   }, [isLoggedIn]);
 
+  // 非Pi浏览器自动使用测试账号登录
+  useEffect(() => {
+    if (!isLoggedIn && !isPiBrowser()) {
+      // 检查是否已有测试账号
+      const existingUser = localStorage.getItem('userInfo');
+      if (!existingUser) {
+        // 自动使用测试账号登录
+        const testUserInfo = {
+          username: 'TestUser',
+          uid: 'test_' + Date.now(),
+          email: 'test@example.com',
+          balance: '100.00',
+          isTestAccount: true,
+        };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+      }
+    }
+  }, [isLoggedIn, onLoginSuccess]);
+
   const handlePiLogin = async () => {
     setIsLoggingIn(true);
     setLoginError(null);
+
+    // 检测是否在Pi浏览器环境
+    if (!isPiBrowser()) {
+      // 非Pi浏览器，使用测试账号
+      setTimeout(() => {
+        const testUserInfo = {
+          username: 'TestUser',
+          uid: 'test_' + Date.now(),
+          email: 'test@example.com',
+          balance: '100.00',
+          isTestAccount: true,
+        };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+        setIsLoggingIn(false);
+      }, 800);
+      return;
+    }
 
     try {
       // 检查 Pi SDK 是否存在
@@ -53,11 +99,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
             username: 'TestUser',
             uid: 'test_' + Date.now(),
             email: 'test@example.com',
-            balance: '0.00',
+            balance: '100.00',
             isTestAccount: true,
           };
           localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
           onLoginSuccess?.(testUserInfo);
+          setIsTestAccount(true);
           setIsLoggingIn(false);
         }, 800);
         return;
@@ -91,11 +138,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
           username: 'TestUser',
           uid: 'test_' + Date.now(),
           email: 'test@example.com',
-          balance: '0.00',
+          balance: '100.00',
           isTestAccount: true,
         };
         localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
         onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
         setIsLoggingIn(false);
       }, 800);
     }
@@ -170,12 +218,14 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
             </button>
             
             <button 
+              onClick={() => navigate('/messages')}
               className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80">
               <Mail size={20} className="text-white" strokeWidth={2} />
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '消息', en: 'Messages', ko: '메시지', vi: 'Tin nhắn' }, language)}</span>
             </button>
             
             <button 
+              onClick={() => navigate('/cart')}
               className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80">
               <ShoppingCart size={20} className="text-white" strokeWidth={2} />
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '购物车', en: 'Cart', ko: '장바구니', vi: 'Giỏ hàng' }, language)}</span>

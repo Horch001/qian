@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Users, TrendingUp, Gem, ArrowLeftRight, DollarSign, Star, Flame } from 'lucide-react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
 export const SeekResourcesPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (request: any) => {
+    navigate('/resource-detail', { state: { item: request } });
+  };
 
   const requests = [
     {
@@ -49,7 +54,7 @@ export const SeekResourcesPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <SimpleSearchBar language={language} translations={translations} />
       
       <div className="grid grid-cols-4 gap-1.5">
@@ -65,7 +70,7 @@ export const SeekResourcesPage: React.FC = () => {
         {requests.map((request) => (
           <div
             key={request.id}
-            onClick={() => setSelectedRequest(request.id)}
+            onClick={() => goToDetail(request)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedRequest === request.id 
                          ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-400 shadow-lg' 
@@ -79,54 +84,46 @@ export const SeekResourcesPage: React.FC = () => {
               </div>
             )}
             
-            <div className="flex gap-2 relative pb-8 pt-6">
+            <div className="flex gap-2 relative">
               <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg shadow-inner">
                 {request.icon}
               </div>
-              <div className="flex-1 min-w-0 flex flex-col">
+              <div className="flex-1 min-w-0 flex flex-col pr-[70px]">
                 <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
                   {request.resource[language]}
                 </h3>
-                <div className="flex items-start justify-between mb-1">
-                  <div className="flex flex-col gap-0.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col">
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-600">{language === 'zh' ? '发起价' : 'Start'}</span>
-                      <span className="text-red-600 font-bold text-sm">{request.initiatorPrice}π</span>
+                      <span className="text-[9px] text-gray-500">{language === 'zh' ? '首价' : 'Start'}</span>
+                      <span className="text-red-600 font-bold text-sm leading-none">{request.initiatorPrice}π</span>
                     </div>
-                    {request.additionalBids > 0 && (
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3 text-green-600" />
-                        <span className="text-[9px] text-gray-600">{language === 'zh' ? '总价' : 'Total'}</span>
-                        <span className="text-green-600 font-bold text-sm">{request.initiatorPrice + request.additionalBids}π</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-500">{language === 'zh' ? '总价' : 'Total'}</span>
+                      <span className="text-green-600 font-bold text-sm leading-none">{request.initiatorPrice + request.additionalBids}π</span>
+                    </div>
                   </div>
                   <div className="flex flex-col items-center bg-purple-50 rounded-lg px-2 py-1">
-                    <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '同求' : 'Bidders'}</span>
+                    <span className="text-[8px] text-gray-500 leading-none">{language === 'zh' ? '出价人数' : 'Bidders'}</span>
                     <div className="flex items-center gap-0.5 mt-0.5">
                       <Users className="w-3 h-3 text-purple-600" />
-                      <span className="text-[10px] text-gray-900 font-bold leading-none">{request.totalBidders}</span>
+                      <span className="text-sm text-purple-600 font-bold leading-none">{request.totalBidders}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-1 flex-1 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((request.totalBidders / 20) * 100, 100)}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-[9px] text-orange-600 font-bold">{request.status[language]}</span>
-                </div>
               </div>
-            </div>
-            <div className="absolute bottom-1 right-1 flex gap-1">
-              <button className="px-3 py-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-bold rounded-lg hover:from-green-700 hover:to-emerald-700 active:scale-95 transition-all shadow-md">
-                {language === 'zh' ? '提供' : language === 'en' ? 'Provide' : language === 'ko' ? '제공' : 'Cung cấp'}
-              </button>
-              <button className="px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
-                {language === 'zh' ? '同求' : language === 'en' ? 'Join' : language === 'ko' ? '참여' : 'Tham gia'}
-              </button>
+              <div className="absolute top-1/2 -translate-y-1/2 right-1 flex flex-col gap-1">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
+                  className="px-2 py-0.5 bg-gradient-to-r from-green-600 to-emerald-500 text-white text-[10px] font-bold rounded hover:from-green-700 hover:to-emerald-600 active:scale-95 transition-all shadow-sm">
+                  {language === 'zh' ? '提供' : language === 'en' ? 'Provide' : language === 'ko' ? '제공' : 'Cung cấp'}
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
+                  className="px-2 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold rounded hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all shadow-sm">
+                  {language === 'zh' ? '想要' : language === 'en' ? 'Want' : language === 'ko' ? '원해요' : 'Muốn'}
+                </button>
+              </div>
             </div>
           </div>
         ))}

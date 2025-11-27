@@ -21,6 +21,16 @@ import { VentureCapitalPage } from './pages/VentureCapitalPage';
 import { EscrowTradePage } from './pages/EscrowTradePage';
 import { FriendlyLinksPage } from './pages/FriendlyLinksPage';
 import { SeekResourcesPage } from './pages/SeekResourcesPage';
+import { DetailPage } from './pages/DetailPage';
+import { TreeHoleDetailPage } from './pages/TreeHoleDetailPage';
+import { ResourceDetailPage } from './pages/ResourceDetailPage';
+import { EscrowDetailPage } from './pages/EscrowDetailPage';
+import { LinkDetailPage } from './pages/LinkDetailPage';
+import { InvestDetailPage } from './pages/InvestDetailPage';
+import { MessagesPage } from './pages/MessagesPage';
+import { CartPage } from './pages/CartPage';
+import { CustomerServicePage } from './pages/CustomerServicePage';
+import { JoinStorePage } from './pages/JoinStorePage';
 import './index.css';
 
 const HomePage: React.FC<{ 
@@ -46,7 +56,7 @@ const HomePage: React.FC<{
 
         {/* Scrollable Main Content */}
         <main className="flex-1 overflow-y-auto px-4 pb-2">
-          <h2 className="text-xl font-bold text-white/95 mb-4 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] px-1 tracking-tight">
+          <h2 className="text-sm font-bold text-white/95 mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] px-1 tracking-tight">
             {TRANSLATIONS.allCategories[language]}
           </h2>
           
@@ -125,6 +135,46 @@ export const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Detail page routes
+  if (location.pathname === '/detail') {
+    return <DetailPage language={language} translations={TRANSLATIONS} />;
+  }
+  if (location.pathname === '/tree-hole-detail') {
+    return <TreeHoleDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+  if (location.pathname === '/resource-detail') {
+    return <ResourceDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+  if (location.pathname === '/escrow-detail') {
+    return <EscrowDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+  if (location.pathname === '/link-detail') {
+    return <LinkDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+  if (location.pathname === '/invest-detail') {
+    return <InvestDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Messages page
+  if (location.pathname === '/messages') {
+    return <MessagesPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Cart page
+  if (location.pathname === '/cart') {
+    return <CartPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Customer service page
+  if (location.pathname === '/customer-service') {
+    return <CustomerServicePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Join store page
+  if (location.pathname === '/join-store') {
+    return <JoinStorePage language={language} translations={TRANSLATIONS} />;
   }
 
   // Detail pages layout

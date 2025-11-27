@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Star, BookOpen, Video, Sparkles, Users, Award, Heart } from 'lucide-react';
+import { useOutletContext, useNavigate } from 'react-router-dom';
+import { Star, BookOpen, Video, Sparkles, Award, Heart } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
 export const CoursePagePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (course: any) => {
+    navigate('/detail', { state: { item: { ...course, title: course.title }, pageType: 'course' } });
+  };
 
   const courses = [
     {
@@ -62,7 +67,7 @@ export const CoursePagePage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* 搜索框 */}
       <SimpleSearchBar language={language} translations={translations} />
       
@@ -81,7 +86,7 @@ export const CoursePagePage: React.FC = () => {
         {courses.map((course) => (
           <div
             key={course.id}
-            onClick={() => setSelectedCourse(course.id)}
+            onClick={() => goToDetail(course)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedCourse === course.id 
                          ? 'bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-purple-400 shadow-lg' 
@@ -111,13 +116,6 @@ export const CoursePagePage: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '学员' : 'Students'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Users className="w-2.5 h-2.5 text-blue-600" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{course.students}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
                       <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{course.sales}</span>
                     </div>
@@ -136,7 +134,9 @@ export const CoursePagePage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(course); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
               {language === 'zh' ? '报名' : language === 'en' ? 'Enroll' : language === 'ko' ? '등록' : 'Đăng ký'}
             </button>
           </div>

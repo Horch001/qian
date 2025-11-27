@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, TrendingUp, Heart } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SearchBar } from '../components/SearchBar';
 
 export const HomeServicePage: React.FC = () => {
-  const { language, translations } = useOutletContext<{ language, translations: Translations }>();
+  const { language, translations } = useOutletContext<{ language: Language, translations: Translations }>();
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (service: any) => {
+    navigate('/detail', { state: { item: { ...service, title: service.name }, pageType: 'service' } });
+  };
 
   const services = [
     {
@@ -63,7 +68,7 @@ export const HomeServicePage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <SearchBar language={language} translations={translations} />
       
       <div className="grid grid-cols-4 gap-1.5">
@@ -79,7 +84,7 @@ export const HomeServicePage: React.FC = () => {
         {services.map((service) => (
           <div
             key={service.id}
-            onClick={() => setSelectedService(service.id)}
+            onClick={() => goToDetail(service)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedService === service.id 
                          ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-400 shadow-lg' 
@@ -126,7 +131,9 @@ export const HomeServicePage: React.FC = () => {
                 <div className="text-xs text-gray-500">{service.shop[language]}</div>
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(service); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
               {language === 'zh' ? '预订' : language === 'en' ? 'Book' : language === 'ko' ? '예약' : 'Đặt'}
             </button>
           </div>

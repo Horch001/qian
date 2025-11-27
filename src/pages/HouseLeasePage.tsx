@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Star, Home, ShieldCheck, FileCheck, MapPin, TrendingUp, Heart } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
@@ -7,6 +7,11 @@ import { SimpleSearchBar } from '../components/SimpleSearchBar';
 export const HouseLeasePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProperty, setSelectedProperty] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (property: any) => {
+    navigate('/detail', { state: { item: { ...property, title: property.type }, pageType: 'house' } });
+  };
 
   const properties = [
     {
@@ -52,7 +57,7 @@ export const HouseLeasePage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <SimpleSearchBar language={language} translations={translations} />
       
       <div className="grid grid-cols-4 gap-1.5">
@@ -68,7 +73,7 @@ export const HouseLeasePage: React.FC = () => {
         {properties.map((property) => (
           <div
             key={property.id}
-            onClick={() => setSelectedProperty(property.id)}
+            onClick={() => goToDetail(property)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedProperty === property.id 
                          ? 'bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 shadow-lg' 
@@ -115,7 +120,9 @@ export const HouseLeasePage: React.FC = () => {
                 <div className="text-xs text-gray-500">{property.shop[language]}</div>
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(property); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
               {language === 'zh' ? '看房' : language === 'en' ? 'View' : language === 'ko' ? '보기' : 'Xem'}
             </button>
           </div>

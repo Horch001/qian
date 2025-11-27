@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, TrendingUp, Heart } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SearchBar } from '../components/SearchBar';
@@ -7,6 +7,11 @@ import { SearchBar } from '../components/SearchBar';
 export const OfflinePlaYPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (activity: any) => {
+    navigate('/detail', { state: { item: { ...activity, title: activity.name }, pageType: 'service' } });
+  };
 
   const activities = [
     {
@@ -52,7 +57,7 @@ export const OfflinePlaYPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <SearchBar language={language} translations={translations} />
       
       <div className="grid grid-cols-4 gap-1.5">
@@ -68,7 +73,7 @@ export const OfflinePlaYPage: React.FC = () => {
         {activities.map((activity) => (
           <div
             key={activity.id}
-            onClick={() => setSelectedActivity(activity.id)}
+            onClick={() => goToDetail(activity)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedActivity === activity.id 
                          ? 'bg-gradient-to-br from-cyan-50 to-blue-50 border-2 border-cyan-400 shadow-lg' 
@@ -115,7 +120,9 @@ export const OfflinePlaYPage: React.FC = () => {
                 <div className="text-xs text-gray-500">{activity.shop[language]}</div>
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(activity); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
               {language === 'zh' ? '预约' : language === 'en' ? 'Book' : language === 'ko' ? '예약' : 'Đặt'}
             </button>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Star, Package, Truck, Shield, TrendingUp, Heart } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
@@ -7,6 +7,11 @@ import { SimpleSearchBar } from '../components/SimpleSearchBar';
 export const PhysicalMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const goToDetail = (product: any) => {
+    navigate('/detail', { state: { item: { ...product, title: product.name }, pageType: 'product' } });
+  };
 
   const products = [
     {
@@ -65,7 +70,7 @@ export const PhysicalMallPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* 搜索框 */}
       <SimpleSearchBar language={language} translations={translations} />
       
@@ -84,7 +89,7 @@ export const PhysicalMallPage: React.FC = () => {
         {products.map((product) => (
           <div
             key={product.id}
-            onClick={() => setSelectedProduct(product.id)}
+            onClick={() => goToDetail(product)}
             className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
                        ${selectedProduct === product.id 
                          ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-400 shadow-lg' 
@@ -136,7 +141,9 @@ export const PhysicalMallPage: React.FC = () => {
                 <div className="text-xs text-gray-500">{product.shop[language]}</div>
               </div>
             </div>
-            <button className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+            <button 
+              onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
+              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
               {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
             </button>
           </div>
