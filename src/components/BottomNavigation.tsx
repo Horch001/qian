@@ -24,6 +24,27 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isTestAccount, setIsTestAccount] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
+
+  // 监听消息和购物车数量变化
+  useEffect(() => {
+    const updateCounts = () => {
+      const unread = parseInt(localStorage.getItem('unreadMessageCount') || '0');
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      setUnreadMessageCount(unread || 3); // 默认显示3条未读
+      setCartCount(cart.length);
+    };
+    
+    updateCounts();
+    window.addEventListener('storage', updateCounts);
+    window.addEventListener('focus', updateCounts);
+    
+    return () => {
+      window.removeEventListener('storage', updateCounts);
+      window.removeEventListener('focus', updateCounts);
+    };
+  }, []);
 
   // 检测是否在Pi浏览器环境
   const isPiBrowser = () => {
@@ -219,15 +240,25 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
             
             <button 
               onClick={() => navigate('/messages')}
-              className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80">
+              className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80 relative">
               <Mail size={20} className="text-white" strokeWidth={2} />
+              {unreadMessageCount > 0 && (
+                <span className="absolute -top-1 right-3 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center px-1">
+                  <span className="text-white text-[10px] font-bold">{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</span>
+                </span>
+              )}
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '消息', en: 'Messages', ko: '메시지', vi: 'Tin nhắn' }, language)}</span>
             </button>
             
             <button 
               onClick={() => navigate('/cart')}
-              className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80">
+              className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80 relative">
               <ShoppingCart size={20} className="text-white" strokeWidth={2} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 right-3 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center px-1">
+                  <span className="text-white text-[10px] font-bold">{cartCount > 99 ? '99+' : cartCount}</span>
+                </span>
+              )}
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '购物车', en: 'Cart', ko: '장바구니', vi: 'Giỏ hàng' }, language)}</span>
             </button>
 

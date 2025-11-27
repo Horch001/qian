@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ language, translations, onLangua
                   </linearGradient>
                 </defs>
               </svg>
-              <div className="text-[23px] font-medium bg-gradient-to-r from-purple-700 via-purple-300 to-purple-700 bg-clip-text text-transparent animate-shine leading-tight">sczl.com</div>
+              <div className="text-[23px] font-medium bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 bg-clip-text text-transparent animate-shine leading-tight">sczl.com</div>
             </div>
           </div>
         </div>
@@ -78,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({ language, translations, onLangua
           </button>
 
           {isLangOpen && (
-            <div className="absolute right-0 top-full mt-1 w-32 bg-white/95 backdrop-blur-xl rounded-lg border border-white/50 shadow-xl overflow-hidden z-50">
+            <div className="absolute right-0 top-full mt-1 bg-white/95 backdrop-blur-xl rounded-lg border border-white/50 shadow-xl overflow-hidden z-50">
               <div className="flex flex-col">
                 {languages.map((lang) => (
                   <button
@@ -87,10 +87,10 @@ export const Header: React.FC<HeaderProps> = ({ language, translations, onLangua
                       onLanguageChange(lang.code);
                       setIsLangOpen(false);
                     }}
-                    className="w-full text-left px-3 py-2 text-[12px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded flex items-center justify-between transition-colors"
+                    className="text-left px-2 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded flex items-center gap-1 transition-colors whitespace-nowrap"
                   >
                     <span>{lang.label}</span>
-                    {language === lang.code && <Check size={12} className="text-purple-600" />}
+                    {language === lang.code && <Check size={10} className="text-purple-600" />}
                   </button>
                 ))}
               </div>

@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, Home, ShieldCheck, FileCheck, MapPin, TrendingUp, Heart, Search, ChevronDown, Check } from 'lucide-react';
+import { Star, Home, ShieldCheck, FileCheck, MapPin, Search, ChevronDown, Check } from 'lucide-react';
 import { Language, Translations } from '../types';
 
 export const HouseLeasePage: React.FC = () => {
@@ -9,6 +9,7 @@ export const HouseLeasePage: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState('');
   const [searchText, setSearchText] = useState('');
   const [showCityDropdown, setShowCityDropdown] = useState(false);
+  const [sortBy, setSortBy] = useState('default');
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -58,6 +59,9 @@ export const HouseLeasePage: React.FC = () => {
       favorites: 890,
       shop: { zh: '优质房源中心', en: 'Quality Housing', ko: '품질 주택', vi: 'Nhà chất lượng' },
       badge: { zh: '精选', en: 'Featured', ko: '추천', vi: 'Nổi bật' },
+      area: 120,
+      hasSubway: true,
+      hasElevator: true,
     },
     {
       id: '2',
@@ -69,6 +73,9 @@ export const HouseLeasePage: React.FC = () => {
       favorites: 1234,
       shop: { zh: '合租之家', en: 'Co-rent Home', ko: '공동 임대 홈', vi: 'Nhà cho thuê chung' },
       badge: { zh: '实惠', en: 'Affordable', ko: '저렴', vi: 'Giá tốt' },
+      area: 60,
+      hasSubway: false,
+      hasElevator: true,
     },
     {
       id: '3',
@@ -80,8 +87,34 @@ export const HouseLeasePage: React.FC = () => {
       favorites: 987,
       shop: { zh: '民宿管家', en: 'Homestay Manager', ko: '홈스테이 관리자', vi: 'Quản lý homestay' },
       badge: { zh: '灵活', en: 'Flexible', ko: '유연', vi: 'Linh hoạt' },
+      area: 80,
+      hasSubway: true,
+      hasElevator: true,
     },
   ];
+
+  const sortOptions = [
+    { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
+    { value: 'price_high', label: { zh: '价格从高到低', en: 'Price: High to Low', ko: '가격: 높은순', vi: 'Giá: Cao đến thấp' } },
+    { value: 'price_low', label: { zh: '价格从低到高', en: 'Price: Low to High', ko: '가격: 낮은순', vi: 'Giá: Thấp đến cao' } },
+    { value: 'area_large', label: { zh: '面积从大到小', en: 'Area: Large to Small', ko: '면적: 큰순', vi: 'Diện tích: Lớn đến nhỏ' } },
+    { value: 'area_small', label: { zh: '面积从小到大', en: 'Area: Small to Large', ko: '면적: 작은순', vi: 'Diện tích: Nhỏ đến lớn' } },
+    { value: 'subway', label: { zh: '近地铁', en: 'Near Subway', ko: '지하철 근처', vi: 'Gần tàu điện' } },
+    { value: 'elevator', label: { zh: '有电梯', en: 'Has Elevator', ko: '엘리베이터', vi: 'Có thang máy' } },
+  ];
+
+  const sortedProperties = useMemo(() => {
+    let sorted = [...properties];
+    switch (sortBy) {
+      case 'price_high': return sorted.sort((a, b) => b.price - a.price);
+      case 'price_low': return sorted.sort((a, b) => a.price - b.price);
+      case 'area_large': return sorted.sort((a, b) => (b.area || 0) - (a.area || 0));
+      case 'area_small': return sorted.sort((a, b) => (a.area || 0) - (b.area || 0));
+      case 'subway': return sorted.filter(p => p.hasSubway);
+      case 'elevator': return sorted.filter(p => p.hasElevator);
+      default: return sorted;
+    }
+  }, [sortBy]);
 
   const features = [
     { icon: Home, text: { zh: '真实房源', en: 'Real Listings', ko: '실제 매물', vi: 'Nhà thật' } },
@@ -163,8 +196,22 @@ export const HouseLeasePage: React.FC = () => {
         ))}
       </div>
 
+      {/* 筛选下拉框 */}
+      <div className="relative">
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label[language]}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
+
       <div className="space-y-2">
-        {properties.map((property) => (
+        {sortedProperties.map((property) => (
           <div
             key={property.id}
             onClick={() => goToDetail(property)}
@@ -186,32 +233,38 @@ export const HouseLeasePage: React.FC = () => {
                   {property.type[language]}
                 </h3>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-red-600 font-bold text-base leading-none">{property.price}π/月</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-red-600 font-bold text-base leading-none">{property.price}π/月</span>
+                    {property.hasSubway && (
+                      <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">
+                        🚇 {language === 'zh' ? '近地铁' : 'Subway'}
+                      </span>
+                    )}
+                    {property.hasElevator && (
+                      <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">
+                        🛗 {language === 'zh' ? '有电梯' : 'Elevator'}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '评分' : 'Rating'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{property.rating}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已租' : 'Rented'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <TrendingUp className="w-2.5 h-2.5 text-green-600" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{property.sales}</span>
-                      </div>
+                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '面积' : 'Area'}</span>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{property.area}㎡</span>
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Heart className="w-2.5 h-2.5 fill-red-400 text-red-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{property.favorites}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{property.favorites}</span>
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500">{property.shop[language]}</div>
+                {/* 商家名称和评分 */}
+                <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <span>{property.shop[language]}</span>
+                  <span className="flex items-center gap-0.5 text-yellow-600">
+                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                    <span className="font-bold">{property.rating}</span>
+                  </span>
+                </div>
               </div>
             </div>
             <button 

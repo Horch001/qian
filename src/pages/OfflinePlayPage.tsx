@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, TrendingUp, Heart } from 'lucide-react';
+import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SearchBar } from '../components/SearchBar';
 
 export const OfflinePlaYPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState('default');
   const navigate = useNavigate();
 
   const goToDetail = (activity: any) => {
@@ -49,6 +50,24 @@ export const OfflinePlaYPage: React.FC = () => {
     },
   ];
 
+  const sortOptions = [
+    { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
+    { value: 'price_high', label: { zh: '价格从高到低', en: 'Price: High to Low', ko: '가격: 높은순', vi: 'Giá: Cao đến thấp' } },
+    { value: 'price_low', label: { zh: '价格从低到高', en: 'Price: Low to High', ko: '가격: 낮은순', vi: 'Giá: Thấp đến cao' } },
+    { value: 'sales', label: { zh: '销量优先', en: 'Best Selling', ko: '판매량순', vi: 'Bán chạy nhất' } },
+    { value: 'deposit', label: { zh: '已缴纳保证金', en: 'Deposit Paid', ko: '보증금 납부', vi: 'Đã đặt cọc' } },
+  ];
+
+  const sortedActivities = useMemo(() => {
+    const sorted = [...activities];
+    switch (sortBy) {
+      case 'price_high': return sorted.sort((a, b) => b.price - a.price);
+      case 'price_low': return sorted.sort((a, b) => a.price - b.price);
+      case 'sales': return sorted.sort((a, b) => b.sales - a.sales);
+      default: return sorted;
+    }
+  }, [sortBy]);
+
   const features = [
     { icon: UserCheck, text: { zh: '实名认证', en: 'Real-Name Auth', ko: '실명 인증', vi: 'Xác thực tên thật' } },
     { icon: ShieldCheck, text: { zh: '安全有保障', en: 'Safe & Secure', ko: '안전 보장', vi: 'An toàn bảo đảm' } },
@@ -69,8 +88,22 @@ export const OfflinePlaYPage: React.FC = () => {
         ))}
       </div>
 
+      {/* 筛选下拉框 */}
+      <div className="relative">
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label[language]}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
+
       <div className="space-y-2">
-        {activities.map((activity) => (
+        {sortedActivities.map((activity) => (
           <div
             key={activity.id}
             onClick={() => goToDetail(activity)}
@@ -96,24 +129,15 @@ export const OfflinePlaYPage: React.FC = () => {
                   <div className="flex gap-2">
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '评分' : 'Rating'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{activity.rating}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{activity.rating}</span>
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <TrendingUp className="w-2.5 h-2.5 text-green-600" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{activity.sales}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{activity.sales}</span>
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Heart className="w-2.5 h-2.5 fill-red-400 text-red-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{activity.favorites}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{activity.favorites}</span>
                     </div>
                   </div>
                 </div>

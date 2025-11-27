@@ -34,6 +34,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [walletError, setWalletError] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameLastModified, setUsernameLastModified] = useState<string | null>(null);
+  const [isMerchant, setIsMerchant] = useState(false);
   const [favoritesCount, setFavoritesCount] = useState(0);
   const [ordersCount, setOrdersCount] = useState(0);
   const [favoritesList, setFavoritesList] = useState<any[]>([]);
@@ -72,6 +75,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedDetail) setDetailAddress(savedDetail);
     if (savedWalletLocked === 'true') setWalletLocked(true);
     if (savedUsername) setUsername(savedUsername);
+    
+    const savedUsernameLastModified = localStorage.getItem('usernameLastModified');
+    if (savedUsernameLastModified) setUsernameLastModified(savedUsernameLastModified);
+    
+    const savedIsMerchant = localStorage.getItem('isMerchant');
+    if (savedIsMerchant === 'true') setIsMerchant(true);
     
     const savedReceiverName = localStorage.getItem('receiverName');
     const savedReceiverPhone = localStorage.getItem('receiverPhone');
@@ -112,6 +121,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
+  // 检查用户名是否可以修改（每月一次）
+  const canModifyUsername = (() => {
+    if (!usernameLastModified) return true;
+    const lastModified = new Date(usernameLastModified);
+    const now = new Date();
+    const nextMonth = new Date(lastModified.getFullYear(), lastModified.getMonth() + 1, lastModified.getDate());
+    return now >= nextMonth;
+  })();
+
+  const nextUsernameModifyDate = usernameLastModified 
+    ? new Date(new Date(usernameLastModified).getFullYear(), new Date(usernameLastModified).getMonth() + 1, new Date(usernameLastModified).getDate()).toLocaleDateString()
+    : '';
+
   // 获取省份列表
   const provinces = LOCATION_DATA[0]?.regions.map(r => r.name) || [];
   
@@ -142,6 +164,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   };
 
   const handleSaveSettings = () => {
+    // 验证必填项
+    if (!receiverName.trim()) {
+      alert(getText({ zh: '请填写收件人姓名', en: 'Please enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Vui lòng nhập tên người nhận' }));
+      return;
+    }
+    if (!receiverPhone.trim()) {
+      alert(getText({ zh: '请填写联系电话', en: 'Please enter phone number', ko: '전화번호를 입력하세요', vi: 'Vui lòng nhập số điện thoại' }));
+      return;
+    }
+    if (!selectedProvince || !selectedCity || !detailAddress.trim()) {
+      alert(getText({ zh: '请填写完整的收货地址', en: 'Please enter complete shipping address', ko: '전체 배송 주소를 입력하세요', vi: 'Vui lòng nhập địa chỉ giao hàng đầy đủ' }));
+      return;
+    }
+    
+    // 商家必须填写邮箱
+    if (isMerchant && !email.trim()) {
+      alert(getText({ zh: '商家必须填写邮箱地址', en: 'Email is required for merchants', ko: '판매자는 이메일이 필요합니다', vi: 'Email là bắt buộc đối với người bán' }));
+      return;
+    }
+    
     // 验证钱包地址
     if (walletAddress && !validateWalletAddress(walletAddress)) {
       setWalletError(getText({ 
@@ -155,6 +197,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     
     // 组合完整地址
     const fullAddress = `${selectedProvince} ${selectedCity} ${selectedDistrict} ${detailAddress}`.trim();
+    
+    // 检查用户名是否有变化，如果有变化则记录修改时间
+    const savedUsername = localStorage.getItem('customUsername');
+    if (username !== savedUsername && username.trim()) {
+      if (!canModifyUsername) {
+        alert(getText({ zh: '本月已修改过用户名，请下月再试', en: 'Username already modified this month', ko: '이번 달에 이미 수정됨', vi: 'Đã sửa tháng này' }));
+        return;
+      }
+      const now = new Date().toISOString();
+      localStorage.setItem('usernameLastModified', now);
+      setUsernameLastModified(now);
+    }
     
     // 保存地址信息到 localStorage
     localStorage.setItem('shippingAddress', fullAddress);
@@ -418,7 +472,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <Heart className="w-5 h-5 text-white" />
               <span className="font-bold text-white">{getText({ zh: '我的收藏', en: 'My Favorites', ko: '내 즐겨찾기', vi: 'Yêu thích của tôi' })}</span>
               {favoritesCount > 0 && (
-                <span className="bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full">{favoritesCount}</span>
+                <span className="text-white/60 text-xs">({favoritesCount})</span>
               )}
               <span className="ml-auto text-white/60">{showFavoritesDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
@@ -578,14 +632,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <Edit3 className="w-5 h-5" />
                   {getText({ zh: '用户名', en: 'Username', ko: '사용자 이름', vi: 'Tên người dùng' })}
+                  {usernameLastModified && (
+                    <span className="text-xs text-yellow-200">
+                      ({getText({ zh: '每月可修改一次', en: 'Once per month', ko: '월 1회 수정 가능', vi: 'Một lần mỗi tháng' })})
+                    </span>
+                  )}
                 </label>
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder={getText({ zh: '请输入用户名', en: 'Enter username', ko: '사용자 이름을 입력하세요', vi: 'Nhập tên người dùng' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // 只允许数字、大小写字母和中文
+                    if (/^[a-zA-Z0-9\u4e00-\u9fa5]*$/.test(value)) {
+                      setUsername(value);
+                      setUsernameError('');
+                    } else {
+                      setUsernameError(getText({ zh: '只能输入数字、字母和中文', en: 'Only letters, numbers and Chinese allowed', ko: '문자, 숫자, 중국어만 허용', vi: 'Chỉ cho phép chữ cái, số và tiếng Trung' }));
+                    }
+                  }}
+                  disabled={!canModifyUsername}
+                  placeholder={getText({ zh: '请输入用户名（数字、字母、中文）', en: 'Enter username (letters, numbers, Chinese)', ko: '사용자 이름 입력 (문자, 숫자, 중국어)', vi: 'Nhập tên (chữ cái, số, tiếng Trung)' })}
+                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
+                {usernameError && (
+                  <p className="text-yellow-200 text-xs mt-1">{usernameError}</p>
+                )}
+                {!canModifyUsername && (
+                  <p className="text-yellow-200 text-xs mt-1">
+                    {getText({ zh: '本月已修改过用户名，下次可修改时间：', en: 'Username modified this month. Next available: ', ko: '이번 달에 이미 수정됨. 다음 수정 가능: ', vi: 'Đã sửa tháng này. Lần tiếp theo: ' })}
+                    {nextUsernameModifyDate}
+                  </p>
+                )}
               </div>
               
               {/* 邮箱设置 */}
@@ -593,6 +671,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <Mail className="w-5 h-5" />
                   {getText({ zh: '邮箱设置', en: 'Email', ko: '이메일', vi: 'Email' })}
+                  {isMerchant && <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>}
                 </label>
                 <input
                   type="email"
@@ -601,6 +680,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email address', ko: '이메일 주소를 입력하세요', vi: 'Nhập địa chỉ email' })}
                   className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
                 />
+                {!isMerchant && (
+                  <p className="text-white/60 text-xs mt-1">
+                    {getText({ zh: '普通用户可选填', en: 'Optional for regular users', ko: '일반 사용자는 선택 사항', vi: 'Tùy chọn cho người dùng thường' })}
+                  </p>
+                )}
               </div>
               
               {/* 收件人信息 */}
@@ -608,6 +692,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <User className="w-5 h-5" />
                   {getText({ zh: '收件人姓名', en: 'Receiver Name', ko: '수령인 이름', vi: 'Tên người nhận' })}
+                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
                 </label>
                 <input
                   type="text"
@@ -623,6 +708,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <Phone className="w-5 h-5" />
                   {getText({ zh: '联系电话', en: 'Phone Number', ko: '전화번호', vi: 'Số điện thoại' })}
+                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
                 </label>
                 <input
                   type="tel"
@@ -638,6 +724,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <label className="flex items-center gap-2 text-white font-bold mb-2">
                   <MapPin className="w-5 h-5" />
                   {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
+                  <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>
                 </label>
                 
                 {/* 省份选择 */}
@@ -698,7 +785,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   value={walletAddress}
                   onChange={(e) => handleWalletChange(e.target.value)}
                   disabled={walletLocked}
-                  placeholder={getText({ zh: '请输入Pi钱包地址（大写字母+数字）', en: 'Enter Pi wallet (uppercase + numbers)', ko: 'Pi 지갑 주소 입력 (대문자+숫자)', vi: 'Nhập ví Pi (chữ hoa + số)' })}
+                  placeholder={getText({ zh: 'Pi钱包地址（大写字母+数字），必须与充值地址一致', en: 'Pi wallet (uppercase + numbers), must match deposit address', ko: 'Pi 지갑 (대문자+숫자), 충전 주소와 일치해야 함', vi: 'Ví Pi (chữ hoa + số), phải khớp với địa chỉ nạp' })}
                   className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed uppercase"
                 />
                 {walletError && (
@@ -709,9 +796,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     {getText({ zh: '首次提现成功后钱包地址不可更改', en: 'Wallet address cannot be changed after first withdrawal', ko: '첫 출금 후 지갑 주소 변경 불가', vi: 'Không thể thay đổi địa chỉ ví sau lần rút tiền đầu tiên' })}
                   </p>
                 )}
-                <p className="text-white/70 text-xs mt-1">
-                  {getText({ zh: '提示：钱包地址必须与充值地址一致', en: 'Note: Must match deposit wallet address', ko: '참고: 충전 지갑 주소와 일치해야 합니다', vi: 'Lưu ý: Phải khớp với địa chỉ ví nạp tiền' })}
-                </p>
               </div>
               
               {/* 按钮 */}

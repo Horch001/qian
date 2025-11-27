@@ -226,7 +226,10 @@ export const EscrowTradePage: React.FC = () => {
       </div>
 
       {/* 创建交易按钮 */}
-      <button className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm">
+      <button 
+        onClick={() => navigate('/escrow-create')}
+        className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm"
+      >
         {language === 'zh' ? '+ 创建担保交易' : language === 'en' ? '+ Create Escrow Trade' : language === 'ko' ? '+ 에스크로 거래 생성' : '+ Tạo giao dịch ký quỹ'}
       </button>
     </div>

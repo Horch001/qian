@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame } from 'lucide-react';
+import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
 export const SeekResourcesPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState('default');
   const navigate = useNavigate();
 
   const goToDetail = (request: any) => {
@@ -23,6 +24,8 @@ export const SeekResourcesPage: React.FC = () => {
       additionalBids: 30,
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: true,
+      publishTime: { zh: '2天前', en: '2 days ago', ko: '2일 전', vi: '2 ngày trước' },
+      deadline: { zh: '5天后截止', en: '5 days left', ko: '5일 남음', vi: 'Còn 5 ngày' },
     },
     {
       id: '2',
@@ -33,6 +36,8 @@ export const SeekResourcesPage: React.FC = () => {
       additionalBids: 50,
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: false,
+      publishTime: { zh: '1周前', en: '1 week ago', ko: '1주 전', vi: '1 tuần trước' },
+      deadline: { zh: '3天后截止', en: '3 days left', ko: '3일 남음', vi: 'Còn 3 ngày' },
     },
     {
       id: '3',
@@ -43,8 +48,29 @@ export const SeekResourcesPage: React.FC = () => {
       additionalBids: 0,
       status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
       hot: false,
+      publishTime: { zh: '3小时前', en: '3 hours ago', ko: '3시간 전', vi: '3 giờ trước' },
+      deadline: { zh: '7天后截止', en: '7 days left', ko: '7일 남음', vi: 'Còn 7 ngày' },
     },
   ];
+
+  const sortOptions = [
+    { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
+    { value: 'bidders_high', label: { zh: '出价人数从多到少', en: 'Bidders: High to Low', ko: '입찰자: 많은순', vi: 'Người đấu giá: Cao đến thấp' } },
+    { value: 'bidders_low', label: { zh: '出价人数从少到多', en: 'Bidders: Low to High', ko: '입찰자: 적은순', vi: 'Người đấu giá: Thấp đến cao' } },
+    { value: 'amount_high', label: { zh: '出价金额从高到低', en: 'Amount: High to Low', ko: '금액: 높은순', vi: 'Số tiền: Cao đến thấp' } },
+    { value: 'amount_low', label: { zh: '出价金额从低到高', en: 'Amount: Low to High', ko: '금액: 낮은순', vi: 'Số tiền: Thấp đến cao' } },
+  ];
+
+  const sortedRequests = useMemo(() => {
+    const sorted = [...requests];
+    switch (sortBy) {
+      case 'bidders_high': return sorted.sort((a, b) => b.totalBidders - a.totalBidders);
+      case 'bidders_low': return sorted.sort((a, b) => a.totalBidders - b.totalBidders);
+      case 'amount_high': return sorted.sort((a, b) => (b.initiatorPrice + b.additionalBids) - (a.initiatorPrice + a.additionalBids));
+      case 'amount_low': return sorted.sort((a, b) => (a.initiatorPrice + a.additionalBids) - (b.initiatorPrice + b.additionalBids));
+      default: return sorted;
+    }
+  }, [sortBy]);
 
   const features = [
     { icon: Gem, text: { zh: '稀缺资源', en: 'Rare Resources', ko: '희귀 자원', vi: 'Tài nguyên hiếm' } },
@@ -65,9 +91,23 @@ export const SeekResourcesPage: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* 筛选下拉框 */}
+      <div className="relative">
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label[language]}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
       
       <div className="space-y-2">
-        {requests.map((request) => (
+        {sortedRequests.map((request) => (
           <div
             key={request.id}
             onClick={() => goToDetail(request)}
@@ -97,6 +137,15 @@ export const SeekResourcesPage: React.FC = () => {
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-gray-500">{language === 'zh' ? '首价' : 'Start'}</span>
                       <span className="text-red-600 font-bold text-sm leading-none">{request.initiatorPrice}π</span>
+                      <span className="text-[9px] text-gray-500 ml-3">{language === 'zh' ? '发布' : 'Posted'}</span>
+                      <span className="flex items-center gap-0.5 text-[9px] text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        {request.publishTime[language]}
+                      </span>
+                      <span className="flex items-center gap-0.5 text-[9px] text-orange-600 font-bold ml-1">
+                        <Calendar className="w-3 h-3" />
+                        {request.deadline[language]}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="text-[9px] text-gray-500">{language === 'zh' ? '总价' : 'Total'}</span>

@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, BookOpen, Video, Sparkles, Award, Heart } from 'lucide-react';
+import { Star, BookOpen, Video, Sparkles, Award, ChevronDown } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
 export const CoursePagePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState('default');
   const navigate = useNavigate();
 
   const goToDetail = (course: any) => {
@@ -52,6 +53,24 @@ export const CoursePagePage: React.FC = () => {
     },
   ];
 
+  const sortOptions = [
+    { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
+    { value: 'price_high', label: { zh: '价格从高到低', en: 'Price: High to Low', ko: '가격: 높은순', vi: 'Giá: Cao đến thấp' } },
+    { value: 'price_low', label: { zh: '价格从低到高', en: 'Price: Low to High', ko: '가격: 낮은순', vi: 'Giá: Thấp đến cao' } },
+    { value: 'sales', label: { zh: '销量优先', en: 'Best Selling', ko: '판매량순', vi: 'Bán chạy nhất' } },
+    { value: 'deposit', label: { zh: '已缴纳保证金', en: 'Deposit Paid', ko: '보증금 납부', vi: 'Đã đặt cọc' } },
+  ];
+
+  const sortedCourses = useMemo(() => {
+    const sorted = [...courses];
+    switch (sortBy) {
+      case 'price_high': return sorted.sort((a, b) => b.price - a.price);
+      case 'price_low': return sorted.sort((a, b) => a.price - b.price);
+      case 'sales': return sorted.sort((a, b) => b.sales - a.sales);
+      default: return sorted;
+    }
+  }, [sortBy]);
+
   const features = [
     { icon: BookOpen, text: { zh: '实用课程', en: 'Practical Courses', ko: '실용 과정', vi: 'Khóa học thực tế' } },
     { icon: Video, text: { zh: '视频音频', en: 'Video & Audio', ko: '비디오 오디오', vi: 'Video & Audio' } },
@@ -81,9 +100,23 @@ export const CoursePagePage: React.FC = () => {
         ))}
       </div>
 
+      {/* 筛选下拉框 */}
+      <div className="relative">
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label[language]}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+      </div>
+
       {/* 课程列表 */}
       <div className="space-y-2">
-        {courses.map((course) => (
+        {sortedCourses.map((course) => (
           <div
             key={course.id}
             onClick={() => goToDetail(course)}
@@ -110,10 +143,7 @@ export const CoursePagePage: React.FC = () => {
                   <div className="flex gap-2">
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '评分' : 'Rating'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Star className="w-2.5 h-2.5 fill-yellow-400 text-yellow-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{course.rating}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{course.rating}</span>
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
@@ -121,10 +151,7 @@ export const CoursePagePage: React.FC = () => {
                     </div>
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
-                      <div className="flex items-center gap-0.5 mt-0.5">
-                        <Heart className="w-2.5 h-2.5 fill-red-400 text-red-400" />
-                        <span className="text-[10px] text-gray-900 font-bold leading-none">{course.favorites}</span>
-                      </div>
+                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{course.favorites}</span>
                     </div>
                   </div>
                 </div>
@@ -137,7 +164,7 @@ export const CoursePagePage: React.FC = () => {
             <button 
               onClick={(e) => { e.stopPropagation(); goToDetail(course); }}
               className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
-              {language === 'zh' ? '报名' : language === 'en' ? 'Enroll' : language === 'ko' ? '등록' : 'Đăng ký'}
+              {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
             </button>
           </div>
         ))}

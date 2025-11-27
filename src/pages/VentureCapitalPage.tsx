@@ -215,7 +215,10 @@ export const VentureCapitalPage: React.FC = () => {
       </div>
 
       {/* 发布项目按钮 */}
-      <button className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm">
+      <button 
+        onClick={() => navigate('/venture-create')}
+        className="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm"
+      >
         {language === 'zh' ? '+ 发布融资项目（需缴纳保证金）' : language === 'en' ? '+ Post Funding Project (Deposit Required)' : language === 'ko' ? '+ 자금 조달 프로젝트 게시 (보증금 필요)' : '+ Đăng dự án (Cần đặt cọc)'}
       </button>
     </div>

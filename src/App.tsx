@@ -31,6 +31,8 @@ import { MessagesPage } from './pages/MessagesPage';
 import { CartPage } from './pages/CartPage';
 import { CustomerServicePage } from './pages/CustomerServicePage';
 import { JoinStorePage } from './pages/JoinStorePage';
+import { EscrowCreatePage } from './pages/EscrowCreatePage';
+import { VentureCreatePage } from './pages/VentureCreatePage';
 import './index.css';
 
 const HomePage: React.FC<{ 
@@ -175,6 +177,16 @@ export const App: React.FC = () => {
   // Join store page
   if (location.pathname === '/join-store') {
     return <JoinStorePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Escrow create page
+  if (location.pathname === '/escrow-create') {
+    return <EscrowCreatePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Venture create page
+  if (location.pathname === '/venture-create') {
+    return <VentureCreatePage language={language} translations={TRANSLATIONS} />;
   }
 
   // Detail pages layout
