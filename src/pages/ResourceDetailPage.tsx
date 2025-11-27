@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Heart, Share2, Users, TrendingUp, Clock, Shield, MessageCircle, Send, Gem, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Heart, Share2, Users, TrendingUp, Clock, Shield, MessageCircle, Send, Gem, CheckCircle, Calendar } from 'lucide-react';
 import { Language, Translations } from '../types';
 
 interface ResourceDetailPageProps {
@@ -90,6 +90,22 @@ export const ResourceDetailPage: React.FC<ResourceDetailPageProps> = ({ language
               <span className="text-sm text-gray-600">{language === 'zh' ? '同求人数' : 'Bidders'}</span>
             </div>
             <span className="font-bold text-purple-600">{item.totalBidders} {language === 'zh' ? '人' : ''}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="text-sm text-gray-600">{language === 'zh' ? '发布时间' : 'Posted'}</span>
+            </div>
+            <span className="text-sm text-gray-600">{item.publishTime?.[language] || '-'}</span>
+          </div>
+
+          <div className="flex items-center justify-between py-2 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-orange-500" />
+              <span className="text-sm text-gray-600">{language === 'zh' ? '截止时间' : 'Deadline'}</span>
+            </div>
+            <span className="text-sm font-bold text-orange-600">{item.deadline?.[language] || '-'}</span>
           </div>
         </div>
 

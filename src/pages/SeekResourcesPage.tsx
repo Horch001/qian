@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame, ChevronDown, Clock, Calendar } from 'lucide-react';
+import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame, ChevronDown, Calendar } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 
@@ -144,13 +144,6 @@ export const SeekResourcesPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-start gap-2 ml-3">
-                    <div className="flex flex-col items-center py-0.5">
-                      <span className="text-[9px] text-gray-500 leading-none">{language === 'zh' ? '发布' : 'Posted'}</span>
-                      <span className="flex items-center gap-0.5 text-[10px] text-gray-600 font-bold mt-0.5">
-                        <Clock className="w-2.5 h-2.5" />
-                        {request.publishTime[language]}
-                      </span>
-                    </div>
                     <div className="flex flex-col items-center py-0.5">
                       <span className="text-[9px] text-orange-600 font-bold leading-none">{language === 'zh' ? '截止' : 'Due'}</span>
                       <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-bold mt-0.5">
