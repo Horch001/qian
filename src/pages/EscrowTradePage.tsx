@@ -1,92 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Shield, CheckCircle, Clock, DollarSign, Search, Info, AlertCircle } from 'lucide-react';
+import { Shield, CheckCircle, Clock, DollarSign, Search, Info, AlertCircle, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { escrowApi, EscrowTrade } from '../services/api';
 
 export const EscrowTradePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null);
+  const [trades, setTrades] = useState<EscrowTrade[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const goToDetail = (trade: any) => {
-    navigate('/escrow-detail', { state: { item: trade } });
+  const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
+
+  // 从后端加载数据
+  useEffect(() => {
+    const loadTrades = async () => {
+      try {
+        const data = await escrowApi.getTrades();
+        setTrades(data);
+      } catch (error) {
+        console.error('加载担保交易失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadTrades();
+  }, []);
+
+  const goToDetail = (trade: EscrowTrade) => {
+    navigate('/escrow-detail', { 
+      state: { 
+        item: {
+          ...trade,
+          title: { zh: trade.title, en: trade.title, ko: trade.title, vi: trade.title },
+          description: { zh: trade.description || '', en: trade.description || '', ko: trade.description || '', vi: trade.description || '' },
+        } 
+      } 
+    });
   };
 
-  const trades = [
-    {
-      id: '1',
-      title: { zh: '网站开发项目', en: 'Website Development', ko: '웹사이트 개발', vi: 'Phát triển website' },
-      description: { zh: '企业官网设计与开发', en: 'Corporate website design & development', ko: '기업 웹사이트 디자인 및 개발', vi: 'Thiết kế và phát triển website doanh nghiệp' },
-      icon: '💻',
-      amount: 5000,
-      platformFee: 150,
-      status: { zh: '等待付款', en: 'Awaiting Payment', ko: '결제 대기', vi: 'Chờ thanh toán' },
-      statusCode: 'awaiting',
-      buyer: { zh: '买家A', en: 'Buyer A', ko: '구매자 A', vi: 'Người mua A' },
-      seller: { zh: '卖家B', en: 'Seller B', ko: '판매자 B', vi: 'Người bán B' },
-      time: '2小时前',
-      deadline: '7天',
-    },
-    {
-      id: '2',
-      title: { zh: '设计服务', en: 'Design Service', ko: '디자인 서비스', vi: 'Dịch vụ thiết kế' },
-      description: { zh: 'UI/UX界面设计', en: 'UI/UX interface design', ko: 'UI/UX 인터페이스 디자인', vi: 'Thiết kế giao diện UI/UX' },
-      icon: '🎨',
-      amount: 3000,
-      platformFee: 90,
-      status: { zh: '进行中', en: 'In Progress', ko: '진행 중', vi: 'Đang tiến hành' },
-      statusCode: 'progress',
-      buyer: { zh: '买家C', en: 'Buyer C', ko: '구매자 C', vi: 'Người mua C' },
-      seller: { zh: '卖家D', en: 'Seller D', ko: '판매자 D', vi: 'Người bán D' },
-      time: '1天前',
-      deadline: '5天',
-    },
-    {
-      id: '3',
-      title: { zh: '软件定制', en: 'Custom Software', ko: '맞춤 소프트웨어', vi: 'Phần mềm tùy chỉnh' },
-      description: { zh: '企业管理系统定制开发', en: 'Custom ERP system development', ko: '맞춤형 ERP 시스템 개발', vi: 'Phát triển hệ thống ERP tùy chỉnh' },
-      icon: '⚙️',
-      amount: 8000,
-      platformFee: 240,
-      status: { zh: '待确认', en: 'Pending Confirm', ko: '확인 대기', vi: 'Chờ xác nhận' },
-      statusCode: 'pending',
-      buyer: { zh: '买家E', en: 'Buyer E', ko: '구매자 E', vi: 'Người mua E' },
-      seller: { zh: '卖家F', en: 'Seller F', ko: '판매자 F', vi: 'Người bán F' },
-      time: '3天前',
-      deadline: '2天',
-      hasDispute: false,
-    },
-    {
-      id: '5',
-      title: { zh: '视频剪辑服务', en: 'Video Editing', ko: '비디오 편집', vi: 'Chỉnh sửa video' },
-      description: { zh: '宣传片剪辑制作', en: 'Promotional video editing', ko: '홍보 영상 편집', vi: 'Chỉnh sửa video quảng cáo' },
-      icon: '🎬',
-      amount: 2500,
-      platformFee: 75,
-      status: { zh: '仲裁中', en: 'In Arbitration', ko: '중재 중', vi: 'Đang trọng tài' },
-      statusCode: 'arbitration',
-      buyer: { zh: '买家I', en: 'Buyer I', ko: '구매자 I', vi: 'Người mua I' },
-      seller: { zh: '卖家J', en: 'Seller J', ko: '판매자 J', vi: 'Người bán J' },
-      time: '6天前',
-      deadline: '仲裁中',
-      hasDispute: true,
-      disputeReason: { zh: '质量不符', en: 'Quality issue', ko: '품질 문제', vi: 'Vấn đề chất lượng' },
-    },
-    {
-      id: '4',
-      title: { zh: '翻译服务', en: 'Translation Service', ko: '번역 서비스', vi: 'Dịch vụ dịch thuật' },
-      description: { zh: '技术文档中英互译', en: 'Technical document translation', ko: '기술 문서 번역', vi: 'Dịch tài liệu kỹ thuật' },
-      icon: '📝',
-      amount: 1500,
-      platformFee: 45,
-      status: { zh: '已完成', en: 'Completed', ko: '완료됨', vi: 'Đã hoàn thành' },
-      statusCode: 'completed',
-      buyer: { zh: '买家G', en: 'Buyer G', ko: '구매자 G', vi: 'Người mua G' },
-      seller: { zh: '卖家H', en: 'Seller H', ko: '판매자 H', vi: 'Người bán H' },
-      time: '5天前',
-      deadline: '-',
-    },
-  ];
+  // 格式化时间
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffHours < 1) return getText({ zh: '刚刚', en: 'Just now', ko: '방금', vi: 'Vừa xong' });
+    if (diffHours < 24) return getText({ zh: `${diffHours}小时前`, en: `${diffHours}h ago`, ko: `${diffHours}시간 전`, vi: `${diffHours} giờ trước` });
+    if (diffDays < 7) return getText({ zh: `${diffDays}天前`, en: `${diffDays}d ago`, ko: `${diffDays}일 전`, vi: `${diffDays} ngày trước` });
+    return date.toLocaleDateString();
+  };
+
+  // 获取状态显示
+  const getStatusDisplay = (status: string) => {
+    const statusMap: { [key: string]: { text: { [key: string]: string }; code: string } } = {
+      'PENDING': { text: { zh: '等待接单', en: 'Awaiting', ko: '대기 중', vi: 'Chờ đợi' }, code: 'awaiting' },
+      'ACCEPTED': { text: { zh: '已接单', en: 'Accepted', ko: '수락됨', vi: 'Đã chấp nhận' }, code: 'progress' },
+      'PAID': { text: { zh: '已付款', en: 'Paid', ko: '결제됨', vi: 'Đã thanh toán' }, code: 'progress' },
+      'DELIVERED': { text: { zh: '已交付', en: 'Delivered', ko: '배송됨', vi: 'Đã giao' }, code: 'pending' },
+      'COMPLETED': { text: { zh: '已完成', en: 'Completed', ko: '완료됨', vi: 'Đã hoàn thành' }, code: 'completed' },
+      'DISPUTED': { text: { zh: '仲裁中', en: 'Disputed', ko: '분쟁 중', vi: 'Tranh chấp' }, code: 'arbitration' },
+      'CANCELLED': { text: { zh: '已取消', en: 'Cancelled', ko: '취소됨', vi: 'Đã hủy' }, code: 'cancelled' },
+    };
+    return statusMap[status] || { text: { zh: status, en: status, ko: status, vi: status }, code: 'default' };
+  };
 
   const features = [
     { icon: Shield, text: { zh: '平台担保', en: 'Platform Guarantee', ko: '플랫폼 보증', vi: 'Bảo đảm nền tảng' } },
@@ -156,74 +136,74 @@ export const EscrowTradePage: React.FC = () => {
       </div>
 
       {/* 交易列表 */}
-      <div className="space-y-2">
-        {trades.map((trade) => (
-          <div
-            key={trade.id}
-            onClick={() => goToDetail(trade)}
-            className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer bg-white
-                       border ${selectedTrade === trade.id ? 'border-purple-400' : 'border-purple-100'}
-                       shadow-sm hover:shadow-md active:shadow-sm`}
-          >
-            <div className="flex gap-2 relative pb-6">
-              <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-purple-50 rounded-lg">{trade.icon}</div>
-              <div className="flex-1 min-w-0 flex flex-col">
-                <div className="flex items-center justify-between mb-0.5">
-                  <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
-                    {trade.title[language]}
-                  </h3>
-                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold ml-2 ${getStatusColor(trade.statusCode)}`}>
-                    {trade.status[language]}
-                  </span>
-                </div>
-                <p className="text-[10px] text-gray-600 mb-1 line-clamp-1">{trade.description[language]}</p>
-                <div className="flex items-start justify-between mb-1">
-                  <div className="flex flex-col gap-0.5">
-                    <span className="text-red-600 font-bold text-base leading-none">{trade.amount.toLocaleString()}π</span>
-                    <span className="text-[9px] text-gray-500">
-                      {language === 'zh' ? '服务费' : 'Fee'}: {trade.platformFee}π (3%)
-                    </span>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '买家' : 'Buyer'}</span>
-                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{trade.buyer[language]}</span>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+          <p className="mt-2 text-gray-600 text-sm">{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+        </div>
+      ) : trades.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">{getText({ zh: '暂无担保交易', en: 'No escrow trades', ko: '에스크로 거래 없음', vi: 'Không có giao dịch ký quỹ' })}</div>
+      ) : (
+        <div className="space-y-2">
+          {trades.map((trade) => {
+            const statusInfo = getStatusDisplay(trade.status);
+            const amount = parseFloat(trade.amount);
+            const platformFee = (amount * 0.03).toFixed(2);
+            
+            return (
+              <div
+                key={trade.id}
+                onClick={() => goToDetail(trade)}
+                className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer bg-white
+                           border ${selectedTrade === trade.id ? 'border-purple-400' : 'border-purple-100'}
+                           shadow-sm hover:shadow-md active:shadow-sm`}
+              >
+                <div className="flex gap-2 relative pb-6">
+                  <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-purple-50 rounded-lg">🤝</div>
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <h3 className="font-bold text-gray-800 text-sm line-clamp-1 flex-1">
+                        {trade.title}
+                      </h3>
+                      <span className={`text-[9px] px-2 py-0.5 rounded font-bold ml-2 ${getStatusColor(statusInfo.code)}`}>
+                        {statusInfo.text[language]}
+                      </span>
                     </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '卖家' : 'Seller'}</span>
-                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{trade.seller[language]}</span>
+                    <p className="text-[10px] text-gray-600 mb-1 line-clamp-1">{trade.description || getText({ zh: '暂无描述', en: 'No description', ko: '설명 없음', vi: 'Không có mô tả' })}</p>
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-red-600 font-bold text-base leading-none">{amount.toLocaleString()}π</span>
+                        <span className="text-[9px] text-gray-500">
+                          {getText({ zh: '服务费', en: 'Fee', ko: '수수료', vi: 'Phí' })}: {platformFee}π (3%)
+                        </span>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}</span>
+                          <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{trade.buyer?.username || '-'}</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '卖家', en: 'Seller', ko: '판매자', vi: 'Người bán' })}</span>
+                          <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{trade.seller?.username || getText({ zh: '待接单', en: 'Pending', ko: '대기 중', vi: 'Chờ đợi' })}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-gray-500">
+                      <Clock className="w-3 h-3" />
+                      <span>{formatTime(trade.createdAt)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-[9px] text-gray-500">
-                  <Clock className="w-3 h-3" />
-                  <span>{trade.time}</span>
-                  {trade.deadline !== '-' && trade.deadline !== '仲裁中' && (
-                    <>
-                      <span>•</span>
-                      <AlertCircle className="w-3 h-3" />
-                      <span>{language === 'zh' ? '剩余' : 'Left'}: {trade.deadline}</span>
-                    </>
-                  )}
-                </div>
-                {trade.hasDispute && (
-                  <div className="mt-1 bg-red-50 rounded px-2 py-1 text-[9px] text-red-700 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    <span className="font-bold">{language === 'zh' ? '纠纷：' : 'Dispute:'}</span>
-                    <span>{trade.disputeReason?.[language]}</span>
-                    <span>• {language === 'zh' ? '仲裁费5%' : 'Arbitration fee 5%'}</span>
-                  </div>
-                )}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); goToDetail(trade); }}
+                  className="absolute bottom-1 right-1 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all">
+                  {getText({ zh: '查看详情', en: 'View Details', ko: '세부정보 보기', vi: 'Xem chi tiết' })}
+                </button>
               </div>
-            </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); goToDetail(trade); }}
-              className="absolute bottom-1 right-1 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 active:scale-95 transition-all">
-              {language === 'zh' ? '查看详情' : language === 'en' ? 'View Details' : language === 'ko' ? '세부정보 보기' : 'Xem chi tiết'}
-            </button>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 创建交易按钮 */}
       <button 

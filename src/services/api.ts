@@ -96,6 +96,9 @@ export interface Address {
 }
 
 export const userApi = {
+  // 获取个人资料
+  getProfile: () => request<{ id: string; username: string; email?: string; avatar?: string; balance: string; role: string }>('/users/profile'),
+
   // 更新个人资料
   updateProfile: (data: { username?: string; avatar?: string }) =>
     request('/users/profile', {
@@ -133,6 +136,55 @@ export const userApi = {
 
   // 获取钱包信息
   getWallet: () => request('/users/wallet'),
+
+  // 申请提现
+  withdraw: (amount: number) =>
+    request<{ message: string; withdrawal: any }>('/users/withdraw', {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    }),
+
+  // 获取提现记录
+  getWithdrawals: () => request<any[]>('/users/withdrawals'),
+
+  // 获取通知列表
+  getNotifications: () => request<any[]>('/users/notifications'),
+
+  // 获取未读通知数
+  getUnreadNotificationCount: () => request<{ count: number }>('/users/notifications/unread-count'),
+
+  // 标记通知为已读
+  markNotificationAsRead: (id: string) =>
+    request(`/users/notifications/${id}/read`, { method: 'PUT' }),
+
+  // 标记所有通知为已读
+  markAllNotificationsAsRead: () =>
+    request('/users/notifications/read-all', { method: 'PUT' }),
+
+  // 获取余额变动记录
+  getBalanceHistory: () => request<any[]>('/users/balance-history'),
+
+  // 购物车相关
+  getCartItems: () => request<any[]>('/users/cart'),
+
+  addToCart: (productId: string, quantity: number, spec?: string) =>
+    request('/users/cart', {
+      method: 'POST',
+      body: JSON.stringify({ productId, quantity, spec }),
+    }),
+
+  updateCartItem: (cartItemId: string, quantity: number) =>
+    request(`/users/cart/${cartItemId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity }),
+    }),
+
+  removeFromCart: (cartItemId: string) =>
+    request(`/users/cart/${cartItemId}`, { method: 'DELETE' }),
+
+  clearCart: () => request('/users/cart', { method: 'DELETE' }),
+
+  getCartCount: () => request<{ count: number }>('/users/cart/count'),
 };
 
 // ==================== 商品 API ====================
@@ -146,9 +198,12 @@ export interface Product {
   originalPrice?: string;
   stock: number;
   sales: number;
+  favorites: number; // 收藏数
   rating: number;
   icon?: string;
   images: string[];
+  detailImages?: string[]; // 详情图
+  merchantId?: string;
   merchant: {
     id: string;
     shopName: string;
@@ -200,6 +255,23 @@ export const productApi = {
     return request<ProductListResponse>(`/products${query ? `?${query}` : ''}`);
   },
 
+  // 搜索商品
+  searchProducts: (params: {
+    keyword: string;
+    categoryType?: string;
+    city?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    return request<ProductListResponse>(`/products/search?${searchParams.toString()}`);
+  },
+
   // 获取商品详情
   getProduct: (id: string) => request<Product>(`/products/${id}`),
 
@@ -247,6 +319,10 @@ export const orderApi = {
       body: JSON.stringify(data),
     }),
 
+  // 余额支付
+  payWithBalance: (orderId: string) =>
+    request<Order>(`/orders/${orderId}/pay-balance`, { method: 'POST' }),
+
   // 取消订单
   cancelOrder: (id: string) =>
     request(`/orders/${id}/cancel`, { method: 'PUT' }),
@@ -254,6 +330,14 @@ export const orderApi = {
   // 确认收货
   confirmOrder: (id: string) =>
     request(`/orders/${id}/confirm`, { method: 'PUT' }),
+
+  // 申请退款（未收货）
+  refundOrder: (id: string) =>
+    request<{ refundAmount: number }>(`/orders/${id}/refund`, { method: 'POST' }),
+
+  // 申请退货退款（已收货）
+  refundReturnOrder: (id: string) =>
+    request(`/orders/${id}/refund-return`, { method: 'POST' }),
 };
 
 // ==================== 收藏 API ====================
@@ -264,10 +348,7 @@ export const favoriteApi = {
 
   // 添加收藏
   addFavorite: (productId: string) =>
-    request('/favorites', {
-      method: 'POST',
-      body: JSON.stringify({ productId }),
-    }),
+    request(`/favorites/${productId}`, { method: 'POST' }),
 
   // 取消收藏
   removeFavorite: (productId: string) =>
@@ -344,6 +425,145 @@ export const piPaymentApi = {
     request('/pi-payment/recover-incomplete', { method: 'POST' }),
 };
 
+// ==================== 商家 API ====================
+
+export interface Merchant {
+  id: string;
+  userId: string;
+  shopName: string;
+  description?: string;
+  logo?: string;
+  deposit: string;
+  rating: number;
+  totalSales: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  createdAt: string;
+}
+
+export interface MerchantApplication {
+  shopName: string;
+  description?: string;
+  contactName?: string;
+  contactPhone?: string;
+  category: string;
+  businessType?: string;
+  email: string;
+  realName?: string;
+  idCard?: string;
+  idCardImage?: string;
+  businessLicense?: string;
+}
+
+export interface ProductUpload {
+  merchantId?: string; // 店铺ID（多店铺时指定）
+  title: string;
+  description?: string;
+  price: number;
+  stock: number;
+  image?: string;
+  images?: string[];
+  detailImages?: string[]; // 详情图
+}
+
+export const merchantApi = {
+  // 申请入驻商家
+  apply: (data: MerchantApplication) =>
+    request<Merchant>('/merchants/apply', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取我的商家信息（第一个已通过的）
+  getMyMerchant: () => request<Merchant | null>('/merchants/my'),
+
+  // 获取我的所有店铺
+  getMyAllMerchants: () => request<Merchant[]>('/merchants/my/all'),
+
+  // 更新商家信息
+  updateMyMerchant: (data: Partial<MerchantApplication>) =>
+    request<Merchant>('/merchants/my', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 上传商品
+  uploadProduct: (data: ProductUpload) =>
+    request<Product>('/merchants/products', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取我的商品列表
+  getMyProducts: (page = 1, limit = 20) =>
+    request<ProductListResponse>(`/merchants/products?page=${page}&limit=${limit}`),
+
+  // 更新商品
+  updateProduct: (id: string, data: Partial<ProductUpload>) =>
+    request<Product>(`/merchants/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取商家详情
+  getMerchant: (id: string) => request<Merchant>(`/merchants/${id}`),
+
+  // 获取商家商品列表
+  getMerchantProducts: (id: string, page = 1, limit = 20) =>
+    request<ProductListResponse>(`/merchants/${id}/products?page=${page}&limit=${limit}`),
+};
+
+// ==================== 统计 API ====================
+
+export interface PlatformStats {
+  onlineCount: number;
+  totalUsers: number;
+  totalProducts: number;
+  totalOrders: number;
+  totalMerchants: number;
+}
+
+export const statsApi = {
+  // 获取在线人数
+  getOnlineCount: () => request<{ onlineCount: number }>('/stats/online'),
+
+  // 获取平台统计数据
+  getPlatformStats: () => request<PlatformStats>('/stats/platform'),
+
+  // 用户心跳（记录在线状态）
+  heartbeat: () => request('/stats/heartbeat', { method: 'POST' }),
+};
+
+// ==================== 公告 API ====================
+
+export interface Announcement {
+  id: string;
+  title: string;
+  titleEn?: string;
+  titleKo?: string;
+  titleVi?: string;
+  content?: string;
+  contentEn?: string;
+  contentKo?: string;
+  contentVi?: string;
+  type: 'INFO' | 'WARNING' | 'PROMOTION' | 'MAINTENANCE';
+  link?: string;
+  isActive: boolean;
+  sortOrder: number;
+  startAt: string;
+  endAt?: string;
+  createdAt: string;
+}
+
+export const announcementApi = {
+  // 获取首页滚动公告
+  getHomepageAnnouncement: () =>
+    request<Announcement | null>('/announcements/homepage'),
+
+  // 获取当前有效的公告列表
+  getActiveAnnouncements: () =>
+    request<Announcement[]>('/announcements/active'),
+};
+
 // 导出所有 API
 export const api = {
   auth: authApi,
@@ -352,6 +572,9 @@ export const api = {
   order: orderApi,
   favorite: favoriteApi,
   piPayment: piPaymentApi,
+  stats: statsApi,
+  merchant: merchantApi,
+  announcement: announcementApi,
 };
 
 export default api;
@@ -414,4 +637,202 @@ export const chatApi = {
 
   // 获取未读消息数
   getUnreadCount: () => request<{ count: number }>('/chat/unread'),
+};
+
+// ==================== 树洞 API ====================
+
+export interface TreeHole {
+  id: string;
+  content: string;
+  isAnonymous: boolean;
+  likes: number;
+  createdAt: string;
+  user?: {
+    id: string;
+    username: string;
+  };
+  _count?: {
+    comments: number;
+  };
+}
+
+export interface TreeHoleComment {
+  id: string;
+  content: string;
+  isAnonymous: boolean;
+  createdAt: string;
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+export const treeHoleApi = {
+  // 获取树洞列表
+  getTreeHoles: (page = 1, limit = 20) =>
+    request<{ items: TreeHole[]; total: number; page: number; limit: number }>(`/tree-hole?page=${page}&limit=${limit}`),
+
+  // 获取树洞详情
+  getTreeHole: (id: string) =>
+    request<TreeHole & { comments: TreeHoleComment[] }>(`/tree-hole/${id}`),
+
+  // 发布树洞
+  createTreeHole: (data: { content: string; isAnonymous?: boolean }) =>
+    request<TreeHole>('/tree-hole', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 评论树洞
+  commentTreeHole: (id: string, data: { content: string; isAnonymous?: boolean }) =>
+    request<TreeHoleComment>(`/tree-hole/${id}/comment`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 点赞树洞
+  likeTreeHole: (id: string) =>
+    request(`/tree-hole/${id}/like`, { method: 'POST' }),
+};
+
+// ==================== 求资源 API ====================
+
+export interface ResourceRequest {
+  id: string;
+  title: string;
+  titleEn?: string;
+  description?: string;
+  icon?: string;
+  initiatorPrice: string;
+  totalBids: string;
+  bidderCount: number;
+  status: string;
+  deadline: string;
+  createdAt: string;
+  user?: {
+    id: string;
+    username: string;
+  };
+}
+
+export const resourceApi = {
+  // 获取求资源列表
+  getResources: (params?: { sortBy?: string; keyword?: string; page?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.append(key, String(value));
+      });
+    }
+    const query = searchParams.toString();
+    return request<{ items: ResourceRequest[]; total: number }>(`/resources${query ? `?${query}` : ''}`);
+  },
+
+  // 获取求资源详情
+  getResource: (id: string) => request<ResourceRequest>(`/resource/${id}`),
+
+  // 创建求资源
+  createResource: (data: {
+    title: string;
+    titleEn?: string;
+    description?: string;
+    icon?: string;
+    initiatorPrice: number;
+    deadline: string;
+  }) =>
+    request<ResourceRequest>('/resource', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 出价（同求）
+  bidResource: (id: string, amount: number) =>
+    request(`/resource/${id}/bid`, {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    }),
+};
+
+// ==================== 友情链接 API ====================
+
+export interface FriendlyLink {
+  id: string;
+  name: string;
+  nameEn?: string;
+  url: string;
+  logo?: string;
+  description?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export const friendlyLinkApi = {
+  // 获取友情链接列表
+  getLinks: () => request<FriendlyLink[]>('/friendly-links'),
+
+  // 申请友情链接
+  applyLink: (data: { name: string; url: string; description?: string }) =>
+    request('/friendly-links/apply', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
+
+// ==================== 担保交易 API ====================
+
+export interface EscrowTrade {
+  id: string;
+  tradeNo: string;
+  title: string;
+  description?: string;
+  amount: string;
+  status: string;
+  createdAt: string;
+  acceptedAt?: string;
+  completedAt?: string;
+  buyer: {
+    id: string;
+    username: string;
+  };
+  seller?: {
+    id: string;
+    username: string;
+  };
+}
+
+export const escrowApi = {
+  // 获取担保交易列表
+  getTrades: (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return request<EscrowTrade[]>(`/escrow${query}`);
+  },
+
+  // 获取我的担保交易
+  getMyTrades: () => request<EscrowTrade[]>('/escrow/mine'),
+
+  // 获取担保交易详情
+  getTrade: (id: string) => request<EscrowTrade>(`/escrow/${id}`),
+
+  // 创建担保交易
+  createTrade: (data: { title: string; description?: string; amount: number }) =>
+    request<EscrowTrade>('/escrow', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 接单
+  acceptTrade: (id: string) =>
+    request(`/escrow/${id}/accept`, { method: 'POST' }),
+
+  // 付款
+  payTrade: (id: string) =>
+    request(`/escrow/${id}/pay`, { method: 'POST' }),
+
+  // 交付
+  deliverTrade: (id: string) =>
+    request(`/escrow/${id}/deliver`, { method: 'POST' }),
+
+  // 确认完成
+  completeTrade: (id: string) =>
+    request(`/escrow/${id}/complete`, { method: 'POST' }),
 };

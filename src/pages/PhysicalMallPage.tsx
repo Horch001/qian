@@ -41,13 +41,21 @@ export const PhysicalMallPage: React.FC = () => {
       state: { 
         item: { 
           ...product, 
+          title: { 
+            zh: product.title, 
+            en: product.titleEn || product.title,
+            ko: product.title,
+            vi: product.title,
+          },
           name: { 
             zh: product.title, 
             en: product.titleEn || product.title,
             ko: product.title,
             vi: product.title,
           },
-          image: product.icon || '📦',
+          images: product.images || [],
+          detailImages: product.detailImages || [], // 传递详情图
+          description: product.description, // 传递商品描述
           shop: {
             zh: product.merchant?.shopName || '官方店铺',
             en: product.merchant?.shopName || 'Official Store',
@@ -104,8 +112,8 @@ export const PhysicalMallPage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      {/* 搜索框 */}
-      <SimpleSearchBar language={language} translations={translations} />
+      {/* 搜索框 - 限定在实体商城板块搜索 */}
+      <SimpleSearchBar language={language} translations={translations} categoryType="PHYSICAL" />
       
       {/* 特色功能 */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -155,8 +163,14 @@ export const PhysicalMallPage: React.FC = () => {
               )}
               
               <div className="flex gap-2 relative">
-                <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner">
-                  {product.icon || '📦'}
+                <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner overflow-hidden">
+                  {product.images && product.images.length > 0 ? (
+                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl">
+                      {product.icon || '📦'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col pr-16">
                   <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
@@ -174,8 +188,8 @@ export const PhysicalMallPage: React.FC = () => {
                         <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.sales}</span>
                       </div>
                       <div className="flex flex-col items-center">
-                        <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '评分' : 'Rate'}</span>
-                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.rating}</span>
+                        <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
+                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.favorites || 0}</span>
                       </div>
                     </div>
                   </div>

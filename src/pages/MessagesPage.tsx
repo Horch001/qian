@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, Clock, CheckCheck, Pin } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { userApi, chatApi } from '../services/api';
 
 interface MessagesPageProps {
   language: Language;
@@ -10,42 +11,155 @@ interface MessagesPageProps {
 
 interface Conversation {
   id: string;
-  name: { [key: string]: string };
+  name: string;
   avatar: string;
-  lastMessage: { [key: string]: string };
-  time: string | { [key: string]: string };
+  lastMessage: string;
+  time: string;
   unread: number;
   isOfficial: boolean;
   isPinned?: boolean;
+  type: 'notification' | 'chat';
 }
 
 export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
   const navigate = useNavigate();
-  
-  const initialConversations: Conversation[] = [
-    { id: '1', name: { zh: '官方客服', en: 'Support', ko: '고객지원', vi: 'Hỗ trợ' }, avatar: '🎧', lastMessage: { zh: '您好，有什么可以帮您？', en: 'Hello, how can I help?', ko: '안녕하세요, 무엇을 도와드릴까요?', vi: 'Xin chào, tôi có thể giúp gì?' }, time: '10:30', unread: 1, isOfficial: true },
-    { id: '2', name: { zh: '系统通知', en: 'System', ko: '시스템', vi: 'Hệ thống' }, avatar: '🔔', lastMessage: { zh: '您的提现申请已处理完成', en: 'Your withdrawal has been processed', ko: '출금 신청이 처리되었습니다', vi: 'Yêu cầu rút tiền đã được xử lý' }, time: '09:15', unread: 2, isOfficial: true },
-    { id: '3', name: { zh: '品质生活馆', en: 'Quality Store', ko: '품질 상점', vi: 'Cửa hàng chất lượng' }, avatar: '🏪', lastMessage: { zh: '您的订单已发货，快递单号：SF1234567890', en: 'Your order has been shipped, tracking: SF1234567890', ko: '주문이 발송되었습니다, 운송장: SF1234567890', vi: 'Đơn hàng đã được gửi, mã vận đơn: SF1234567890' }, time: { zh: '昨天', en: 'Yesterday', ko: '어제', vi: 'Hôm qua' }, unread: 0, isOfficial: false },
-    { id: '4', name: { zh: '科技数码店', en: 'Tech Store', ko: '기술 상점', vi: 'Cửa hàng công nghệ' }, avatar: '💻', lastMessage: { zh: '感谢您的购买！期待您的好评~', en: 'Thank you for your purchase! Looking forward to your review~', ko: '구매해 주셔서 감사합니다! 리뷰 부탁드립니다~', vi: 'Cảm ơn bạn đã mua hàng! Mong nhận được đánh giá của bạn~' }, time: { zh: '3天前', en: '3 days ago', ko: '3일 전', vi: '3 ngày trước' }, unread: 0, isOfficial: false },
-    { id: '5', name: { zh: '温馨家居店', en: 'Cozy Home', ko: '아늑한 홈', vi: 'Nhà ấm cúng' }, avatar: '🏠', lastMessage: { zh: '亲，您咨询的商品已经补货啦', en: 'Hi, the item you asked about is back in stock', ko: '안녕하세요, 문의하신 상품이 재입고되었습니다', vi: 'Xin chào, sản phẩm bạn hỏi đã có hàng trở lại' }, time: { zh: '5天前', en: '5 days ago', ko: '5일 전', vi: '5 ngày trước' }, unread: 0, isOfficial: false },
-    { id: '6', name: { zh: '订单助手', en: 'Order Assistant', ko: '주문 도우미', vi: 'Trợ lý đơn hàng' }, avatar: '📦', lastMessage: { zh: '您有一笔订单即将超时，请及时确认收货', en: 'You have an order about to expire, please confirm receipt', ko: '주문이 곧 만료됩니다. 수령을 확인해 주세요', vi: 'Bạn có đơn hàng sắp hết hạn, vui lòng xác nhận nhận hàng' }, time: { zh: '1周前', en: '1 week ago', ko: '1주 전', vi: '1 tuần trước' }, unread: 0, isOfficial: true },
-    { id: '7', name: { zh: '优惠活动', en: 'Promotions', ko: '프로모션', vi: 'Khuyến mãi' }, avatar: '🎁', lastMessage: { zh: '双十一大促开始啦！全场商品低至5折', en: 'Big sale starts! Up to 50% off on all items', ko: '빅세일 시작! 전 상품 최대 50% 할인', vi: 'Khuyến mãi lớn bắt đầu! Giảm đến 50% tất cả sản phẩm' }, time: { zh: '2周前', en: '2 weeks ago', ko: '2주 전', vi: '2 tuần trước' }, unread: 0, isOfficial: true },
-  ];
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [conversations, setConversations] = useState<Conversation[]>(() => {
-    const saved = localStorage.getItem('messageConversations');
-    return saved ? JSON.parse(saved) : initialConversations;
-  });
+  const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
+  // 从后端加载消息数据
   useEffect(() => {
-    localStorage.setItem('messageConversations', JSON.stringify(conversations));
-    // 更新未读消息总数
-    const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
-    localStorage.setItem('unreadMessageCount', totalUnread.toString());
-  }, [conversations]);
+    const loadMessages = async () => {
+      try {
+        // 并行加载通知和聊天室
+        const [notifications, chatRooms] = await Promise.all([
+          userApi.getNotifications().catch(() => []),
+          chatApi.getRooms().catch(() => []),
+        ]);
 
-  const handleMarkAllRead = () => {
-    setConversations(prev => prev.map(c => ({ ...c, unread: 0 })));
+        const convs: Conversation[] = [];
+
+        // 添加系统通知（按类型分组）
+        const notificationGroups: { [key: string]: any[] } = {};
+        notifications.forEach((n: any) => {
+          const type = n.type || 'SYSTEM';
+          if (!notificationGroups[type]) {
+            notificationGroups[type] = [];
+          }
+          notificationGroups[type].push(n);
+        });
+
+        // 系统通知
+        if (notificationGroups['SYSTEM']?.length > 0) {
+          const latest = notificationGroups['SYSTEM'][0];
+          const unreadCount = notificationGroups['SYSTEM'].filter((n: any) => !n.isRead).length;
+          convs.push({
+            id: 'system',
+            name: getText({ zh: '系统通知', en: 'System', ko: '시스템', vi: 'Hệ thống' }),
+            avatar: '🔔',
+            lastMessage: latest.content || '',
+            time: formatTime(latest.createdAt, language),
+            unread: unreadCount,
+            isOfficial: true,
+            type: 'notification',
+          });
+        }
+
+        // 订单通知
+        if (notificationGroups['ORDER']?.length > 0) {
+          const latest = notificationGroups['ORDER'][0];
+          const unreadCount = notificationGroups['ORDER'].filter((n: any) => !n.isRead).length;
+          convs.push({
+            id: 'order',
+            name: getText({ zh: '订单助手', en: 'Order Assistant', ko: '주문 도우미', vi: 'Trợ lý đơn hàng' }),
+            avatar: '📦',
+            lastMessage: latest.content || '',
+            time: formatTime(latest.createdAt, language),
+            unread: unreadCount,
+            isOfficial: true,
+            type: 'notification',
+          });
+        }
+
+        // 支付通知
+        if (notificationGroups['PAYMENT']?.length > 0) {
+          const latest = notificationGroups['PAYMENT'][0];
+          const unreadCount = notificationGroups['PAYMENT'].filter((n: any) => !n.isRead).length;
+          convs.push({
+            id: 'payment',
+            name: getText({ zh: '支付通知', en: 'Payment', ko: '결제', vi: 'Thanh toán' }),
+            avatar: '💰',
+            lastMessage: latest.content || '',
+            time: formatTime(latest.createdAt, language),
+            unread: unreadCount,
+            isOfficial: true,
+            type: 'notification',
+          });
+        }
+
+        // 促销通知
+        if (notificationGroups['PROMOTION']?.length > 0) {
+          const latest = notificationGroups['PROMOTION'][0];
+          const unreadCount = notificationGroups['PROMOTION'].filter((n: any) => !n.isRead).length;
+          convs.push({
+            id: 'promotion',
+            name: getText({ zh: '优惠活动', en: 'Promotions', ko: '프로모션', vi: 'Khuyến mãi' }),
+            avatar: '🎁',
+            lastMessage: latest.content || '',
+            time: formatTime(latest.createdAt, language),
+            unread: unreadCount,
+            isOfficial: true,
+            type: 'notification',
+          });
+        }
+
+        // 添加官方客服入口（始终显示）
+        convs.unshift({
+          id: 'support',
+          name: getText({ zh: '官方客服', en: 'Support', ko: '고객지원', vi: 'Hỗ trợ' }),
+          avatar: '🎧',
+          lastMessage: getText({ zh: '有问题随时联系我们', en: 'Contact us anytime', ko: '언제든지 연락하세요', vi: 'Liên hệ bất cứ lúc nào' }),
+          time: '',
+          unread: 0,
+          isOfficial: true,
+          isPinned: true,
+          type: 'chat',
+        });
+
+        // 添加商家聊天室
+        chatRooms.forEach((room: any) => {
+          const merchantInfo = room.merchantUser?.merchant;
+          convs.push({
+            id: room.id,
+            name: merchantInfo?.shopName || room.merchantUser?.username || getText({ zh: '商家', en: 'Merchant', ko: '판매자', vi: 'Người bán' }),
+            avatar: merchantInfo?.logo || '🏪',
+            lastMessage: room.lastMessage || '',
+            time: room.lastMessageAt ? formatTime(room.lastMessageAt, language) : '',
+            unread: 0, // TODO: 从后端获取未读数
+            isOfficial: false,
+            type: 'chat',
+          });
+        });
+
+        setConversations(convs);
+      } catch (error) {
+        console.error('加载消息失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMessages();
+  }, [language]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await userApi.markAllNotificationsAsRead();
+      setConversations(prev => prev.map(c => ({ ...c, unread: 0 })));
+    } catch (error) {
+      console.error('标记已读失败:', error);
+    }
   };
 
   const handleTogglePin = (id: string) => {
@@ -57,6 +171,28 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
   };
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0);
+
+  // 格式化时间
+  function formatTime(dateStr: string, lang: Language): string {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (diffDays === 1) {
+      return getText({ zh: '昨天', en: 'Yesterday', ko: '어제', vi: 'Hôm qua' });
+    } else if (diffDays < 7) {
+      return getText({ zh: `${diffDays}天前`, en: `${diffDays} days ago`, ko: `${diffDays}일 전`, vi: `${diffDays} ngày trước` });
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      return getText({ zh: `${weeks}周前`, en: `${weeks} week${weeks > 1 ? 's' : ''} ago`, ko: `${weeks}주 전`, vi: `${weeks} tuần trước` });
+    } else {
+      return date.toLocaleDateString();
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
@@ -83,22 +219,40 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto">
-        {conversations.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-3"></div>
+            <p>{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+          </div>
+        ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <MessageCircle className="w-12 h-12 mb-3 text-gray-300" />
-            <p>{language === 'zh' ? '暂无消息' : 'No messages'}</p>
+            <p>{getText({ zh: '暂无消息', en: 'No messages', ko: '메시지 없음', vi: 'Không có tin nhắn' })}</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
             {conversations.map((conv) => (
               <div 
                 key={conv.id}
-                onClick={() => conv.isOfficial ? navigate('/customer-service') : null}
+                onClick={() => {
+                  if (conv.id === 'support') {
+                    navigate('/customer-service');
+                  } else if (conv.type === 'chat') {
+                    navigate(`/chat/${conv.id}`);
+                  } else if (conv.type === 'notification') {
+                    // 跳转到通知详情页
+                    navigate('/notification-detail', { state: { type: conv.id, name: conv.name } });
+                  }
+                }}
                 className={`flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors cursor-pointer ${conv.isPinned ? 'bg-purple-50' : 'bg-white'}`}
               >
                 <div className="relative">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl">
-                    {conv.avatar}
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl overflow-hidden">
+                    {conv.avatar.startsWith('http') ? (
+                      <img src={conv.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      conv.avatar
+                    )}
                   </div>
                   {conv.isOfficial && (
                     <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
@@ -108,13 +262,15 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-bold text-gray-800 text-sm truncate">{conv.name[language]}</h3>
-                    <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {typeof conv.time === 'object' ? conv.time[language] : conv.time}
-                    </span>
+                    <h3 className="font-bold text-gray-800 text-sm truncate">{conv.name}</h3>
+                    {conv.time && (
+                      <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {conv.time}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{typeof conv.lastMessage === 'object' ? conv.lastMessage[language] : conv.lastMessage}</p>
+                  <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                   {conv.unread > 0 && (

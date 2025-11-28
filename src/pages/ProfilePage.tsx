@@ -4,6 +4,7 @@ import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store
 import { Language, Translations } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
 import { usePiPayment } from '../hooks/usePiPayment';
+import { orderApi, authApi, userApi, chatApi, favoriteApi } from '../services/api';
 
 interface ProfilePageProps {
   language: Language;
@@ -25,6 +26,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
+  const [showBalanceHistory, setShowBalanceHistory] = useState(false);
+  const [balanceHistory, setBalanceHistory] = useState<any[]>([]);
+  const [balanceHistoryPage, setBalanceHistoryPage] = useState(1);
   
   // 自定义弹窗状态
   const [toast, setToast] = useState<{
@@ -59,6 +63,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       } else {
         localStorage.setItem('userInfo', JSON.stringify(updatedUser));
       }
+      
+      // 记录余额变动历史
+      const history = JSON.parse(localStorage.getItem('balanceHistory') || '[]');
+      history.unshift({
+        type: 'add',
+        amount: rechargeAmount,
+        reason: getText({ zh: 'Pi钱包充值', en: 'Pi Wallet Deposit', ko: 'Pi 지갑 충전', vi: 'Nạp tiền từ ví Pi' }),
+        time: new Date().toISOString(),
+      });
+      localStorage.setItem('balanceHistory', JSON.stringify(history.slice(0, 100))); // 最多保留100条
       
       const amount = rechargeAmount;
       setShowRechargeModal(false);
@@ -147,36 +161,125 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedReceiverName) setReceiverName(savedReceiverName);
     if (savedReceiverPhone) setReceiverPhone(savedReceiverPhone);
     
-    // 加载收藏和订单统计
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    setFavoritesList(favorites);
-    setOrdersList(orders);
-    setFavoritesCount(favorites.length);
-    setOrdersCount(orders.length);
+    // 从后端加载收藏
+    const loadFavorites = async () => {
+      try {
+        const favorites = await favoriteApi.getFavorites();
+        // 转换格式以兼容现有UI
+        const formattedFavorites = favorites.map((fav: any) => ({
+          id: fav.product?.id || fav.id,
+          title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
+          icon: fav.product?.icon || '📦',
+          images: fav.product?.images || [],
+          price: fav.product?.price,
+          rating: fav.product?.rating || 5.0,
+          sales: fav.product?.sales || 0,
+          favorites: fav.product?.favorites || 0,
+          shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
+          addedAt: fav.createdAt,
+        }));
+        setFavoritesList(formattedFavorites);
+        setFavoritesCount(formattedFavorites.length);
+      } catch (error) {
+        console.error('加载收藏失败:', error);
+        setFavoritesList([]);
+        setFavoritesCount(0);
+      }
+    };
+    loadFavorites();
     
-    setIsLoading(false);
+    // 从后端加载订单
+    const loadOrders = async () => {
+      try {
+        const orders = await orderApi.getOrders();
+        // 转换订单格式以兼容现有UI
+        const formattedOrders = orders.map((order: any) => ({
+          id: order.id,
+          orderNo: order.orderNo,
+          item: order.items?.[0]?.product ? {
+            id: order.items[0].product.id,
+            title: { zh: order.items[0].product.title, en: order.items[0].product.titleEn || order.items[0].product.title },
+            icon: order.items[0].product.icon || '📦',
+            images: order.items[0].product.images,
+          } : { title: { zh: '商品' }, icon: '📦' },
+          quantity: order.items?.[0]?.quantity || 1,
+          totalPrice: parseFloat(order.totalAmount),
+          paymentMethod: order.paymentMethod,
+          status: order.orderStatus?.toLowerCase() || 'pending',
+          createdAt: order.createdAt,
+        }));
+        setOrdersList(formattedOrders);
+        setOrdersCount(formattedOrders.length);
+      } catch (error) {
+        console.error('加载订单失败:', error);
+        // 降级到localStorage
+        const localOrders = JSON.parse(localStorage.getItem('orders') || '[]');
+        setOrdersList(localOrders);
+        setOrdersCount(localOrders.length);
+      }
+    };
+    loadOrders();
+    
+    // 从后端获取最新用户信息和钱包信息
+    const loadBackendData = async () => {
+      try {
+        // 并行加载用户信息和钱包信息
+        const [userData, wallet] = await Promise.all([
+          authApi.getCurrentUser().catch(err => {
+            console.error('获取用户信息失败:', err);
+            return null;
+          }),
+          userApi.getWallet().catch(err => {
+            console.error('获取钱包信息失败:', err);
+            return null;
+          }) as Promise<{ piAddress?: string; isLocked?: boolean } | null>
+        ]);
+
+        if (userData) {
+          setUserInfo((prev: any) => ({ ...prev, balance: userData.balance }));
+        }
+
+        if (wallet && wallet.piAddress) {
+          setWalletAddress(wallet.piAddress);
+          setWalletLocked(wallet.isLocked || false);
+          localStorage.setItem('walletAddress', wallet.piAddress);
+          if (wallet.isLocked) {
+            localStorage.setItem('walletLocked', 'true');
+          }
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadBackendData();
   }, []);
   
-  // 监听localStorage变化，实时更新统计
+  // 页面获得焦点时重新加载收藏列表
   useEffect(() => {
-    const handleStorageChange = () => {
-      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-      const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-      setFavoritesList(favorites);
-      setOrdersList(orders);
-      setFavoritesCount(favorites.length);
-      setOrdersCount(orders.length);
+    const handleFocus = async () => {
+      try {
+        const favorites = await favoriteApi.getFavorites();
+        const formattedFavorites = favorites.map((fav: any) => ({
+          id: fav.product?.id || fav.id,
+          title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
+          icon: fav.product?.icon || '📦',
+          images: fav.product?.images || [],
+          price: fav.product?.price,
+          rating: fav.product?.rating || 5.0,
+          sales: fav.product?.sales || 0,
+          favorites: fav.product?.favorites || 0,
+          shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
+          addedAt: fav.createdAt,
+        }));
+        setFavoritesList(formattedFavorites);
+        setFavoritesCount(formattedFavorites.length);
+      } catch (error) {
+        console.error('刷新收藏失败:', error);
+      }
     };
     
-    window.addEventListener('storage', handleStorageChange);
-    // 每次页面获得焦点时也刷新
-    window.addEventListener('focus', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleStorageChange);
-    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -223,7 +326,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     }
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = async () => {
     // 商家必须填写邮箱
     if (isMerchant && !email.trim()) {
       alert(getText({ zh: '商家必须填写邮箱地址', en: 'Email is required for merchants', ko: '판매자는 이메일이 필요합니다', vi: 'Email là bắt buộc đối với người bán' }));
@@ -254,6 +357,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       const now = new Date().toISOString();
       localStorage.setItem('usernameLastModified', now);
       setUsernameLastModified(now);
+    }
+    
+    // 同步钱包地址到后端
+    if (walletAddress) {
+      try {
+        await userApi.bindWallet(walletAddress);
+      } catch (error: any) {
+        // 如果是钱包已锁定的错误，忽略它（说明已经绑定过了）
+        if (!error.message?.includes('锁定')) {
+          alert(error.message || getText({ zh: '绑定钱包失败', en: 'Failed to bind wallet', ko: '지갑 연결 실패', vi: 'Liên kết ví thất bại' }));
+          return;
+        }
+      }
     }
     
     // 保存地址信息到 localStorage
@@ -297,7 +413,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     setShowWithdrawModal(true);
   };
 
-  const handleConfirmWithdraw = () => {
+  const handleConfirmWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     if (!amount || amount <= 0) {
       alert(getText({ zh: '请输入有效的提现金额', en: 'Please enter a valid amount', ko: '유효한 금액을 입력하세요', vi: 'Vui lòng nhập số tiền hợp lệ' }));
@@ -308,24 +424,113 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       return;
     }
     
-    // 首次提现成功后锁定钱包地址
-    if (!walletLocked) {
-      setWalletLocked(true);
-      localStorage.setItem('walletLocked', 'true');
+    try {
+      // 先确保钱包地址已同步到后端
+      if (walletAddress) {
+        try {
+          await userApi.bindWallet(walletAddress);
+        } catch (bindError: any) {
+          // 忽略"已锁定"的错误，其他错误继续抛出
+          if (!bindError.message?.includes('锁定')) {
+            throw bindError;
+          }
+        }
+      }
+      
+      // 调用后端API提交提现申请
+      await userApi.withdraw(amount);
+      
+      // 更新本地余额显示
+      setUserInfo((prev: any) => ({
+        ...prev,
+        balance: (prev?.balance || 0) - amount
+      }));
+      
+      // 首次提现成功后锁定钱包地址
+      if (!walletLocked) {
+        setWalletLocked(true);
+        localStorage.setItem('walletLocked', 'true');
+      }
+      
+      alert(getText({ 
+        zh: `提现申请已提交！\n提现金额：${amount}π\n钱包地址：${walletAddress}\n\n温馨提示：\n• 提现仅在工作日处理\n• 人工审核，最迟12小时到账`, 
+        en: `Withdrawal submitted!\nAmount: ${amount}π\nWallet: ${walletAddress}\n\nNote:\n• Processed on business days only\n• Manual review, up to 12 hours`,
+        ko: `출금 신청 완료!\n금액: ${amount}π\n지갑: ${walletAddress}\n\n참고:\n• 영업일에만 처리\n• 수동 검토, 최대 12시간`,
+        vi: `Đã gửi yêu cầu rút tiền!\nSố tiền: ${amount}π\nVí: ${walletAddress}\n\nLưu ý:\n• Chỉ xử lý vào ngày làm việc\n• Xét duyệt thủ công, tối đa 12 giờ`
+      }));
+      setShowWithdrawModal(false);
+      setWithdrawAmount('');
+    } catch (error: any) {
+      alert(error.message || getText({ zh: '提现申请失败', en: 'Withdrawal failed', ko: '출금 실패', vi: 'Rút tiền thất bại' }));
     }
+  };
+
+  // 取消订单
+  const handleCancelOrder = async (order: any) => {
+    const confirmMsg = getText({
+      zh: '确认取消此订单？',
+      en: 'Cancel this order?',
+      ko: '이 주문을 취소하시겠습니까?',
+      vi: 'Hủy đơn hàng này?'
+    });
     
-    alert(getText({ 
-      zh: `提现申请已提交！\n提现金额：${amount}π\n钱包地址：${walletAddress}\n\n温馨提示：\n• 提现仅在工作日处理\n• 人工审核，最迟12小时到账`, 
-      en: `Withdrawal submitted!\nAmount: ${amount}π\nWallet: ${walletAddress}\n\nNote:\n• Processed on business days only\n• Manual review, up to 12 hours`,
-      ko: `출금 신청 완료!\n금액: ${amount}π\n지갑: ${walletAddress}\n\n참고:\n• 영업일에만 처리\n• 수동 검토, 최대 12시간`,
-      vi: `Đã gửi yêu cầu rút tiền!\nSố tiền: ${amount}π\nVí: ${walletAddress}\n\nLưu ý:\n• Chỉ xử lý vào ngày làm việc\n• Xét duyệt thủ công, tối đa 12 giờ`
-    }));
-    setShowWithdrawModal(false);
-    setWithdrawAmount('');
+    if (confirm(confirmMsg)) {
+      try {
+        await orderApi.cancelOrder(order.id);
+        setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'cancelled' } : o));
+        alert(getText({ zh: '订单已取消', en: 'Order cancelled', ko: '주문 취소됨', vi: 'Đơn hàng đã hủy' }));
+      } catch (error: any) {
+        alert(error.message || getText({ zh: '取消失败', en: 'Cancel failed', ko: '취소 실패', vi: 'Hủy thất bại' }));
+      }
+    }
+  };
+
+  // 支付待付款订单
+  const handlePayOrder = async (order: any) => {
+    // 检查余额
+    const balance = parseFloat(userInfo?.balance || '0');
+    if (balance >= order.totalPrice) {
+      const confirmMsg = getText({
+        zh: `确认使用余额支付 ${order.totalPrice}π？`,
+        en: `Pay ${order.totalPrice}π with balance?`,
+        ko: `잔액으로 ${order.totalPrice}π 결제하시겠습니까?`,
+        vi: `Thanh toán ${order.totalPrice}π bằng số dư?`
+      });
+      
+      if (confirm(confirmMsg)) {
+        try {
+          await orderApi.payWithBalance(order.id);
+          
+          // 更新余额
+          const userData = await authApi.getCurrentUser();
+          if (userData) {
+            const updatedUser = { ...userInfo, balance: userData.balance };
+            setUserInfo(updatedUser);
+            if (localStorage.getItem('piUserInfo')) {
+              localStorage.setItem('piUserInfo', JSON.stringify(updatedUser));
+            } else {
+              localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+            }
+          }
+          
+          setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'paid' } : o));
+          alert(getText({ zh: '支付成功', en: 'Payment successful', ko: '결제 성공', vi: 'Thanh toán thành công' }));
+        } catch (error: any) {
+          alert(error.message || getText({ zh: '支付失败', en: 'Payment failed', ko: '결제 실패', vi: 'Thanh toán thất bại' }));
+        }
+      }
+    } else {
+      alert(getText({
+        zh: `余额不足！当前余额: ${balance.toFixed(2)}π，需要: ${order.totalPrice}π`,
+        en: `Insufficient balance! Current: ${balance.toFixed(2)}π, Required: ${order.totalPrice}π`,
+        ko: `잔액 부족! 현재: ${balance.toFixed(2)}π, 필요: ${order.totalPrice}π`,
+        vi: `Số dư không đủ! Hiện tại: ${balance.toFixed(2)}π, Cần: ${order.totalPrice}π`
+      }));
+    }
   };
 
   // 处理退款/退货
-  const handleRefund = (order: any, needReturn: boolean) => {
+  const handleRefund = async (order: any, needReturn: boolean) => {
     const orderDate = new Date(order.createdAt);
     const now = new Date();
     const daysDiff = Math.floor((now.getTime() - orderDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -345,11 +550,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       });
       
       if (confirm(confirmMsg)) {
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-        const updatedOrders = orders.map((o: any) => o.id === order.id ? { ...o, status: 'refund_pending', refundRequestedAt: new Date().toISOString() } : o);
-        localStorage.setItem('orders', JSON.stringify(updatedOrders));
-        setOrdersList(updatedOrders);
-        alert(getText({ zh: '退货申请已提交，请尽快将商品寄回商家', en: 'Return request submitted. Please ship the item back soon.', ko: '반품 신청이 완료되었습니다. 상품을 빨리 반송해주세요.', vi: 'Yêu cầu trả hàng đã gửi. Vui lòng gửi trả hàng sớm.' }));
+        try {
+          await orderApi.refundReturnOrder(order.id);
+          // 更新订单列表状态
+          setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'refunding' } : o));
+          alert(getText({ zh: '退货申请已提交，请尽快将商品寄回商家', en: 'Return request submitted. Please ship the item back soon.', ko: '반품 신청이 완료되었습니다. 상품을 빨리 반송해주세요.', vi: 'Yêu cầu trả hàng đã gửi. Vui lòng gửi trả hàng sớm.' }));
+        } catch (error: any) {
+          alert(error.message || getText({ zh: '退货申请失败', en: 'Return request failed', ko: '반품 신청 실패', vi: 'Yêu cầu trả hàng thất bại' }));
+        }
       }
     } else {
       // 未收货 - 直接退款
@@ -361,24 +569,30 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       });
       
       if (confirm(confirmMsg)) {
-        // 退款到余额
-        const currentUserInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-        const currentBalance = parseFloat(currentUserInfo.balance || '0');
-        const newBalance = (currentBalance + order.totalPrice).toFixed(2);
-        currentUserInfo.balance = newBalance;
-        localStorage.setItem('userInfo', JSON.stringify(currentUserInfo));
-        setUserInfo(currentUserInfo);
-        
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        user.balance = newBalance;
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-        const updatedOrders = orders.map((o: any) => o.id === order.id ? { ...o, status: 'refunded', refundedAt: new Date().toISOString() } : o);
-        localStorage.setItem('orders', JSON.stringify(updatedOrders));
-        setOrdersList(updatedOrders);
-        
-        alert(getText({ zh: `退款成功！${order.totalPrice}π 已返还到您的账户余额`, en: `Refund successful! ${order.totalPrice}π returned to your balance`, ko: `환불 완료! ${order.totalPrice}π가 잔액으로 반환되었습니다`, vi: `Hoàn tiền thành công! ${order.totalPrice}π đã trả về số dư của bạn` }));
+        try {
+          const result = await orderApi.refundOrder(order.id);
+          const refundAmount = result.refundAmount || order.totalPrice;
+          
+          // 从后端重新获取用户信息以更新余额
+          const userData = await authApi.getCurrentUser();
+          if (userData) {
+            const updatedUser = { ...userInfo, balance: userData.balance };
+            setUserInfo(updatedUser);
+            // 更新localStorage
+            if (localStorage.getItem('piUserInfo')) {
+              localStorage.setItem('piUserInfo', JSON.stringify(updatedUser));
+            } else {
+              localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+            }
+          }
+          
+          // 更新订单列表状态
+          setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'refunded' } : o));
+          
+          alert(getText({ zh: `退款成功！${refundAmount}π 已返还到您的账户余额`, en: `Refund successful! ${refundAmount}π returned to your balance`, ko: `환불 완료! ${refundAmount}π가 잔액으로 반환되었습니다`, vi: `Hoàn tiền thành công! ${refundAmount}π đã trả về số dư của bạn` }));
+        } catch (error: any) {
+          alert(error.message || getText({ zh: '退款失败', en: 'Refund failed', ko: '환불 실패', vi: 'Hoàn tiền thất bại' }));
+        }
       }
     }
   };
@@ -427,7 +641,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         {/* 用户名 - 居中，与设置按钮同一水平线 */}
         <div className="text-center">
           <h1 className="text-2xl font-bold">
-            {userInfo.username || userInfo.email || getText({ zh: '用户', en: 'User', ko: '사용자', vi: 'Người dùng' })}
+            {(() => {
+              // 过滤掉无法显示的字符（如果用户名只包含特殊字符则显示默认值）
+              const displayName = userInfo.username || userInfo.email || '';
+              const cleanName = displayName.replace(/[^\w\u4e00-\u9fa5\u3040-\u30ff\uac00-\ud7af@._-]/g, '');
+              return cleanName || getText({ zh: '用户', en: 'User', ko: '사용자', vi: 'Người dùng' });
+            })()}
           </h1>
         </div>
         
@@ -443,10 +662,31 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           {/* 账户余额 - 紧凑布局 */}
           <div className="bg-white/10 rounded-lg p-3 backdrop-blur-md border border-white/20">
             <div className="flex items-center justify-between gap-4">
-              {/* 左侧余额信息 */}
-              <button className="flex-1 text-left hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors">
-                <div className="text-white/80 text-sm mb-0.5">
+              {/* 左侧余额信息 - 点击显示明细 */}
+              <button 
+                onClick={async () => {
+                  // 从后端加载余额明细
+                  try {
+                    const history = await userApi.getBalanceHistory();
+                    setBalanceHistory(history.map((item: any) => ({
+                      type: item.type === 'RECHARGE' || item.type === 'REFUND' || item.type === 'INCOME' ? 'add' : 'subtract',
+                      amount: item.amount,
+                      reason: item.reason,
+                      time: item.createdAt,
+                    })));
+                  } catch (error) {
+                    console.error('加载余额明细失败:', error);
+                    // 降级到localStorage
+                    const history = JSON.parse(localStorage.getItem('balanceHistory') || '[]');
+                    setBalanceHistory(history);
+                  }
+                  setShowBalanceHistory(true);
+                }}
+                className="flex-1 text-left hover:bg-white/5 rounded-lg p-2 -m-2 transition-colors"
+              >
+                <div className="text-white/80 text-sm mb-0.5 flex items-center gap-1">
                   {getText({ zh: '账户余额', en: 'Balance', ko: '잔액', vi: 'Số dư' })}
+                  <span className="text-[10px] text-white/50">({getText({ zh: '点击查看明细', en: 'Tap for details', ko: '상세 보기', vi: 'Xem chi tiết' })})</span>
                 </div>
                 <div className="text-3xl font-bold text-yellow-400 leading-tight">
                   {userInfo.balance || '0.00'} <span className="text-xl">π</span>
@@ -488,7 +728,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <ShoppingBag className="w-5 h-5 text-white" />
               <span className="font-bold text-white">{getText({ zh: '我的订单', en: 'My Orders', ko: '내 주문', vi: 'Đơn hàng của tôi' })}</span>
               {ordersCount > 0 && (
-                <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{ordersCount}</span>
+                <span className="text-white/60 text-xs">({ordersCount})</span>
               )}
               <span className="ml-auto text-white/60">{showOrderDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
@@ -496,56 +736,65 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             {/* 订单状态卡片 */}
             {showOrderDetails && (
               <div className="px-3 pb-3 space-y-2">
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-6 gap-1.5">
                   <button 
-                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'unpaid' ? 'all' : 'unpaid')}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors ${selectedOrderTab === 'unpaid' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                    onClick={() => setSelectedOrderTab('all')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'all' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
                   >
-                    <DollarSign className="w-5 h-5 text-yellow-300" />
-                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chưa thanh toán' })}</span>
+                    <ShoppingBag className="w-5 h-5 text-white" />
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '全部', en: 'All', ko: '전체', vi: 'Tất cả' })}</span>
+                    {ordersList.length > 0 && <span className="absolute -top-1 -right-1 bg-gray-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{ordersList.length}</span>}
                   </button>
                   <button 
-                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'pending' ? 'all' : 'pending')}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'pending' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                    onClick={() => setSelectedOrderTab('unpaid')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'unpaid' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                  >
+                    <DollarSign className="w-5 h-5 text-yellow-300" />
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chờ TT' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'pending').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                  </button>
+                  <button 
+                    onClick={() => setSelectedOrderTab('pending')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'pending' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
                   >
                     <Package className="w-5 h-5 text-blue-300" />
-                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
                     {(() => { const c = ordersList.filter((o: any) => o.status === 'paid').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
-                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'shipping' ? 'all' : 'shipping')}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'shipping' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                    onClick={() => setSelectedOrderTab('shipping')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'shipping' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
                   >
                     <Truck className="w-5 h-5 text-green-300" />
-                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
                     {(() => { const c = ordersList.filter((o: any) => o.status === 'shipped').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
-                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'review' ? 'all' : 'review')}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'review' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                    onClick={() => setSelectedOrderTab('review')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'review' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
                   >
                     <Star className="w-5 h-5 text-purple-300" />
-                    <span className="text-[10px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'received' && !o.reviewed).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'completed' && !o.reviewed).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
-                    onClick={() => setSelectedOrderTab(selectedOrderTab === 'aftersale' ? 'all' : 'aftersale')}
-                    className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg transition-colors relative ${selectedOrderTab === 'aftersale' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
+                    onClick={() => setSelectedOrderTab('aftersale')}
+                    className={`flex flex-col items-center gap-1 py-2 px-0.5 rounded-lg transition-colors relative ${selectedOrderTab === 'aftersale' ? 'bg-white/30 ring-1 ring-white/50' : 'bg-white/10 hover:bg-white/20'}`}
                   >
                     <HeadphonesIcon className="w-5 h-5 text-orange-300" />
-                    <span className="text-[10px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'refunded' || o.status === 'refund_pending').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    <span className="text-[9px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'refunded' || o.status === 'refunding').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                 </div>
                 {/* 订单列表 */}
                 {(() => {
                   const filteredOrders = ordersList.filter((o: any) => {
                     switch (selectedOrderTab) {
-                      case 'unpaid': return o.status === 'unpaid';
+                      case 'unpaid': return o.status === 'pending';
                       case 'pending': return o.status === 'paid';
                       case 'shipping': return o.status === 'shipped';
-                      case 'review': return o.status === 'received' && !o.reviewed;
-                      case 'aftersale': return o.status === 'refunded' || o.status === 'refund_pending';
+                      case 'review': return o.status === 'completed' && !o.reviewed;
+                      case 'aftersale': return o.status === 'refunded' || o.status === 'refunding';
                       default: return true;
                     }
                   });
@@ -557,7 +806,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                           onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                           className="w-full p-2 flex items-center gap-2 hover:bg-white/5 transition-colors"
                         >
-                          <span className="text-2xl">{order.item?.icon || '📦'}</span>
+                          <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                            {order.item?.images?.[0] ? (
+                              <img src={order.item.images[0]} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xl">{order.item?.icon || '📦'}</div>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0 text-left">
                             <p className="text-white text-xs font-medium truncate">{order.item?.title?.[language] || order.item?.name?.[language] || '商品'}</p>
                             <p className="text-white/60 text-[10px]">{order.item?.spec} × {order.quantity}</p>
@@ -583,37 +838,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                               </div>
                               <div>
                                 <span className="text-white/50">{getText({ zh: '订单状态', en: 'Status', ko: '상태', vi: 'Trạng thái' })}</span>
-                                <p className={order.status === 'refunded' ? 'text-gray-400' : order.status === 'refund_pending' ? 'text-orange-400' : 'text-green-400'}>
-                                  {order.status === 'refunded' ? getText({ zh: '已退款', en: 'Refunded', ko: '환불됨', vi: 'Đã hoàn tiền' })
-                                    : order.status === 'refund_pending' ? getText({ zh: '退货中', en: 'Return Pending', ko: '반품 중', vi: 'Đang trả hàng' })
+                                <p className={order.status === 'refunded' ? 'text-gray-400' : order.status === 'refunding' ? 'text-orange-400' : order.status === 'cancelled' ? 'text-gray-400' : order.status === 'pending' ? 'text-yellow-400' : 'text-green-400'}>
+                                  {order.status === 'pending' ? getText({ zh: '待付款', en: 'Pending Payment', ko: '결제 대기', vi: 'Chờ thanh toán' })
+                                    : order.status === 'paid' ? getText({ zh: '待发货', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })
                                     : order.status === 'shipped' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' })
-                                    : order.status === 'received' ? getText({ zh: '已收货', en: 'Received', ko: '수령됨', vi: 'Đã nhận' })
-                                    : getText({ zh: '已支付', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })}
+                                    : order.status === 'completed' ? getText({ zh: '已完成', en: 'Completed', ko: '완료', vi: 'Hoàn thành' })
+                                    : order.status === 'refunding' ? getText({ zh: '退款中', en: 'Refunding', ko: '환불 중', vi: 'Đang hoàn tiền' })
+                                    : order.status === 'refunded' ? getText({ zh: '已退款', en: 'Refunded', ko: '환불됨', vi: 'Đã hoàn tiền' })
+                                    : order.status === 'cancelled' ? getText({ zh: '已取消', en: 'Cancelled', ko: '취소됨', vi: 'Đã hủy' })
+                                    : getText({ zh: '未知', en: 'Unknown', ko: '알 수 없음', vi: 'Không xác định' })}
                                 </p>
                               </div>
                             </div>
                             {/* 七天无理由退款提示 */}
-                            {order.status !== 'refunded' && order.status !== 'refund_pending' && (() => {
+                            {order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
                               const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                               const daysLeft = 7 - daysDiff;
                               return daysLeft > 0 && <div className="text-[10px] text-yellow-300 bg-yellow-500/10 px-2 py-1 rounded">{getText({ zh: `七天无理由退款，剩余 ${daysLeft} 天`, en: `7-day refund, ${daysLeft} days left`, ko: `7일 환불, ${daysLeft}일 남음`, vi: `Hoàn tiền 7 ngày, còn ${daysLeft} ngày` })}</div>;
                             })()}
-                            <div className="flex gap-2 mt-2">
-                              <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
-                                {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
-                              </button>
-                              <button className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600">
-                                {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
-                              </button>
-                            </div>
+                            {/* 待付款订单操作 */}
+                            {order.status === 'pending' && (
+                              <div className="flex gap-2 mt-2">
+                                <button 
+                                  onClick={() => handleCancelOrder(order)}
+                                  className="flex-1 py-1.5 bg-gray-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-gray-600"
+                                >
+                                  {getText({ zh: '取消订单', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+                                </button>
+                                <button 
+                                  onClick={() => handlePayOrder(order)}
+                                  className="flex-1 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-lg hover:bg-green-600"
+                                >
+                                  {getText({ zh: '立即支付', en: 'Pay Now', ko: '지금 결제', vi: 'Thanh toán' })}
+                                </button>
+                              </div>
+                            )}
+                            {/* 已付款订单操作 */}
+                            {order.status !== 'pending' && order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'refunding' && (
+                              <div className="flex gap-2 mt-2">
+                                <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
+                                  {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
+                                </button>
+                                <button className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600">
+                                  {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
+                                </button>
+                              </div>
+                            )}
                             {/* 退款/退货按钮 */}
-                            {order.status !== 'refunded' && order.status !== 'refund_pending' && (() => {
+                            {order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
                               const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
                               if (daysDiff > 7) return null;
-                              const isReceived = order.status === 'received' || order.status === 'shipped';
+                              const isCompleted = order.status === 'completed';
                               return (
                                 <div className="flex gap-2 mt-1">
-                                  {!isReceived ? (
+                                  {!isCompleted ? (
                                     <button onClick={() => handleRefund(order, false)} className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">
                                       {getText({ zh: '申请退款', en: 'Refund', ko: '환불', vi: 'Hoàn tiền' })}
                                     </button>
@@ -672,7 +950,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                           onClick={() => setExpandedFavorite(expandedFavorite === fav.id ? null : fav.id)}
                           className="w-full p-2 flex items-center gap-2 hover:bg-white/5 transition-colors"
                         >
-                          <span className="text-2xl">{fav.icon || '📦'}</span>
+                          <div className="w-10 h-10 flex-shrink-0 bg-white/10 rounded-lg overflow-hidden">
+                            {fav.images && fav.images.length > 0 ? (
+                              <img src={fav.images[0]} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="w-full h-full flex items-center justify-center text-xl">{fav.icon || '📦'}</span>
+                            )}
+                          </div>
                           <div className="flex-1 min-w-0 text-left">
                             <p className="text-white text-xs font-medium truncate">{fav.title?.[language] || fav.name?.[language] || '商品'}</p>
                             <p className="text-white/60 text-[10px]">{fav.shop?.[language] || ''}</p>
@@ -712,13 +996,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 {getText({ zh: '查看详情', en: 'View', ko: '보기', vi: 'Xem' })}
                               </button>
                               <button 
-                                onClick={() => {
-                                  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-                                  const newFavorites = favorites.filter((f: any) => f.id !== fav.id);
-                                  localStorage.setItem('favorites', JSON.stringify(newFavorites));
-                                  setFavoritesList(newFavorites);
-                                  setFavoritesCount(newFavorites.length);
-                                  setExpandedFavorite(null);
+                                onClick={async () => {
+                                  try {
+                                    await favoriteApi.removeFavorite(fav.id);
+                                    const newFavorites = favoritesList.filter((f: any) => f.id !== fav.id);
+                                    setFavoritesList(newFavorites);
+                                    setFavoritesCount(newFavorites.length);
+                                    setExpandedFavorite(null);
+                                  } catch (error: any) {
+                                    console.error('取消收藏失败:', error);
+                                    alert(error.message || getText({ zh: '操作失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                                  }
                                 }}
                                 className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600"
                               >
@@ -738,38 +1026,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             )}
           </div>
           
-          {/* 我的店铺 */}
+          {/* 管理后台 */}
           <div className="bg-white/10 rounded-lg border border-white/20 backdrop-blur-md overflow-hidden">
             <button 
               onClick={() => setShowStoreDetails(!showStoreDetails)}
               className="w-full flex items-center gap-3 p-4 hover:bg-white/5 transition-colors"
             >
               <Store className="w-5 h-5 text-white" />
-              <span className="font-bold text-white">{getText({ zh: '我的店铺', en: 'My Store', ko: '내 상점', vi: 'Cửa hàng của tôi' })}</span>
+              <span className="font-bold text-white">{getText({ zh: '管理后台', en: 'Management', ko: '관리', vi: 'Quản lý' })}</span>
               <span className="ml-auto text-white/60">{showStoreDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
             
-            {/* 店铺功能按钮 */}
+            {/* 管理后台功能按钮 */}
             {showStoreDetails && (
               <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+                <button 
+                  onClick={() => navigate('/my-shops')}
+                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <Store className="w-5 h-5 text-cyan-300" />
+                  <span className="text-sm text-white font-bold">{getText({ zh: '我的店铺', en: 'My Shops', ko: '내 상점', vi: 'Cửa hàng' })}</span>
+                </button>
                 <button 
                   onClick={() => navigate('/join-store')}
                   className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
                   <PlusCircle className="w-5 h-5 text-green-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '我要入驻', en: 'Join', ko: '입점하기', vi: 'Đăng ký' })}</span>
-                </button>
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <Upload className="w-5 h-5 text-blue-300" />
-                  <span className="text-sm text-white font-bold">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải lên' })}</span>
-                </button>
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <ShoppingBag className="w-5 h-5 text-yellow-300" />
-                  <span className="text-sm text-white font-bold">{getText({ zh: '我的商品', en: 'Products', ko: '내 상품', vi: 'Sản phẩm' })}</span>
-                </button>
-                <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                  <BarChart3 className="w-5 h-5 text-purple-300" />
-                  <span className="text-sm text-white font-bold">{getText({ zh: '店铺数据', en: 'Analytics', ko: '분석', vi: 'Phân tích' })}</span>
                 </button>
               </div>
             )}
@@ -1174,6 +1457,41 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       alert(getText({ zh: '请输入有效的充值金额', en: 'Please enter a valid amount', ko: '유효한 금액을 입력하세요', vi: 'Vui lòng nhập số tiền hợp lệ' }));
                       return;
                     }
+                    
+                    // 开发模式：模拟充值成功
+                    if (import.meta.env.VITE_DEV_MODE === 'true') {
+                      const newBalance = (parseFloat(userInfo?.balance || '0') + amount).toFixed(2);
+                      const updatedUser = { ...userInfo, balance: newBalance };
+                      setUserInfo(updatedUser);
+                      
+                      // 更新 localStorage
+                      if (localStorage.getItem('piUserInfo')) {
+                        localStorage.setItem('piUserInfo', JSON.stringify(updatedUser));
+                      } else {
+                        localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+                      }
+                      
+                      // 记录余额变动历史
+                      const history = JSON.parse(localStorage.getItem('balanceHistory') || '[]');
+                      history.unshift({
+                        type: 'add',
+                        amount: rechargeAmount,
+                        reason: getText({ zh: '开发模式充值', en: 'Dev Mode Deposit', ko: '개발 모드 충전', vi: 'Nạp tiền chế độ dev' }),
+                        time: new Date().toISOString(),
+                      });
+                      localStorage.setItem('balanceHistory', JSON.stringify(history.slice(0, 100)));
+                      
+                      setShowRechargeModal(false);
+                      setRechargeAmount('');
+                      showToast(
+                        'success',
+                        getText({ zh: '充值成功', en: 'Recharge Successful', ko: '충전 성공', vi: 'Nạp tiền thành công' }),
+                        getText({ zh: '已到账（开发模式）', en: 'Added to balance (Dev Mode)', ko: '잔액에 추가됨 (개발 모드)', vi: 'Đã thêm vào số dư (Dev Mode)' }),
+                        `${amount}π`
+                      );
+                      return;
+                    }
+                    
                     recharge(amount);
                   }}
                   disabled={isPaymentLoading || !rechargeAmount}
@@ -1189,6 +1507,92 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           </div>
         </div>
       )}
+      
+      {/* 余额明细弹窗 */}
+      {showBalanceHistory && (() => {
+        const pageSize = 20;
+        const totalPages = Math.ceil(balanceHistory.length / pageSize);
+        const startIndex = (balanceHistoryPage - 1) * pageSize;
+        const currentItems = balanceHistory.slice(startIndex, startIndex + pageSize);
+        
+        return (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white">
+                  {getText({ zh: '余额明细', en: 'Balance History', ko: '잔액 내역', vi: 'Lịch sử số dư' })}
+                </h2>
+                <button onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }} className="text-white/80 hover:text-white text-2xl">×</button>
+              </div>
+              
+              {/* 当前余额 */}
+              <div className="bg-white/10 rounded-lg p-4 mb-4">
+                <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
+                <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
+              </div>
+              
+              {/* 明细列表 */}
+              <div className="flex-1 overflow-y-auto space-y-2">
+                {balanceHistory.length > 0 ? (
+                  currentItems.map((item: any, index: number) => (
+                    <div key={startIndex + index} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-white text-sm font-medium">{item.reason || getText({ zh: '余额变动', en: 'Balance Change', ko: '잔액 변동', vi: 'Thay đổi số dư' })}</p>
+                        <p className="text-white/60 text-xs">{item.time ? new Date(item.time).toLocaleString() : '-'}</p>
+                      </div>
+                      <div className={`text-lg font-bold ${item.type === 'add' ? 'text-green-400' : 'text-red-400'}`}>
+                        {item.type === 'add' ? '+' : '-'}{item.amount}π
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-white/60 text-sm">{getText({ zh: '暂无余额变动记录', en: 'No balance history', ko: '잔액 내역 없음', vi: 'Không có lịch sử số dư' })}</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* 分页控制 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-white/20">
+                  <button
+                    onClick={() => setBalanceHistoryPage(p => Math.max(1, p - 1))}
+                    disabled={balanceHistoryPage === 1}
+                    className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
+                  >
+                    {getText({ zh: '上一页', en: 'Prev', ko: '이전', vi: 'Trước' })}
+                  </button>
+                  <span className="text-white text-sm px-3">
+                    {balanceHistoryPage} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setBalanceHistoryPage(p => Math.min(totalPages, p + 1))}
+                    disabled={balanceHistoryPage === totalPages}
+                    className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
+                  >
+                    {getText({ zh: '下一页', en: 'Next', ko: '다음', vi: 'Sau' })}
+                  </button>
+                </div>
+              )}
+              
+              {/* 总记录数 */}
+              {balanceHistory.length > 0 && (
+                <p className="text-white/50 text-xs text-center mt-2">
+                  {getText({ zh: `共 ${balanceHistory.length} 条记录`, en: `Total ${balanceHistory.length} records`, ko: `총 ${balanceHistory.length}개 기록`, vi: `Tổng ${balanceHistory.length} bản ghi` })}
+                </p>
+              )}
+              
+              {/* 关闭按钮 */}
+              <button
+                onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}
+                className="mt-4 w-full py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+              >
+                {getText({ zh: '关闭', en: 'Close', ko: '닫기', vi: 'Đóng' })}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
       
       {/* 自定义成功/错误弹窗 */}
       {toast.show && (

@@ -1,60 +1,70 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, Zap, Shield, Award, DollarSign, ChevronDown } from 'lucide-react';
+import { Star, Zap, Shield, Award, DollarSign, ChevronDown, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
+import { productApi, Product } from '../services/api';
 
 export const VirtualMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('default');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const goToDetail = (item: any) => {
-    navigate('/detail', { state: { item: { ...item, title: item.name, icon: item.emoji }, pageType: 'product' } });
-  };
+  // 从后端获取商品数据
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await productApi.getProducts({ 
+          categoryType: 'VIRTUAL',
+          sortBy: sortBy === 'default' ? undefined : sortBy,
+        });
+        setProducts(response.items);
+      } catch (err: any) {
+        console.error('获取商品失败:', err);
+        setError(err.message || '获取商品失败');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const items = [
-    {
-      id: '1',
-      name: { zh: '游戏点卡充值', en: 'Game Card Recharge', ko: '게임 카드 충전', vi: 'Nạp thẻ game' },
-      emoji: '🎮',
-      price: 50,
-      rating: 4.9,
-      stock: 9999,
-      sales: 12580,
-      favorites: 3456,
-      shop: { zh: '游戏充值中心', en: 'Game Recharge Center', ko: '게임 충전 센터', vi: 'Trung tâm nạp game' },
-      tag: { zh: '热销', en: 'Hot', ko: '인기', vi: 'Bán chạy' },
-      discount: null,
-    },
-    {
-      id: '2',
-      name: { zh: '会员订阅服务', en: 'Membership Subscription', ko: '멤버십 구독', vi: 'Dịch vụ đăng ký thành viên' },
-      emoji: '👑',
-      price: 30,
-      rating: 4.8,
-      stock: 9999,
-      sales: 8956,
-      favorites: 2345,
-      shop: { zh: 'VIP会员中心', en: 'VIP Member Center', ko: 'VIP 회원 센터', vi: 'Trung tâm VIP' },
-      tag: { zh: '推荐', en: 'Featured', ko: '추천', vi: 'Đề xuất' },
-      discount: 15,
-    },
-    {
-      id: '3',
-      name: { zh: '教学课程资料', en: 'Course Materials', ko: '과정 자료', vi: 'Tài liệu khóa học' },
-      emoji: '📚',
-      price: 99,
-      rating: 4.7,
-      stock: 9999,
-      sales: 4523,
-      favorites: 1567,
-      shop: { zh: '在线教育平台', en: 'Online Education', ko: '온라인 교육', vi: 'Giáo dục trực tuyến' },
-      tag: null,
-      discount: null,
-    },
-  ];
+    fetchProducts();
+  }, [sortBy]);
+
+  const goToDetail = (product: Product) => {
+    navigate('/detail', { 
+      state: { 
+        item: { 
+          ...product, 
+          title: { 
+            zh: product.title, 
+            en: product.titleEn || product.title,
+            ko: product.title,
+            vi: product.title,
+          },
+          name: { 
+            zh: product.title, 
+            en: product.titleEn || product.title,
+            ko: product.title,
+            vi: product.title,
+          },
+          images: product.images || [],
+          shop: {
+            zh: product.merchant?.shopName || '官方店铺',
+            en: product.merchant?.shopName || 'Official Store',
+            ko: product.merchant?.shopName || '공식 스토어',
+            vi: product.merchant?.shopName || 'Cửa hàng chính thức',
+          },
+        }, 
+        pageType: 'product' 
+      } 
+    });
+  };
 
   const features = [
     { icon: Zap, text: { zh: '自动发货', en: 'Auto Delivery', ko: '자동 배송', vi: 'Giao hàng tự động' } },
@@ -71,20 +81,37 @@ export const VirtualMallPage: React.FC = () => {
     { value: 'deposit', label: { zh: '已缴纳保证金', en: 'Deposit Paid', ko: '보증금 납부', vi: 'Đã đặt cọc' } },
   ];
 
-  const sortedItems = useMemo(() => {
-    const sorted = [...items];
-    switch (sortBy) {
-      case 'price_high': return sorted.sort((a, b) => b.price - a.price);
-      case 'price_low': return sorted.sort((a, b) => a.price - b.price);
-      case 'sales': return sorted.sort((a, b) => b.sales - a.sales);
-      default: return sorted;
-    }
-  }, [sortBy]);
+  // 加载状态
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+        <p className="mt-2 text-gray-600 text-sm">
+          {language === 'zh' ? '加载中...' : 'Loading...'}
+        </p>
+      </div>
+    );
+  }
+
+  // 错误状态
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <p className="text-red-500 text-sm">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm"
+        >
+          {language === 'zh' ? '重试' : 'Retry'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
-      {/* 搜索框 */}
-      <SimpleSearchBar language={language} translations={translations} />
+      {/* 搜索框 - 限定在虚拟商城板块搜索 */}
+      <SimpleSearchBar language={language} translations={translations} categoryType="VIRTUAL" />
       
       {/* 特色功能 */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -111,71 +138,77 @@ export const VirtualMallPage: React.FC = () => {
       </div>
 
       {/* 商品列表 */}
-      <div className="space-y-2">
-        {sortedItems.map((item) => (
-          <div
-            key={item.id}
-            onClick={() => goToDetail(item)}
-            className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
-                       ${selectedProduct === item.id 
-                         ? 'bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-400 shadow-lg' 
-                         : 'bg-white border border-purple-100 shadow-sm hover:shadow-lg hover:border-purple-300'}`}
-          >
-            {/* 标签 */}
-            {item.tag && (
-              <div className="absolute top-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-br-lg rounded-tl-lg z-10">
-                {item.tag[language]}
-              </div>
-            )}
-            {item.discount && (
-              <div className="absolute top-0 right-0 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-lg z-10">
-                -{item.discount}%
-              </div>
-            )}
-            
-            <div className="flex gap-2 relative">
-              <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg shadow-inner">
-                {item.emoji}
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col pr-16">
-                <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
-                  {item.name[language]}
-                </h3>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-red-600 font-bold text-base leading-none">{item.price}π</span>
-                    {item.discount && (
-                      <span className="text-gray-400 text-[10px] line-through">{Math.round(item.price / (1 - item.discount / 100))}π</span>
-                    )}
+      {products.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">
+          {language === 'zh' ? '暂无商品' : 'No products'}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {products.map((product) => (
+            <div
+              key={product.id}
+              onClick={() => goToDetail(product)}
+              className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
+                         ${selectedProduct === product.id 
+                           ? 'bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-400 shadow-lg' 
+                           : 'bg-white border border-purple-100 shadow-sm hover:shadow-lg hover:border-purple-300'}`}
+            >
+              {/* 标签 */}
+              {product.originalPrice && (
+                <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-lg z-10">
+                  {language === 'zh' ? '特价' : 'Sale'}
+                </div>
+              )}
+              
+              <div className="flex gap-2 relative">
+                <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg shadow-inner overflow-hidden">
+                  {product.images && product.images.length > 0 ? (
+                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl">
+                      {product.icon || '🎮'}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col pr-16">
+                  <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
+                    {language === 'en' && product.titleEn ? product.titleEn : product.title}
+                  </h3>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-red-600 font-bold text-base leading-none">{product.price}π</span>
+                    <div className="flex gap-2">
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '库存' : 'Stock'}</span>
+                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.stock}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
+                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.sales}</span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
+                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.favorites || 0}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
-                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{item.sales}</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
-                      <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{item.favorites}</span>
-                    </div>
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <span>{product.merchant?.shopName || '官方店铺'}</span>
+                    <span className="flex items-center gap-0.5 text-yellow-600">
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <span className="font-bold">{product.merchant?.rating || 5.0}</span>
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <span>{item.shop[language]}</span>
-                  <span className="flex items-center gap-0.5 text-yellow-600">
-                    <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                    <span className="font-bold">{item.rating}</span>
-                  </span>
-                </div>
               </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
+                className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+                {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
+              </button>
             </div>
-            <button 
-              onClick={(e) => { e.stopPropagation(); goToDetail(item); }}
-              className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
-              {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
-            </button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

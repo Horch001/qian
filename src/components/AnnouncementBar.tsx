@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Volume2, X } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { announcementApi, Announcement } from '../services/api';
 
 interface AnnouncementBarProps {
   language: Language;
@@ -9,7 +10,77 @@ interface AnnouncementBarProps {
 
 export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, translations }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const announcementText = translations.announcement[language];
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  
+  // 从后端获取公告
+  useEffect(() => {
+    const fetchAnnouncement = async () => {
+      try {
+        const data = await announcementApi.getHomepageAnnouncement();
+        setAnnouncement(data);
+      } catch (error) {
+        console.error('Failed to fetch announcement:', error);
+      }
+    };
+    
+    fetchAnnouncement();
+    
+    // 每60秒刷新一次公告
+    const interval = setInterval(fetchAnnouncement, 60000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  // 根据语言获取公告文本（滚动条显示：标题 + 内容）
+  const getAnnouncementText = () => {
+    if (!announcement) {
+      return translations.announcement[language];
+    }
+    
+    let title = '';
+    let content = '';
+    
+    switch (language) {
+      case 'en':
+        title = announcement.titleEn || announcement.title;
+        content = announcement.contentEn || announcement.content || '';
+        break;
+      case 'ko':
+        title = announcement.titleKo || announcement.title;
+        content = announcement.contentKo || announcement.content || '';
+        break;
+      case 'vi':
+        title = announcement.titleVi || announcement.title;
+        content = announcement.contentVi || announcement.content || '';
+        break;
+      default:
+        title = announcement.title;
+        content = announcement.content || '';
+    }
+    
+    // 如果有内容，显示"标题 内容"，否则只显示标题
+    return content ? `${title} ${content}` : title;
+  };
+  
+  // 根据语言获取公告内容
+  const getAnnouncementContent = () => {
+    if (!announcement) {
+      return translations.announcement[language];
+    }
+    
+    switch (language) {
+      case 'en':
+        return announcement.contentEn || announcement.content || announcement.titleEn || announcement.title;
+      case 'ko':
+        return announcement.contentKo || announcement.content || announcement.titleKo || announcement.title;
+      case 'vi':
+        return announcement.contentVi || announcement.content || announcement.titleVi || announcement.title;
+      default:
+        return announcement.content || announcement.title;
+    }
+  };
+  
+  const announcementText = getAnnouncementText();
+  const announcementContent = getAnnouncementContent();
 
   return (
     <>
@@ -48,8 +119,8 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
               </button>
             </div>
             
-            <div className="text-sm text-gray-700 leading-relaxed">
-              {announcementText}
+            <div className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+              {announcementContent}
             </div>
 
             <button 

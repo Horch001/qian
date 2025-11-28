@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Star, Heart, Share2, ShoppingCart, MessageCircle, Clock, Shield, Award, Store, X, Plus, Minus, Send } from 'lucide-react';
+import { ArrowLeft, Star, Heart, Share2, ShoppingCart, MessageCircle, Clock, Shield, Award, Store, X, Plus, Minus, Send, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { chatApi, ChatMessage } from '../services/api';
+import { chatApi, ChatMessage, orderApi, authApi, userApi, favoriteApi } from '../services/api';
 import socketService from '../services/socket';
 
 interface DetailPageProps {
@@ -26,7 +26,22 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [userBalance, setUserBalance] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 获取用户余额
+  useEffect(() => {
+    const fetchBalance = async () => {
+      try {
+        const user = await authApi.getCurrentUser();
+        setUserBalance(parseFloat(user.balance || '0'));
+      } catch (error) {
+        console.error('获取余额失败:', error);
+      }
+    };
+    fetchBalance();
+  }, []);
   
   const item = location.state?.item || {
     id: '1',
@@ -56,31 +71,47 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     if (!selectedSpec) setSelectedSpec(specs[0][language]);
   }, [item.id]);
 
-  const handleFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    if (isFavorite) {
-      const newFavorites = favorites.filter((f: any) => f.id !== item.id);
-      localStorage.setItem('favorites', JSON.stringify(newFavorites));
-      setFavoriteCount(prev => prev - 1);
-    } else {
-      favorites.push({ ...item, addedAt: new Date().toISOString() });
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-      setFavoriteCount(prev => prev + 1);
+  const handleFavorite = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      alert(language === 'zh' ? '请先登录' : 'Please login first');
+      return;
     }
-    setIsFavorite(!isFavorite);
+
+    try {
+      if (isFavorite) {
+        // 取消收藏 - 调用后端API
+        await favoriteApi.removeFavorite(item.id);
+        setFavoriteCount(prev => Math.max(0, prev - 1));
+      } else {
+        // 添加收藏 - 调用后端API
+        await favoriteApi.addFavorite(item.id);
+        setFavoriteCount(prev => prev + 1);
+      }
+      setIsFavorite(!isFavorite);
+    } catch (error: any) {
+      console.error('收藏操作失败:', error);
+      alert(error.message || (language === 'zh' ? '操作失败' : 'Operation failed'));
+    }
   };
 
-  const handleAddToCart = () => {
-    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    const existingIndex = cart.findIndex((c: any) => c.id === item.id && c.spec === selectedSpec);
-    if (existingIndex >= 0) {
-      cart[existingIndex].quantity += quantity;
-    } else {
-      cart.push({ ...item, quantity, spec: selectedSpec, addedAt: new Date().toISOString() });
+  const handleAddToCart = async () => {
+    // 检查用户是否登录
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      alert(language === 'zh' ? '请先登录' : 'Please login first');
+      return;
     }
-    localStorage.setItem('cart', JSON.stringify(cart));
-    setShowCartModal(false);
-    alert(language === 'zh' ? '已加入购物车！' : 'Added to cart!');
+
+    try {
+      // 调用后端API添加到购物车
+      await userApi.addToCart(item.id, quantity, selectedSpec);
+      setShowCartModal(false);
+      alert(language === 'zh' ? '已加入购物车！' : 'Added to cart!');
+    } catch (error: any) {
+      console.error('添加购物车失败:', error);
+      alert(error.message || (language === 'zh' ? '添加失败，请重试' : 'Failed to add, please retry'));
+    }
   };
 
   const handleBuy = () => {
@@ -109,50 +140,135 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     setShowPaymentModal(true);
   };
 
-  const handlePayment = (method: 'pi' | 'balance') => {
-    const totalPrice = item.price * quantity;
+  const handlePayment = async (method: 'pi' | 'balance') => {
+    const totalPrice = parseFloat(item.price) * quantity;
     
     // 余额支付时检查余额是否足够
     if (method === 'balance') {
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      const currentBalance = parseFloat(userInfo.balance || '0');
-      
-      if (currentBalance < totalPrice) {
-        alert(language === 'zh' 
-          ? `余额不足！当前余额: ${currentBalance}π，需要: ${totalPrice}π` 
-          : language === 'en'
-          ? `Insufficient balance! Current: ${currentBalance}π, Required: ${totalPrice}π`
-          : language === 'ko'
-          ? `잔액 부족! 현재: ${currentBalance}π, 필요: ${totalPrice}π`
-          : `Số dư không đủ! Hiện tại: ${currentBalance}π, Cần: ${totalPrice}π`);
+      if (userBalance < totalPrice) {
+        const confirmRecharge = confirm(
+          language === 'zh' 
+            ? `余额不足！当前余额: ${userBalance.toFixed(2)}π，需要: ${totalPrice.toFixed(2)}π\n\n是否使用Pi钱包支付？` 
+            : `Insufficient balance! Current: ${userBalance.toFixed(2)}π, Required: ${totalPrice.toFixed(2)}π\n\nUse Pi Wallet instead?`
+        );
+        if (confirmRecharge) {
+          handlePayment('pi');
+        }
         return;
       }
-      
-      // 扣减余额
-      const newBalance = (currentBalance - totalPrice).toFixed(2);
-      userInfo.balance = newBalance;
-      localStorage.setItem('userInfo', JSON.stringify(userInfo));
-      
-      // 同步更新 user 存储
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      user.balance = newBalance;
-      localStorage.setItem('user', JSON.stringify(user));
     }
+
+    setPaymentLoading(true);
     
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    const newOrder = {
-      id: Date.now().toString(),
-      item: { ...item, spec: selectedSpec },
-      quantity,
-      totalPrice,
-      paymentMethod: method,
-      status: 'paid',
-      createdAt: new Date().toISOString(),
-    };
-    orders.push(newOrder);
-    localStorage.setItem('orders', JSON.stringify(orders));
-    setShowPaymentModal(false);
-    setShowOrderSuccessModal(true);
+    try {
+      // 创建真实订单
+      const order = await orderApi.createOrder({
+        items: [{
+          productId: item.id,
+          quantity: quantity,
+          spec: selectedSpec,
+        }],
+      });
+
+      if (method === 'balance') {
+        // 余额支付 - 调用后端扣款API
+        try {
+          await orderApi.payWithBalance(order.id);
+          
+          // 支付成功后从后端获取最新用户信息
+          const userProfile = await userApi.getProfile();
+          const newBalance = parseFloat(userProfile.balance) || 0;
+          setUserBalance(newBalance);
+          
+          // 更新localStorage
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          user.balance = newBalance.toFixed(8);
+          localStorage.setItem('user', JSON.stringify(user));
+          
+          setShowPaymentModal(false);
+          setShowOrderSuccessModal(true);
+        } catch (payError: any) {
+          // 余额支付失败，提示用户
+          const errorMsg = payError.message || '';
+          if (errorMsg.includes('余额不足') || errorMsg.includes('Insufficient')) {
+            const confirmPi = confirm(
+              language === 'zh' 
+                ? `余额不足，是否使用Pi钱包支付？` 
+                : `Insufficient balance. Use Pi Wallet instead?`
+            );
+            if (confirmPi) {
+              handlePayment('pi');
+            }
+          } else {
+            alert(errorMsg || (language === 'zh' ? '支付失败' : 'Payment failed'));
+          }
+          return;
+        }
+      } else {
+        // Pi钱包支付 - 调用Pi SDK
+        if (typeof window !== 'undefined' && (window as any).Pi) {
+          const Pi = (window as any).Pi;
+          
+          const payment = await Pi.createPayment({
+            amount: totalPrice,
+            memo: `购买商品: ${item.title?.[language] || item.title || '商品'}`,
+            metadata: { orderId: order.id },
+          }, {
+            onReadyForServerApproval: async (paymentId: string) => {
+              // 通知后端批准支付
+              try {
+                await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/pi-payment/approve`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                  },
+                  body: JSON.stringify({ paymentId, orderId: order.id }),
+                });
+              } catch (error) {
+                console.error('批准支付失败:', error);
+              }
+            },
+            onReadyForServerCompletion: async (paymentId: string, txid: string) => {
+              // 通知后端完成支付
+              try {
+                await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/pi-payment/complete`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                  },
+                  body: JSON.stringify({ paymentId, txId: txid }),
+                });
+                setShowPaymentModal(false);
+                setShowOrderSuccessModal(true);
+              } catch (error) {
+                console.error('完成支付失败:', error);
+                alert(language === 'zh' ? '支付完成处理失败，请联系客服' : 'Payment completion failed, please contact support');
+              }
+            },
+            onCancel: (paymentId: string) => {
+              console.log('支付已取消:', paymentId);
+              alert(language === 'zh' ? '支付已取消' : 'Payment cancelled');
+            },
+            onError: (error: any) => {
+              console.error('支付错误:', error);
+              alert(language === 'zh' ? '支付失败，请重试' : 'Payment failed, please try again');
+            },
+          });
+        } else {
+          // Pi SDK未加载，提示用户
+          alert(language === 'zh' 
+            ? 'Pi钱包未连接，请在Pi Browser中打开本应用' 
+            : 'Pi Wallet not connected. Please open this app in Pi Browser');
+        }
+      }
+    } catch (error: any) {
+      console.error('创建订单失败:', error);
+      alert(error.message || (language === 'zh' ? '创建订单失败' : 'Failed to create order'));
+    } finally {
+      setPaymentLoading(false);
+    }
   };
 
   const getCurrentUserId = () => {
@@ -173,26 +289,28 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     setChatLoading(true);
     
     try {
-      // 获取商家用户ID（这里假设 item.merchantId 或 item.merchant?.userId 存在）
-      const merchantUserId = item.merchantId || item.merchant?.userId;
+      // 获取商家用户ID
+      const merchantUserId = item.merchantId || item.merchant?.userId || item.merchant?.id;
       
-      if (!merchantUserId) {
-        // 如果没有真实商家ID，使用模拟聊天
+      // 检查用户是否登录
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert(language === 'zh' ? '请先登录' : 'Please login first');
         setChatLoading(false);
+        setShowMerchantChat(false);
         return;
       }
 
-      // 创建或获取聊天室
-      const room = await chatApi.getOrCreateRoom(merchantUserId);
-      setChatRoomId(room.id);
+      if (merchantUserId) {
+        // 创建或获取聊天室
+        const room = await chatApi.getOrCreateRoom(merchantUserId);
+        setChatRoomId(room.id);
 
-      // 获取历史消息
-      const messages = await chatApi.getMessages(room.id);
-      setChatMessages(messages);
+        // 获取历史消息
+        const messages = await chatApi.getMessages(room.id);
+        setChatMessages(messages);
 
-      // 连接 Socket
-      const token = localStorage.getItem('authToken');
-      if (token) {
+        // 连接 Socket
         socketService.connect(token);
         socketService.joinRoom(room.id);
 
@@ -200,11 +318,18 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           setChatMessages(prev => [...prev, message]);
           scrollToBottom();
         });
-      }
 
-      scrollToBottom();
+        scrollToBottom();
+      } else {
+        // 如果没有商家ID，跳转到客服页面
+        setShowMerchantChat(false);
+        navigate('/customer-service');
+      }
     } catch (error) {
       console.error('Failed to open chat:', error);
+      // 出错时跳转到客服页面
+      setShowMerchantChat(false);
+      navigate('/customer-service');
     } finally {
       setChatLoading(false);
     }
@@ -223,39 +348,18 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     
     if (chatRoomId) {
       // 使用真实聊天
-      await socketService.sendMessage(chatRoomId, chatMessage.trim(), 'TEXT');
-      setChatMessage('');
-    } else {
-      // 模拟聊天（没有真实商家时的降级方案）
-      const now = new Date();
-      const mockMessage: ChatMessage = {
-        id: Date.now().toString(),
-        roomId: 'mock',
-        senderId: currentUserId || 'user',
-        content: chatMessage,
-        type: 'TEXT',
-        isRead: true,
-        createdAt: now.toISOString(),
-        sender: { id: currentUserId || 'user', username: '我', avatar: undefined }
-      };
-      setChatMessages(prev => [...prev, mockMessage]);
-      setChatMessage('');
-      
-      // 模拟商家回复
-      setTimeout(() => {
-        const replyMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          roomId: 'mock',
-          senderId: 'merchant',
-          content: language === 'zh' ? '您好！感谢您的咨询，请问有什么可以帮您？' : 'Hello! Thank you for your inquiry. How can I help you?',
-          type: 'TEXT',
-          isRead: true,
-          createdAt: new Date().toISOString(),
-          sender: { id: 'merchant', username: item.shop?.[language] || '商家', avatar: undefined }
-        };
-        setChatMessages(prev => [...prev, replyMessage]);
+      try {
+        await socketService.sendMessage(chatRoomId, chatMessage.trim(), 'TEXT');
+        setChatMessage('');
         scrollToBottom();
-      }, 1000);
+      } catch (error) {
+        console.error('发送消息失败:', error);
+        alert(language === 'zh' ? '发送失败，请重试' : 'Send failed, please retry');
+      }
+    } else {
+      // 没有聊天室，提示用户
+      alert(language === 'zh' ? '请先联系客服' : 'Please contact customer service');
+      navigate('/customer-service');
     }
   };
 
@@ -290,9 +394,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-20">
-        <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-48 flex items-center justify-center">
-          <span className="text-7xl">{item.icon}</span>
+        {/* 主图展示 */}
+        <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-64 flex items-center justify-center overflow-hidden">
+          {item.images && item.images.length > 0 ? (
+            <img src={item.images[0]} alt={item.title?.[language] || '商品'} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-7xl">{item.icon || '📦'}</span>
+          )}
         </div>
+        
+        {/* 副图展示 */}
+        {item.images && item.images.length > 1 && (
+          <div className="bg-white p-3 border-b">
+            <div className="flex gap-2 overflow-x-auto">
+              {item.images.slice(1).map((img: string, idx: number) => (
+                <div key={idx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200">
+                  <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white p-4 space-y-3">
           <div className="flex items-start justify-between">
@@ -351,9 +473,22 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
 
         <div className="bg-white mt-2 p-4">
           <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '详情介绍' : 'Description'}</h3>
-          <div className="text-sm text-gray-600 leading-relaxed">
-            <p>{item.description?.[language] || (language === 'zh' ? '商家暂未上传详细介绍，请联系商家了解更多信息。' : 'No detailed description available.')}</p>
+          
+          {/* 商品描述文字 */}
+          <div className="text-sm text-gray-600 leading-relaxed mb-4">
+            <p>{item.description?.[language] || item.description || (language === 'zh' ? '商家暂未上传详细介绍，请联系商家了解更多信息。' : 'No detailed description available.')}</p>
           </div>
+          
+          {/* 详情图展示 */}
+          {item.detailImages && item.detailImages.length > 0 && (
+            <div className="space-y-2">
+              {item.detailImages.map((img: string, idx: number) => (
+                <div key={idx} className="w-full rounded-lg overflow-hidden">
+                  <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
@@ -382,7 +517,13 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowCartModal(false)}>
           <div className="bg-white w-full max-w-md rounded-t-2xl p-4 animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-20 h-20 bg-purple-100 rounded-lg flex items-center justify-center text-4xl">{item.icon}</div>
+              <div className="w-20 h-20 bg-purple-100 rounded-lg overflow-hidden">
+                {item.images && item.images.length > 0 ? (
+                  <img src={item.images[0]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl">{item.icon || '📦'}</div>
+                )}
+              </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800">{item.title?.[language] || '商品'}</h3>
                 <p className="text-red-600 font-bold text-lg">{item.price}π</p>
@@ -420,7 +561,13 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center" onClick={() => setShowBuyModal(false)}>
           <div className="bg-white w-full max-w-md rounded-t-2xl p-4 animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3 mb-4">
-              <div className="w-20 h-20 bg-purple-100 rounded-lg flex items-center justify-center text-4xl">{item.icon}</div>
+              <div className="w-20 h-20 bg-purple-100 rounded-lg overflow-hidden">
+                {item.images && item.images.length > 0 ? (
+                  <img src={item.images[0]} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-4xl">{item.icon || '📦'}</div>
+                )}
+              </div>
               <div className="flex-1">
                 <h3 className="font-bold text-gray-800">{item.title?.[language] || '商品'}</h3>
                 <p className="text-red-600 font-bold text-lg">{item.price}π</p>

@@ -76,11 +76,30 @@ export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) 
           type="text"
           placeholder={translations.searchPlaceholder[language]}
           className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const input = e.target as HTMLInputElement;
+              const keyword = input.value.trim();
+              if (keyword) {
+                // 全局搜索 - 跳转到搜索结果页面
+                window.location.href = `/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(selectedCity)}`;
+              }
+            }
+          }}
         />
 
-        <div className="absolute right-3 text-gray-500 pointer-events-none">
+        <button 
+          className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors"
+          onClick={() => {
+            const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+            const keyword = input?.value?.trim();
+            if (keyword) {
+              window.location.href = `/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(selectedCity)}`;
+            }
+          }}
+        >
           <Search size={18} strokeWidth={2.5} />
-        </div>
+        </button>
       </div>
 
       {isOpen && (

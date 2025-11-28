@@ -35,6 +35,12 @@ import { EscrowCreatePage } from './pages/EscrowCreatePage';
 import { VentureCreatePage } from './pages/VentureCreatePage';
 import ChatListPage from './pages/ChatListPage';
 import ChatRoomPage from './pages/ChatRoomPage';
+import { ShopManagePage } from './pages/ShopManagePage';
+import { UploadProductPage } from './pages/UploadProductPage';
+import { NotificationDetailPage } from './pages/NotificationDetailPage';
+import { SearchResultPage } from './pages/SearchResultPage';
+import { MyShopsPage } from './pages/MyShopsPage';
+import { CheckoutPage } from './pages/CheckoutPage';
 import './index.css';
 
 const HomePage: React.FC<{ 
@@ -104,6 +110,38 @@ export const App: React.FC = () => {
       setUserInfo(piUser ? JSON.parse(piUser) : JSON.parse(emailUser));
     }
   }, []);
+
+  // 心跳功能 - 记录用户在线状态
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) return;
+      
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        await fetch(`${apiUrl}/api/v1/stats/heartbeat`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch (error) {
+        // 静默失败
+      }
+    };
+
+    // 立即发送一次心跳
+    if (userInfo) {
+      sendHeartbeat();
+    }
+
+    // 每分钟发送一次心跳
+    const interval = setInterval(() => {
+      if (userInfo) {
+        sendHeartbeat();
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [userInfo]);
 
   const handleLoginSuccess = (info: any) => {
     setUserInfo(info);
@@ -199,6 +237,36 @@ export const App: React.FC = () => {
   // Chat room page
   if (location.pathname.startsWith('/chat/')) {
     return <ChatRoomPage />;
+  }
+
+  // Shop manage page
+  if (location.pathname === '/shop-manage') {
+    return <ShopManagePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Upload product page
+  if (location.pathname === '/upload-product') {
+    return <UploadProductPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Notification detail page
+  if (location.pathname === '/notification-detail') {
+    return <NotificationDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Search result page
+  if (location.pathname === '/search') {
+    return <SearchResultPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // My shops page
+  if (location.pathname === '/my-shops') {
+    return <MyShopsPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Checkout page
+  if (location.pathname === '/checkout') {
+    return <CheckoutPage language={language} translations={TRANSLATIONS} />;
   }
 
   // Detail pages layout

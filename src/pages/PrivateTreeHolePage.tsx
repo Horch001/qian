@@ -1,17 +1,46 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, ChevronDown, ChevronUp, Lock, UserX, Shield, MessageSquare, Clock, Bookmark } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { treeHoleApi } from '../services/api';
+
+interface TreeHoleItem {
+  id: string;
+  content: string;
+  likes: number;
+  comments: number;
+  createdAt: string;
+  isAnonymous: boolean;
+}
 
 export const PrivateTreeHolePage: React.FC = () => {
   const { language } = useOutletContext<{ language: Language; translations: Translations }>();
   const navigate = useNavigate();
   const [sortBy, setSortBy] = useState('latest');
-  const [confessions, setConfessions] = useState([
-    { id: '1', content: { zh: '工作压力太大了...', en: 'Too much work stress...', ko: '일 스트레스가 너무 크다...', vi: 'Áp lực công việc quá lớn...' }, fullContent: { zh: '工作压力太大了，每天加班到很晚，感觉身体和精神都快撑不住了。有时候真的很想放弃，但是又不知道该怎么办...', en: 'Too much work stress, working overtime every day until late, feeling like my body and mind can barely hold on. Sometimes I really want to give up, but I don\'t know what to do...', ko: '일 스트레스가 너무 크다, 매일 야근하고...', vi: 'Áp lực công việc quá lớn, làm thêm giờ mỗi ngày...' }, time: '2小时前', likes: 234, comments: 12, mood: 'sad' },
-    { id: '2', content: { zh: '最近心情不太好', en: 'Not feeling great lately', ko: '요즘 기분이 좋지 않다', vi: 'Tâm trạng gần đây không tốt' }, fullContent: { zh: '最近心情不太好，也说不上来是什么原因，就是感觉很低落，什么都不想做。希望这种状态能快点过去...', en: 'Not feeling great lately, can\'t really say why, just feeling down and don\'t want to do anything. Hope this state passes soon...', ko: '요즘 기분이 좋지 않다...', vi: 'Tâm trạng gần đây không tốt...' }, time: '5小时前', likes: 456, comments: 23, mood: 'neutral' },
-    { id: '3', content: { zh: '今天遇到了一件很开心的事', en: 'Something happy happened today', ko: '오늘 행복한 일이 있었다', vi: 'Hôm nay có chuyện vui' }, fullContent: { zh: '今天遇到了一件很开心的事！在路上遇到了多年不见的老朋友，我们聊了很久，感觉时光仿佛回到了从前。生活中还是有很多美好的事情值得期待的！', en: 'Something happy happened today! Met an old friend I haven\'t seen in years on the street, we talked for a long time, felt like time went back to the old days. There are still many beautiful things in life worth looking forward to!', ko: '오늘 행복한 일이 있었다...', vi: 'Hôm nay có chuyện vui...' }, time: '8小时前', likes: 789, comments: 45, favorites: 156, mood: 'happy' },
-  ]);
+  const [confessions, setConfessions] = useState<TreeHoleItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 从后端加载树洞数据
+  useEffect(() => {
+    const loadTreeHoles = async () => {
+      try {
+        const data = await treeHoleApi.getTreeHoles(1, 50);
+        setConfessions(data.items.map((item: any) => ({
+          id: item.id,
+          content: item.content,
+          likes: item.likes,
+          comments: item._count?.comments || 0,
+          createdAt: item.createdAt,
+          isAnonymous: item.isAnonymous,
+        })));
+      } catch (error) {
+        console.error('加载树洞失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadTreeHoles();
+  }, []);
 
   const sortOptions = [
     { value: 'latest', label: { zh: '最新', en: 'Latest', ko: '최신', vi: 'Mới nhất' } },
@@ -27,10 +56,25 @@ export const PrivateTreeHolePage: React.FC = () => {
       case 'hot': return sorted.sort((a, b) => (b.likes + b.comments) - (a.likes + a.comments));
       case 'comments': return sorted.sort((a, b) => b.comments - a.comments);
       case 'likes': return sorted.sort((a, b) => b.likes - a.likes);
-      case 'favorites': return sorted.sort((a, b) => (b.favorites || 0) - (a.favorites || 0));
       default: return sorted;
     }
   }, [sortBy, confessions]);
+
+  // 格式化时间
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 1) return getText({ zh: '刚刚', en: 'Just now', ko: '방금', vi: 'Vừa xong' });
+    if (diffMins < 60) return getText({ zh: `${diffMins}分钟前`, en: `${diffMins}m ago`, ko: `${diffMins}분 전`, vi: `${diffMins} phút trước` });
+    if (diffHours < 24) return getText({ zh: `${diffHours}小时前`, en: `${diffHours}h ago`, ko: `${diffHours}시간 전`, vi: `${diffHours} giờ trước` });
+    if (diffDays < 7) return getText({ zh: `${diffDays}天前`, en: `${diffDays}d ago`, ko: `${diffDays}일 전`, vi: `${diffDays} ngày trước` });
+    return date.toLocaleDateString();
+  };
 
   const goToDetail = (confession: any) => {
     navigate('/tree-hole-detail', { state: { item: confession } });
@@ -39,27 +83,33 @@ export const PrivateTreeHolePage: React.FC = () => {
   const [postContent, setPostContent] = useState('');
   const [selectedMood, setSelectedMood] = useState('neutral');
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!postContent.trim()) {
       alert(language === 'zh' ? '请输入内容' : 'Please enter content');
       return;
     }
     
-    const newPost = {
-      id: Date.now().toString(),
-      content: { zh: postContent, en: postContent, ko: postContent, vi: postContent },
-      fullContent: { zh: postContent, en: postContent, ko: postContent, vi: postContent },
-      time: language === 'zh' ? '刚刚' : 'Just now',
-      likes: 0,
-      comments: 0,
-      favorites: 0,
-      mood: selectedMood,
-    };
-    
-    setConfessions([newPost, ...confessions]);
-    setPostContent('');
-    setIsPostExpanded(false);
-    setSelectedMood('neutral');
+    try {
+      const newTreeHole = await treeHoleApi.createTreeHole({
+        content: postContent,
+        isAnonymous: true,
+      });
+      
+      setConfessions([{
+        id: newTreeHole.id,
+        content: newTreeHole.content,
+        likes: 0,
+        comments: 0,
+        createdAt: newTreeHole.createdAt,
+        isAnonymous: true,
+      }, ...confessions]);
+      
+      setPostContent('');
+      setIsPostExpanded(false);
+      setSelectedMood('neutral');
+    } catch (error: any) {
+      alert(error.message || getText({ zh: '发布失败', en: 'Post failed', ko: '게시 실패', vi: 'Đăng thất bại' }));
+    }
   };
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -115,33 +165,50 @@ export const PrivateTreeHolePage: React.FC = () => {
 
       {/* 帖子列表 */}
       <div className="space-y-2">
-        {sortedConfessions.map((confession) => (
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          </div>
+        ) : sortedConfessions.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {getText({ zh: '暂无内容，快来发布第一条吧！', en: 'No posts yet, be the first!', ko: '아직 게시물이 없습니다!', vi: 'Chưa có bài đăng nào!' })}
+          </div>
+        ) : sortedConfessions.map((confession) => (
           <div 
             key={confession.id} 
             onClick={() => goToDetail(confession)}
-            className={`bg-gradient-to-br ${getMoodGradient(confession.mood)} rounded-xl p-3 border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer`}
+            className={`bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 rounded-xl p-3 border shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer`}
           >
             <div className="flex items-start gap-2 mb-2">
-              <span className="text-2xl">{getMoodEmoji(confession.mood)}</span>
-              <p className="text-gray-700 text-sm flex-1 leading-relaxed">{getText(confession.content)}</p>
+              <span className="text-2xl">💭</span>
+              <p className="text-gray-700 text-sm flex-1 leading-relaxed">{confession.content}</p>
             </div>
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1 text-gray-500">
                 <Clock className="w-3 h-3" />
-                <span>{confession.time}</span>
+                <span>{formatTime(confession.createdAt)}</span>
               </div>
               <div className="flex gap-3">
-                <button className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/50 transition-all group">
+                <button 
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      await treeHoleApi.likeTreeHole(confession.id);
+                      setConfessions(prev => prev.map(c => 
+                        c.id === confession.id ? { ...c, likes: c.likes + 1 } : c
+                      ));
+                    } catch (error) {
+                      console.error('点赞失败:', error);
+                    }
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/50 transition-all group"
+                >
                   <Heart className="w-3.5 h-3.5 text-gray-500 group-hover:text-red-500 group-hover:fill-red-500 transition-all" />
                   <span className="text-gray-600 font-bold">{confession.likes}</span>
                 </button>
                 <button className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/50 transition-all group">
                   <MessageCircle className="w-3.5 h-3.5 text-gray-500 group-hover:text-purple-500 transition-all" />
                   <span className="text-gray-600 font-bold">{confession.comments}</span>
-                </button>
-                <button className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/50 transition-all group">
-                  <Bookmark className="w-3.5 h-3.5 text-gray-500 group-hover:text-yellow-500 group-hover:fill-yellow-500 transition-all" />
-                  <span className="text-gray-600 font-bold text-[10px]">{language === 'zh' ? '收藏' : 'Save'}</span>
                 </button>
               </div>
             </div>

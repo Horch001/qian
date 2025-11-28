@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, LogOut, User, LogIn, Mail, ShoppingCart } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { authApi } from '../services/api';
+import { authApi, userApi } from '../services/api';
 
 interface BottomNavigationProps {
   language: Language;
@@ -22,26 +22,34 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isTestAccount, setIsTestAccount] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-  const [cartCount, setCartCount] = useState(0);
 
-  // 监听消息和购物车数量变化
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // 获取真实的未读消息数
   useEffect(() => {
-    const updateCounts = () => {
-      const unread = parseInt(localStorage.getItem('unreadMessageCount') || '0');
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      setUnreadMessageCount(unread || 3); // 默认显示3条未读
-      setCartCount(cart.length);
+    const fetchCounts = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setUnreadMessageCount(0);
+        return;
+      }
+      
+      try {
+        const unreadData = await userApi.getUnreadNotificationCount().catch(() => ({ count: 0 }));
+        setUnreadMessageCount(unreadData.count || 0);
+      } catch (error) {
+        console.error('Failed to fetch counts:', error);
+        setUnreadMessageCount(0);
+      }
     };
-    
-    updateCounts();
-    window.addEventListener('storage', updateCounts);
-    window.addEventListener('focus', updateCounts);
-    
-    return () => {
-      window.removeEventListener('storage', updateCounts);
-      window.removeEventListener('focus', updateCounts);
-    };
-  }, []);
+
+    if (isLoggedIn) {
+      fetchCounts();
+      // 每30秒刷新一次
+      const interval = setInterval(fetchCounts, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
 
   // 检测是否在Pi浏览器环境（不依赖 SDK 是否加载）
   const isPiBrowser = () => {
@@ -105,11 +113,68 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     setIsLoggingIn(true);
     setLoginError(null);
 
-    // 检查是否在 Pi Browser 环境
-    const inPiBrowser = isPiBrowser();
+    // 开发环境检测：localhost 或 127.0.0.1
+    const isDevelopment = window.location.hostname === 'localhost' || 
+                          window.location.hostname === '127.0.0.1' ||
+                          window.location.hostname.includes('192.168.');
     
-    // 如果在 Pi Browser 中，等待 SDK 加载
-    if (inPiBrowser) {
+    // 真正的 Pi Browser 检测：必须在 userAgent 中包含 PiBrowser 或在 minepi.com 域名下
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isRealPiBrowser = userAgent.includes('pibrowser') || window.location.hostname.includes('minepi.com');
+    
+    console.log('Login attempt - isDevelopment:', isDevelopment, 'isRealPiBrowser:', isRealPiBrowser);
+
+    // 开发环境下，如果不是真正的 Pi Browser，直接使用测试账号
+    if (isDevelopment && !isRealPiBrowser) {
+      console.log('Development mode: using test account');
+      try {
+        // 使用固定的测试账号ID，方便开发调试
+        const testPiUid = 'dev_test_user_001';
+        const data = await authApi.piLogin({
+          piUid: testPiUid,
+          accessToken: 'dev_test_token',
+          username: 'DevTestUser', // 使用英文用户名避免编码问题
+        });
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        // 确保用户名有值，如果后端返回的用户名为空或乱码，使用默认值
+        const displayUsername = data.user.username && /^[\w\u4e00-\u9fa5]+$/.test(data.user.username) 
+          ? data.user.username 
+          : 'DevTestUser';
+        const testUserInfo = { 
+          ...data.user, 
+          username: displayUsername,
+          isTestAccount: true, 
+          balance: data.user.balance || '1000' 
+        };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        localStorage.setItem('piUserInfo', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+        console.log('Test account login successful:', testUserInfo);
+      } catch (error: any) {
+        console.error('Backend login failed, using local test account:', error);
+        // 如果后端不可用，使用本地测试账号
+        const testUserInfo = {
+          id: 'local_dev_test_' + Date.now(),
+          username: 'LocalTestUser',
+          uid: 'local_test_' + Date.now(),
+          email: 'dev@test.com',
+          balance: '1000',
+          isTestAccount: true,
+        };
+        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
+        localStorage.setItem('piUserInfo', JSON.stringify(testUserInfo));
+        localStorage.setItem('user', JSON.stringify(testUserInfo));
+        onLoginSuccess?.(testUserInfo);
+        setIsTestAccount(true);
+      }
+      setIsLoggingIn(false);
+      return;
+    }
+    
+    // 如果在真正的 Pi Browser 中，等待 SDK 加载
+    if (isRealPiBrowser) {
       const sdkReady = await waitForPiSDK(3000);
       if (!sdkReady) {
         setLoginError('Pi SDK 加载超时，请刷新页面重试');
@@ -118,8 +183,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
       }
     }
 
-    // 使用 Pi SDK 登录
-    if (window.Pi && typeof window.Pi.authenticate === 'function') {
+    // 使用 Pi SDK 登录（仅在真正的 Pi Browser 中）
+    if (isRealPiBrowser && window.Pi && typeof window.Pi.authenticate === 'function') {
       try {
         const scopes = ['username', 'payments'];
         const authResult = await window.Pi.authenticate(scopes, async (payment: any) => {
@@ -156,8 +221,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
       }
     }
 
-    // 非 Pi 浏览器环境，使用测试账号
-    if (!inPiBrowser) {
+    // 非真正的 Pi 浏览器环境，使用测试账号
+    if (!isRealPiBrowser) {
       try {
         const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
         const data = await authApi.piLogin({
@@ -275,21 +340,47 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
               onClick={() => navigate('/cart')}
               className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80 relative">
               <ShoppingCart size={20} className="text-white" strokeWidth={2} />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 right-3 min-w-[16px] h-4 bg-red-500 rounded-full flex items-center justify-center px-1">
-                  <span className="text-white text-[10px] font-bold">{cartCount > 99 ? '99+' : cartCount}</span>
-                </span>
-              )}
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '购物车', en: 'Cart', ko: '장바구니', vi: 'Giỏ hàng' }, language)}</span>
             </button>
 
             <button 
-              onClick={onLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="inline-flex flex-col items-center justify-center gap-[2px] py-1 w-[72px] group active:scale-95 transition-all hover:opacity-80">
               <LogOut size={20} className="text-white" strokeWidth={2.5} />
               <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '退出', en: 'Logout', ko: '로그아웃', vi: 'Đăng xuất' }, language)}</span>
             </button>
           </div>
+          
+          {/* 退出确认弹窗 */}
+          {showLogoutConfirm && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowLogoutConfirm(false)}>
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-gray-800 text-center mb-2">
+                  {getText({ zh: '确认退出', en: 'Confirm Logout', ko: '로그아웃 확인', vi: 'Xác nhận đăng xuất' }, language)}
+                </h3>
+                <p className="text-gray-500 text-sm text-center mb-6">
+                  {getText({ zh: '确定要退出登录吗？', en: 'Are you sure you want to logout?', ko: '정말 로그아웃하시겠습니까?', vi: 'Bạn có chắc muốn đăng xuất?' }, language)}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-all"
+                  >
+                    {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' }, language)}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowLogoutConfirm(false);
+                      onLogout();
+                    }}
+                    className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-all"
+                  >
+                    {getText({ zh: '确认退出', en: 'Logout', ko: '로그아웃', vi: 'Đăng xuất' }, language)}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -313,12 +404,43 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
           </button>
 
           <button 
-            onClick={onLogout}
+            onClick={() => setShowLogoutConfirm(true)}
             className="w-20 flex flex-col items-center justify-center gap-[2px] py-1.5 group active:scale-95 transition-all hover:opacity-80">
             <LogOut size={20} className="text-white" strokeWidth={2.5} />
             <span className="text-[10px] font-bold text-white tracking-wide">{getText({ zh: '退出', en: 'Logout', ko: '로그아웃', vi: 'Đăng xuất' }, language)}</span>
           </button>
         </div>
+        
+        {/* 退出确认弹窗 */}
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowLogoutConfirm(false)}>
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-gray-800 text-center mb-2">
+                {getText({ zh: '确认退出', en: 'Confirm Logout', ko: '로그아웃 확인', vi: 'Xác nhận đăng xuất' }, language)}
+              </h3>
+              <p className="text-gray-500 text-sm text-center mb-6">
+                {getText({ zh: '确定要退出登录吗？', en: 'Are you sure you want to logout?', ko: '정말 로그아웃하시겠습니까?', vi: 'Bạn có chắc muốn đăng xuất?' }, language)}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="flex-1 py-2.5 px-4 bg-gray-100 text-gray-700 rounded-lg font-bold hover:bg-gray-200 transition-all"
+                >
+                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' }, language)}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    onLogout();
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 transition-all"
+                >
+                  {getText({ zh: '确认退出', en: 'Logout', ko: '로그아웃', vi: 'Đăng xuất' }, language)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

@@ -1,7 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Store } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { userApi } from '../services/api';
+
+interface CartItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  spec?: string;
+  selected: boolean;
+  product: {
+    id: string;
+    title: string;
+    titleEn?: string;
+    icon?: string;
+    images: string[];
+    price: string;
+    merchant: {
+      id: string;
+      shopName: string;
+    };
+  };
+}
 
 interface CartPageProps {
   language: Language;
@@ -10,21 +31,40 @@ interface CartPageProps {
 
 export const CartPage: React.FC<CartPageProps> = ({ language }) => {
   const navigate = useNavigate();
-  
-  // 模拟购物车数据
-  const [cartItems, setCartItems] = useState([
-    { id: '1', name: { zh: '日用百货套装', en: 'Daily Essentials', ko: '일상용품', vi: 'Hàng tiêu dùng' }, icon: '🛍️', price: 99, quantity: 2, shop: { zh: '品质生活馆', en: 'Quality Store', ko: '품질 상점', vi: 'Cửa hàng chất lượng' }, selected: true, spec: { zh: '标准版', en: 'Standard', ko: '표준', vi: 'Tiêu chuẩn' } },
-    { id: '2', name: { zh: '数码配件包', en: 'Digital Accessories', ko: '디지털 액세서리', vi: 'Phụ kiện số' }, icon: '💻', price: 299, quantity: 1, shop: { zh: '科技数码店', en: 'Tech Store', ko: '기술 상점', vi: 'Cửa hàng công nghệ' }, selected: true, spec: { zh: '黑色/Type-C', en: 'Black/Type-C', ko: '블랙/Type-C', vi: 'Đen/Type-C' } },
-    { id: '3', name: { zh: '居家好物精选', en: 'Home Collection', ko: '홈 컬렉션', vi: 'Bộ sưu tập nhà' }, icon: '🏠', price: 199, quantity: 1, shop: { zh: '温馨家居店', en: 'Cozy Home', ko: '아늑한 홈', vi: 'Nhà ấm cúng' }, selected: false, spec: { zh: '简约白', en: 'Simple White', ko: '심플 화이트', vi: 'Trắng đơn giản' } },
-    { id: '4', name: { zh: '有机绿茶礼盒', en: 'Organic Green Tea Gift Box', ko: '유기농 녹차 선물 세트', vi: 'Hộp quà trà xanh hữu cơ' }, icon: '🍵', price: 158, quantity: 1, shop: { zh: '茶香世家', en: 'Tea House', ko: '차 하우스', vi: 'Nhà trà' }, selected: false, spec: { zh: '250g/盒', en: '250g/box', ko: '250g/박스', vi: '250g/hộp' } },
-    { id: '5', name: { zh: '运动蓝牙耳机', en: 'Sports Bluetooth Earbuds', ko: '스포츠 블루투스 이어폰', vi: 'Tai nghe Bluetooth thể thao' }, icon: '🎧', price: 189, quantity: 1, shop: { zh: '科技数码店', en: 'Tech Store', ko: '기술 상점', vi: 'Cửa hàng công nghệ' }, selected: true, spec: { zh: '星空黑', en: 'Space Black', ko: '스페이스 블랙', vi: 'Đen không gian' } },
-    { id: '6', name: { zh: '纯棉四件套', en: 'Cotton Bedding Set', ko: '면 침구 세트', vi: 'Bộ chăn ga gối cotton' }, icon: '🛏️', price: 399, quantity: 1, shop: { zh: '温馨家居店', en: 'Cozy Home', ko: '아늑한 홈', vi: 'Nhà ấm cúng' }, selected: false, spec: { zh: '1.8m床/浅灰', en: '1.8m/Light Gray', ko: '1.8m/라이트 그레이', vi: '1.8m/Xám nhạt' } },
-  ]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems(items => items.map(item => 
-      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-    ));
+  // 从后端加载购物车数据
+  useEffect(() => {
+    const loadCartItems = async () => {
+      try {
+        const items = await userApi.getCartItems();
+        setCartItems(items.map((item: any) => ({
+          ...item,
+          selected: false, // 默认不选中，避免购物车图标一直显示红点
+        })));
+      } catch (error) {
+        console.error('加载购物车失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadCartItems();
+  }, []);
+
+  const updateQuantity = async (id: string, delta: number) => {
+    const item = cartItems.find(i => i.id === id);
+    if (!item) return;
+    
+    const newQuantity = Math.max(1, item.quantity + delta);
+    try {
+      await userApi.updateCartItem(id, newQuantity);
+      setCartItems(items => items.map(i => 
+        i.id === id ? { ...i, quantity: newQuantity } : i
+      ));
+    } catch (error) {
+      console.error('更新数量失败:', error);
+    }
   };
 
   const toggleSelect = (id: string) => {
@@ -33,12 +73,19 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
     ));
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const removeItem = async (id: string) => {
+    try {
+      await userApi.removeFromCart(id);
+      setCartItems(items => items.filter(item => item.id !== id));
+    } catch (error) {
+      console.error('移除商品失败:', error);
+    }
   };
 
   const selectedItems = cartItems.filter(item => item.selected);
-  const totalPrice = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalPrice = selectedItems.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
+
+  const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
@@ -56,15 +103,20 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-24">
-        {cartItems.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-3"></div>
+            <p>{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+          </div>
+        ) : cartItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
             <ShoppingCart className="w-12 h-12 mb-3 text-gray-300" />
-            <p>{language === 'zh' ? '购物车是空的' : 'Cart is empty'}</p>
+            <p>{getText({ zh: '购物车是空的', en: 'Cart is empty', ko: '장바구니가 비어 있습니다', vi: 'Giỏ hàng trống' })}</p>
             <button 
               onClick={() => navigate('/')}
               className="mt-4 px-4 py-2 bg-purple-600 text-white text-sm font-bold rounded-lg"
             >
-              {language === 'zh' ? '去逛逛' : 'Go Shopping'}
+              {getText({ zh: '去逛逛', en: 'Go Shopping', ko: '쇼핑하러 가기', vi: 'Đi mua sắm' })}
             </button>
           </div>
         ) : (
@@ -73,7 +125,7 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
               <div key={item.id} className="bg-white rounded-xl p-3 shadow-sm">
                 <div className="flex items-center gap-2 mb-2 text-xs text-gray-500">
                   <Store className="w-3 h-3" />
-                  <span>{item.shop[language]}</span>
+                  <span>{item.product.merchant?.shopName || getText({ zh: '未知店铺', en: 'Unknown Store', ko: '알 수 없는 상점', vi: 'Cửa hàng không xác định' })}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <input 
@@ -82,15 +134,21 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
                     onChange={() => toggleSelect(item.id)}
                     className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
-                  <div className="w-14 h-14 bg-purple-50 rounded-lg flex items-center justify-center text-3xl">
-                    {item.icon}
+                  <div className="w-14 h-14 bg-purple-50 rounded-lg flex items-center justify-center text-3xl overflow-hidden">
+                    {item.product.images?.[0] ? (
+                      <img src={item.product.images[0]} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      item.product.icon || '📦'
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-bold text-gray-800 text-sm truncate">{item.name[language]}</h3>
+                    <h3 className="font-bold text-gray-800 text-sm truncate">
+                      {language === 'en' && item.product.titleEn ? item.product.titleEn : item.product.title}
+                    </h3>
                     {item.spec && (
-                      <p className="text-xs text-gray-400 mt-0.5">{item.spec[language]}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{item.spec}</p>
                     )}
-                    <p className="text-red-600 font-bold text-base">{item.price}π</p>
+                    <p className="text-red-600 font-bold text-base">{item.product.price}π</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <button onClick={() => removeItem(item.id)} className="p-1 text-gray-400 hover:text-red-500">
@@ -117,11 +175,21 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
           <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
             <div>
-              <span className="text-sm text-gray-500">{language === 'zh' ? '合计：' : 'Total: '}</span>
-              <span className="text-xl font-bold text-red-600">{totalPrice}π</span>
+              <span className="text-sm text-gray-500">{getText({ zh: '合计：', en: 'Total: ', ko: '합계: ', vi: 'Tổng: ' })}</span>
+              <span className="text-xl font-bold text-red-600">{totalPrice.toFixed(2)}π</span>
             </div>
-            <button className="px-8 py-2.5 bg-gradient-to-r from-red-600 to-red-500 text-white text-sm font-bold rounded-lg hover:opacity-90 active:scale-95 transition-all">
-              {language === 'zh' ? `结算(${selectedItems.length})` : `Checkout(${selectedItems.length})`}
+            <button 
+              onClick={() => {
+                if (selectedItems.length === 0) {
+                  alert(getText({ zh: '请选择商品', en: 'Please select items', ko: '상품을 선택하세요', vi: 'Vui lòng chọn sản phẩm' }));
+                  return;
+                }
+                // 跳转到结算页面，传递选中的商品
+                navigate('/checkout', { state: { items: selectedItems } });
+              }}
+              className="px-8 py-2.5 bg-gradient-to-r from-red-600 to-red-500 text-white text-sm font-bold rounded-lg hover:opacity-90 active:scale-95 transition-all"
+            >
+              {getText({ zh: `结算(${selectedItems.length})`, en: `Checkout(${selectedItems.length})`, ko: `결제(${selectedItems.length})`, vi: `Thanh toán(${selectedItems.length})` })}
             </button>
           </div>
         </div>

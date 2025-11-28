@@ -1,57 +1,63 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame, ChevronDown, Calendar } from 'lucide-react';
+import { Users, Gem, ArrowLeftRight, DollarSign, Star, Flame, ChevronDown, Calendar, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
+import { resourceApi, ResourceRequest } from '../services/api';
 
 export const SeekResourcesPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('default');
+  const [requests, setRequests] = useState<ResourceRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchKeyword, setSearchKeyword] = useState('');
   const navigate = useNavigate();
 
-  const goToDetail = (request: any) => {
-    navigate('/resource-detail', { state: { item: request } });
+  const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
+
+  // 从后端加载数据
+  useEffect(() => {
+    const loadResources = async () => {
+      try {
+        setIsLoading(true);
+        const data = await resourceApi.getResources({ sortBy, keyword: searchKeyword || undefined, limit: 50 });
+        setRequests(data.items);
+      } catch (error) {
+        console.error('加载求资源失败:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadResources();
+  }, [sortBy, searchKeyword]);
+
+  const handleSearch = (keyword: string) => {
+    setSearchKeyword(keyword);
   };
 
-  const requests = [
-    {
-      id: '1',
-      resource: { zh: '稀缺电子书资源', en: 'Rare E-book', ko: '희귀 전자책', vi: 'Sách điện tử hiếm' },
-      icon: '📚',
-      initiatorPrice: 50,
-      totalBidders: 12,
-      additionalBids: 30,
-      status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
-      hot: true,
-      publishTime: { zh: '2天前', en: '2 days ago', ko: '2일 전', vi: '2 ngày trước' },
-      deadline: { zh: '5天后', en: '5 days', ko: '5일', vi: '5 ngày' },
-    },
-    {
-      id: '2',
-      resource: { zh: '专业软件激活码', en: 'Software License', ko: '소프트웨어 라이선스', vi: 'Giấy phép phần mềm' },
-      icon: '💻',
-      initiatorPrice: 100,
-      totalBidders: 8,
-      additionalBids: 50,
-      status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
-      hot: false,
-      publishTime: { zh: '1周前', en: '1 week ago', ko: '1주 전', vi: '1 tuần trước' },
-      deadline: { zh: '3天后', en: '3 days', ko: '3일', vi: '3 ngày' },
-    },
-    {
-      id: '3',
-      resource: { zh: '设计素材包', en: 'Design Assets', ko: '디자인 자산', vi: 'Tài sản thiết kế' },
-      icon: '🎨',
-      initiatorPrice: 30,
-      totalBidders: 1,
-      additionalBids: 0,
-      status: { zh: '求购中', en: 'Seeking', ko: '구매 중', vi: 'Đang tìm' },
-      hot: false,
-      publishTime: { zh: '3小时前', en: '3 hours ago', ko: '3시간 전', vi: '3 giờ trước' },
-      deadline: { zh: '7天后', en: '7 days', ko: '7일', vi: '7 ngày' },
-    },
-  ];
+  const goToDetail = (request: ResourceRequest) => {
+    navigate('/resource-detail', { 
+      state: { 
+        item: {
+          ...request,
+          resource: { zh: request.title, en: request.titleEn || request.title, ko: request.title, vi: request.title },
+        } 
+      } 
+    });
+  };
+
+  // 计算截止时间
+  const getDeadlineText = (deadline: string) => {
+    const deadlineDate = new Date(deadline);
+    const now = new Date();
+    const diffMs = deadlineDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays <= 0) return getText({ zh: '已截止', en: 'Ended', ko: '종료됨', vi: 'Đã kết thúc' });
+    if (diffDays === 1) return getText({ zh: '1天后', en: '1 day', ko: '1일', vi: '1 ngày' });
+    return getText({ zh: `${diffDays}天后`, en: `${diffDays} days`, ko: `${diffDays}일`, vi: `${diffDays} ngày` });
+  };
 
   const sortOptions = [
     { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
@@ -61,16 +67,8 @@ export const SeekResourcesPage: React.FC = () => {
     { value: 'amount_low', label: { zh: '出价金额从低到高', en: 'Amount: Low to High', ko: '금액: 낮은순', vi: 'Số tiền: Thấp đến cao' } },
   ];
 
-  const sortedRequests = useMemo(() => {
-    const sorted = [...requests];
-    switch (sortBy) {
-      case 'bidders_high': return sorted.sort((a, b) => b.totalBidders - a.totalBidders);
-      case 'bidders_low': return sorted.sort((a, b) => a.totalBidders - b.totalBidders);
-      case 'amount_high': return sorted.sort((a, b) => (b.initiatorPrice + b.additionalBids) - (a.initiatorPrice + a.additionalBids));
-      case 'amount_low': return sorted.sort((a, b) => (a.initiatorPrice + a.additionalBids) - (b.initiatorPrice + b.additionalBids));
-      default: return sorted;
-    }
-  }, [sortBy]);
+  // 数据已在后端排序，这里直接使用
+  const sortedRequests = requests;
 
   const features = [
     { icon: Gem, text: { zh: '稀缺资源', en: 'Rare Resources', ko: '희귀 자원', vi: 'Tài nguyên hiếm' } },
@@ -81,7 +79,7 @@ export const SeekResourcesPage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      <SimpleSearchBar language={language} translations={translations} />
+      <SimpleSearchBar language={language} translations={translations} onSearch={handleSearch} />
       
       <div className="grid grid-cols-4 gap-1.5">
         {features.map((feature, idx) => (
@@ -106,77 +104,91 @@ export const SeekResourcesPage: React.FC = () => {
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
       </div>
       
-      <div className="space-y-2">
-        {sortedRequests.map((request) => (
-          <div
-            key={request.id}
-            onClick={() => goToDetail(request)}
-            className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
-                       ${selectedRequest === request.id 
-                         ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-400 shadow-lg' 
-                         : 'bg-white border border-purple-100 shadow-sm hover:shadow-lg hover:border-yellow-300'}`}
-          >
-            {/* 热门标签 */}
-            {request.hot && (
-              <div className="absolute top-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-br-lg rounded-tl-lg shadow-md flex items-center gap-0.5 z-10">
-                <Flame className="w-2.5 h-2.5" />
-                {language === 'zh' ? '热门' : 'Hot'}
-              </div>
-            )}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-orange-600 animate-spin" />
+          <p className="mt-2 text-gray-600 text-sm">{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+        </div>
+      ) : sortedRequests.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">{getText({ zh: '暂无求资源', en: 'No requests', ko: '요청 없음', vi: 'Không có yêu cầu' })}</div>
+      ) : (
+        <div className="space-y-2">
+          {sortedRequests.map((request) => {
+            const totalAmount = parseFloat(request.initiatorPrice) + parseFloat(request.totalBids);
+            const isHot = request.bidderCount >= 5;
             
-            <div className="flex gap-2 relative">
-              <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg shadow-inner">
-                {request.icon}
-              </div>
-              <div className="flex-1 min-w-0 flex flex-col pr-[70px]">
-                <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
-                  {request.resource[language]}
-                </h3>
-                <div className="flex items-start justify-between">
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-500">{language === 'zh' ? '首价' : 'Start'}</span>
-                      <span className="text-red-600 font-bold text-sm leading-none">{request.initiatorPrice}π</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-500">{language === 'zh' ? '总价' : 'Total'}</span>
-                      <span className="text-green-600 font-bold text-sm leading-none">{request.initiatorPrice + request.additionalBids}π</span>
+            return (
+              <div
+                key={request.id}
+                onClick={() => goToDetail(request)}
+                className={`group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer
+                           ${selectedRequest === request.id 
+                             ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-400 shadow-lg' 
+                             : 'bg-white border border-purple-100 shadow-sm hover:shadow-lg hover:border-yellow-300'}`}
+              >
+                {/* 热门标签 */}
+                {isHot && (
+                  <div className="absolute top-0 left-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-br-lg rounded-tl-lg shadow-md flex items-center gap-0.5 z-10">
+                    <Flame className="w-2.5 h-2.5" />
+                    {getText({ zh: '热门', en: 'Hot', ko: '인기', vi: 'Nóng' })}
+                  </div>
+                )}
+                
+                <div className="flex gap-2 relative">
+                  <div className="w-14 h-14 flex items-center justify-center text-3xl flex-shrink-0 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg shadow-inner">
+                    {request.icon || '📦'}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col pr-[70px]">
+                    <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
+                      {language === 'en' && request.titleEn ? request.titleEn : request.title}
+                    </h3>
+                    <div className="flex items-start justify-between">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-500">{getText({ zh: '首价', en: 'Start', ko: '시작', vi: 'Bắt đầu' })}</span>
+                          <span className="text-red-600 font-bold text-sm leading-none">{request.initiatorPrice}π</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] text-gray-500">{getText({ zh: '总价', en: 'Total', ko: '총액', vi: 'Tổng' })}</span>
+                          <span className="text-green-600 font-bold text-sm leading-none">{totalAmount.toFixed(2)}π</span>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2 ml-3">
+                        <div className="flex flex-col items-center py-0.5">
+                          <span className="text-[9px] text-orange-600 font-bold leading-none">{getText({ zh: '截止', en: 'Due', ko: '마감', vi: 'Hạn' })}</span>
+                          <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-bold mt-0.5">
+                            <Calendar className="w-2.5 h-2.5" />
+                            {getDeadlineText(request.deadline)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center bg-purple-50 rounded-lg px-2 py-0.5">
+                          <span className="text-[9px] text-gray-500 leading-none">{getText({ zh: '出价人数', en: 'Bidders', ko: '입찰자', vi: 'Người đấu' })}</span>
+                          <span className="flex items-center gap-0.5 text-[10px] text-purple-600 font-bold mt-0.5">
+                            <Users className="w-2.5 h-2.5" />
+                            {request.bidderCount}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2 ml-3">
-                    <div className="flex flex-col items-center py-0.5">
-                      <span className="text-[9px] text-orange-600 font-bold leading-none">{language === 'zh' ? '截止' : 'Due'}</span>
-                      <span className="flex items-center gap-0.5 text-[10px] text-orange-600 font-bold mt-0.5">
-                        <Calendar className="w-2.5 h-2.5" />
-                        {request.deadline[language]}
-                      </span>
-                    </div>
-                    <div className="flex flex-col items-center bg-purple-50 rounded-lg px-2 py-0.5">
-                      <span className="text-[9px] text-gray-500 leading-none">{language === 'zh' ? '出价人数' : 'Bidders'}</span>
-                      <span className="flex items-center gap-0.5 text-[10px] text-purple-600 font-bold mt-0.5">
-                        <Users className="w-2.5 h-2.5" />
-                        {request.totalBidders}
-                      </span>
-                    </div>
+                  <div className="absolute top-1/2 -translate-y-1/2 right-1 flex flex-col gap-1">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
+                      className="px-2 py-0.5 bg-gradient-to-r from-green-600 to-emerald-500 text-white text-[10px] font-bold rounded hover:from-green-700 hover:to-emerald-600 active:scale-95 transition-all shadow-sm">
+                      {getText({ zh: '提供', en: 'Provide', ko: '제공', vi: 'Cung cấp' })}
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
+                      className="px-2 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold rounded hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all shadow-sm">
+                      {getText({ zh: '想要', en: 'Want', ko: '원해요', vi: 'Muốn' })}
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="absolute top-1/2 -translate-y-1/2 right-1 flex flex-col gap-1">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
-                  className="px-2 py-0.5 bg-gradient-to-r from-green-600 to-emerald-500 text-white text-[10px] font-bold rounded hover:from-green-700 hover:to-emerald-600 active:scale-95 transition-all shadow-sm">
-                  {language === 'zh' ? '提供' : language === 'en' ? 'Provide' : language === 'ko' ? '제공' : 'Cung cấp'}
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); goToDetail(request); }}
-                  className="px-2 py-0.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold rounded hover:from-orange-600 hover:to-red-600 active:scale-95 transition-all shadow-sm">
-                  {language === 'zh' ? '想要' : language === 'en' ? 'Want' : language === 'ko' ? '원해요' : 'Muốn'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
