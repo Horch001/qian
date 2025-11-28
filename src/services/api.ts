@@ -433,10 +433,13 @@ export interface Merchant {
   shopName: string;
   description?: string;
   logo?: string;
+  banner?: string;
   deposit: string;
   rating: number;
   totalSales: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  category?: string;
+  reviewNote?: string;
   createdAt: string;
 }
 
