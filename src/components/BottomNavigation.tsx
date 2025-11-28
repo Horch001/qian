@@ -113,19 +113,34 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     setIsLoggingIn(true);
     setLoginError(null);
 
-    // 开发环境检测：localhost 或 127.0.0.1
-    const isDevelopment = window.location.hostname === 'localhost' || 
-                          window.location.hostname === '127.0.0.1' ||
-                          window.location.hostname.includes('192.168.');
+    // 环境检测
+    const isProduction = import.meta.env.PROD;
     
-    // 真正的 Pi Browser 检测：必须在 userAgent 中包含 PiBrowser 或在 minepi.com 域名下
+    // 真正的 Pi Browser 检测：
+    // 1. UserAgent 包含 PiBrowser
+    // 2. 域名包含 minepi.com
+    // 3. window.Pi 存在且可用
     const userAgent = navigator.userAgent.toLowerCase();
-    const isRealPiBrowser = userAgent.includes('pibrowser') || window.location.hostname.includes('minepi.com');
+    const isRealPiBrowser = userAgent.includes('pibrowser') || 
+                          window.location.hostname.includes('minepi.com') ||
+                          (window.Pi !== undefined);
     
-    console.log('Login attempt - isDevelopment:', isDevelopment, 'isRealPiBrowser:', isRealPiBrowser);
+    console.log('Login attempt - isProduction:', isProduction, 'isRealPiBrowser:', isRealPiBrowser);
+
+    // 生产环境安全检查：必须在 Pi Browser 中打开
+    if (isProduction && !isRealPiBrowser) {
+      setLoginError(getText({ 
+        zh: '请在 Pi Browser 中打开此应用', 
+        en: 'Please open in Pi Browser', 
+        ko: 'Pi Browser에서 열어주세요', 
+        vi: 'Vui lòng mở trong Pi Browser' 
+      }, language));
+      setIsLoggingIn(false);
+      return;
+    }
 
     // 开发环境下，如果不是真正的 Pi Browser，直接使用测试账号
-    if (isDevelopment && !isRealPiBrowser) {
+    if (!isProduction && !isRealPiBrowser) {
       console.log('Development mode: using test account');
       try {
         // 使用固定的测试账号ID，方便开发调试
@@ -221,38 +236,32 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
       }
     }
 
-    // 非真正的 Pi 浏览器环境，使用测试账号
-    if (!isRealPiBrowser) {
-      try {
-        const testPiUid = 'test_user_' + Math.random().toString(36).substring(7);
-        const data = await authApi.piLogin({
-          piUid: testPiUid,
-          accessToken: 'test_token',
-          username: 'TestUser',
-        });
-        localStorage.setItem('authToken', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        const testUserInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
-        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-        onLoginSuccess?.(testUserInfo);
-        setIsTestAccount(true);
-      } catch (error) {
-        const testUserInfo = {
-          id: 'local_test_' + Date.now(),
-          username: 'TestUser',
-          uid: 'test_' + Date.now(),
-          email: 'test@example.com',
-          balance: '0.00',
-          isTestAccount: true,
-        };
-        localStorage.setItem('userInfo', JSON.stringify(testUserInfo));
-        localStorage.setItem('user', JSON.stringify(testUserInfo));
-        onLoginSuccess?.(testUserInfo);
-        setIsTestAccount(true);
-      }
-    } else {
-      setLoginError('Pi SDK 不可用，请刷新页面重试');
+    // 最后的清理工作，如果前面的逻辑都没有触发（理论上不应该发生）
+    if (!isRealPiBrowser && !isProduction) {
+        // 确保开发环境（非生产且非Pi浏览器）可以登录测试账号
+        // 这是双重保险，防止前面的 if (!isProduction && !isRealPiBrowser) 没有捕获到
+        console.warn('Fallback: executing mock login for dev environment');
+        try {
+          const testPiUid = 'dev_fallback_' + Date.now();
+          const data = await authApi.piLogin({
+            piUid: testPiUid,
+            accessToken: 'dev_fallback_token',
+            username: 'DevFallbackUser',
+          });
+          localStorage.setItem('authToken', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          const userInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
+          localStorage.setItem('userInfo', JSON.stringify(userInfo));
+          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+          onLoginSuccess?.(userInfo);
+          setIsTestAccount(true);
+        } catch (e) {
+          console.error('Fallback mock login failed', e);
+        }
+    } else if (isRealPiBrowser && (!window.Pi || typeof window.Pi.authenticate !== 'function')) {
+        setLoginError('Pi SDK 初始化失败，请刷新页面');
     }
+    
     setIsLoggingIn(false);
   };
 
