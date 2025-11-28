@@ -26,8 +26,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
   
+  // 自定义弹窗状态
+  const [toast, setToast] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+    amount?: string;
+  }>({ show: false, type: 'success', title: '', message: '' });
+  
+  // 显示自定义弹窗
+  const showToast = (type: 'success' | 'error' | 'info', title: string, message: string, amount?: string) => {
+    setToast({ show: true, type, title, message, amount });
+  };
+  
+  // 关闭弹窗
+  const closeToast = () => {
+    setToast(prev => ({ ...prev, show: false }));
+  };
+  
   // Pi 支付 hook
-  const { recharge, isLoading: isPaymentLoading, error: paymentError } = usePiPayment({
+  const { recharge, isLoading: isPaymentLoading, error: paymentError, paymentStage } = usePiPayment({
     onSuccess: (result) => {
       // 充值成功，更新余额
       const newBalance = (parseFloat(userInfo?.balance || '0') + parseFloat(rechargeAmount)).toFixed(2);
@@ -41,12 +60,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         localStorage.setItem('userInfo', JSON.stringify(updatedUser));
       }
       
+      const amount = rechargeAmount;
       setShowRechargeModal(false);
       setRechargeAmount('');
-      alert(getText({ zh: `充值成功！${rechargeAmount}π 已到账`, en: `Recharge successful! ${rechargeAmount}π added`, ko: `충전 성공! ${rechargeAmount}π 추가됨`, vi: `Nạp tiền thành công! ${rechargeAmount}π đã được thêm` }));
+      showToast(
+        'success',
+        getText({ zh: '充值成功', en: 'Recharge Successful', ko: '충전 성공', vi: 'Nạp tiền thành công' }),
+        getText({ zh: '已到账', en: 'Added to balance', ko: '잔액에 추가됨', vi: 'Đã thêm vào số dư' }),
+        `${amount}π`
+      );
     },
     onError: (error) => {
-      alert(getText({ zh: `充值失败：${error}`, en: `Recharge failed: ${error}`, ko: `충전 실패: ${error}`, vi: `Nạp tiền thất bại: ${error}` }));
+      showToast(
+        'error',
+        getText({ zh: '充值失败', en: 'Recharge Failed', ko: '충전 실패', vi: 'Nạp tiền thất bại' }),
+        error
+      );
     },
     onCancel: () => {
       // 用户取消，不做任何处理
@@ -1100,6 +1129,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </p>
               </div>
               
+              {/* 支付状态提示 */}
+              {isPaymentLoading && paymentStage && paymentStage !== 'idle' && (
+                <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-400/30">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-transparent"></div>
+                    <div>
+                      <p className="text-blue-200 text-sm font-bold">
+                        {paymentStage === 'authenticating' && getText({ zh: '正在验证身份...', en: 'Authenticating...', ko: '인증 중...', vi: 'Đang xác thực...' })}
+                        {paymentStage === 'approving' && getText({ zh: '正在处理支付请求...', en: 'Processing payment...', ko: '결제 처리 중...', vi: 'Đang xử lý thanh toán...' })}
+                        {paymentStage === 'confirming' && getText({ zh: '正在等待区块链确认...', en: 'Waiting for blockchain confirmation...', ko: '블록체인 확인 대기 중...', vi: 'Đang chờ xác nhận blockchain...' })}
+                        {paymentStage === 'completing' && getText({ zh: '正在完成支付...', en: 'Completing payment...', ko: '결제 완료 중...', vi: 'Đang hoàn tất thanh toán...' })}
+                      </p>
+                      {paymentStage === 'confirming' && (
+                        <p className="text-blue-200/70 text-xs mt-1">
+                          {getText({ zh: '请耐心等待，区块链确认可能需要几十秒到几分钟', en: 'Please wait, blockchain confirmation may take seconds to minutes', ko: '잠시 기다려주세요, 블록체인 확인에 몇 초에서 몇 분이 걸릴 수 있습니다', vi: 'Vui lòng đợi, xác nhận blockchain có thể mất vài giây đến vài phút' })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {/* 错误提示 */}
               {paymentError && (
                 <div className="bg-red-500/20 rounded-lg p-3 border border-red-400/30">
@@ -1135,6 +1186,70 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 自定义成功/错误弹窗 */}
+      {toast.show && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={closeToast}>
+          <div 
+            className={`rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 ${
+              toast.type === 'success' 
+                ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                : toast.type === 'error'
+                ? 'bg-gradient-to-br from-red-500 to-rose-600'
+                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 图标 */}
+            <div className="flex justify-center mb-4">
+              {toast.type === 'success' ? (
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              ) : toast.type === 'error' ? (
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              ) : (
+                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            
+            {/* 标题 */}
+            <h3 className="text-2xl font-bold text-white text-center mb-2">
+              {toast.title}
+            </h3>
+            
+            {/* 金额（如果有） */}
+            {toast.amount && (
+              <div className="text-center mb-3">
+                <span className="text-4xl font-bold text-yellow-300">{toast.amount}</span>
+              </div>
+            )}
+            
+            {/* 消息 */}
+            <p className="text-white/90 text-center mb-6">
+              {toast.message}
+            </p>
+            
+            {/* 确认按钮 */}
+            <button
+              onClick={closeToast}
+              className="w-full py-3 px-4 bg-white text-gray-800 rounded-xl font-bold hover:bg-gray-100 transition-all active:scale-95 shadow-lg"
+            >
+              {getText({ zh: '确定', en: 'OK', ko: '확인', vi: 'OK' })}
+            </button>
           </div>
         </div>
       )}

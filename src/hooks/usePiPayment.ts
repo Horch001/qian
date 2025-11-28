@@ -62,9 +62,25 @@ interface UsePiPaymentOptions {
   onCancel?: () => void;
 }
 
+// 支付阶段状态
+export type PaymentStage = 
+  | 'idle'           // 空闲
+  | 'authenticating' // 正在认证
+  | 'approving'      // 等待服务器批准
+  | 'waiting_user'   // 等待用户在钱包确认
+  | 'confirming'     // 等待区块链确认
+  | 'completing'     // 正在完成支付
+  | 'success'        // 支付成功
+  | 'error';         // 支付失败
+
 export function usePiPayment(options: UsePiPaymentOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [paymentStage, setPaymentStage] = useState<PaymentStage>('idle');
+  
+  // 使用 ref 存储 options，避免回调函数因为 options 变化而失效
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   // 获取 Pi SDK 实例
   const getPiSDK = useCallback((): PiSDK => {
@@ -141,6 +157,7 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
   ) => {
     setIsLoading(true);
     setError(null);
+    setPaymentStage('authenticating');
 
     try {
       initPiSDK();
@@ -169,6 +186,7 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             // 不能使用 async/await，否则会导致支付超时
             onReadyForServerApproval: (paymentId: string) => {
               console.log('Ready for server approval:', paymentId);
+              setPaymentStage('approving');
               
               const info = paymentPromiseRef.current;
               
@@ -193,12 +211,15 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
               })
               .then(() => {
                 console.log('Payment approved successfully');
+                // 批准成功后，等待用户在钱包确认，然后等待区块链确认
+                setPaymentStage('confirming');
               })
               .catch((err: any) => {
                 console.error('Server approval failed:', err);
                 setError(err.message || '服务端批准失败');
+                setPaymentStage('error');
                 setIsLoading(false);
-                options.onError?.(err.message || '服务端批准失败');
+                optionsRef.current.onError?.(err.message || '服务端批准失败');
               });
             },
 
@@ -206,19 +227,23 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             // 同样保持同步
             onReadyForServerCompletion: (paymentId: string, txid: string) => {
               console.log('Ready for server completion:', paymentId, txid);
+              console.log('Calling backend complete API...');
+              setPaymentStage('completing');
               
               piPaymentApi.completePayment(paymentId, txid)
                 .then((result) => {
-                  console.log('Payment completed:', result);
+                  console.log('Payment completed successfully:', result);
+                  setPaymentStage('success');
                   setIsLoading(false);
-                  options.onSuccess?.(result);
+                  optionsRef.current.onSuccess?.(result);
                   paymentPromiseRef.current?.resolve(result);
                 })
                 .catch((err: any) => {
                   console.error('Server completion failed:', err);
                   setError(err.message || '完成支付失败');
+                  setPaymentStage('error');
                   setIsLoading(false);
-                  options.onError?.(err.message || '完成支付失败');
+                  optionsRef.current.onError?.(err.message || '完成支付失败');
                   paymentPromiseRef.current?.reject(err);
                 });
             },
@@ -232,9 +257,10 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
                 console.error('Cancel payment record failed:', err);
               });
               
+              setPaymentStage('idle');
               setIsLoading(false);
               setError(null);
-              options.onCancel?.();
+              optionsRef.current.onCancel?.();
               paymentPromiseRef.current?.reject(new Error('用户取消支付'));
             },
 
@@ -242,8 +268,9 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             onError: (err: Error, payment?: PiPaymentDTO) => {
               console.error('Payment error:', err, payment);
               setError(err.message || '支付出错');
+              setPaymentStage('error');
               setIsLoading(false);
-              options.onError?.(err.message);
+              optionsRef.current.onError?.(err.message);
               paymentPromiseRef.current?.reject(err);
             },
           }
@@ -251,11 +278,12 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
       });
     } catch (err: any) {
       setError(err.message || '支付失败');
+      setPaymentStage('error');
       setIsLoading(false);
-      options.onError?.(err.message);
+      optionsRef.current.onError?.(err.message);
       throw err;
     }
-  }, [initPiSDK, handleIncompletePayment, options]);
+  }, [initPiSDK, getPiSDK, handleIncompletePayment]);
 
   // 充值
   const recharge = useCallback((amount: number) => {
@@ -298,6 +326,7 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
   return {
     isLoading,
     error,
+    paymentStage,
     createPayment,
     recharge,
     payOrder,
