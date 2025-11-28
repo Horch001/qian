@@ -334,6 +334,14 @@ export const piPaymentApi = {
     const query = type ? `?type=${type}` : '';
     return request<PiPayment[]>(`/pi-payment${query}`);
   },
+
+  // 同步支付状态（从 Pi API 获取最新状态）
+  syncPaymentStatus: (paymentId: string) =>
+    request<PiPayment>(`/pi-payment/sync/${paymentId}`, { method: 'POST' }),
+
+  // 恢复所有未完成的支付
+  recoverIncompletePayments: () =>
+    request('/pi-payment/recover-incomplete', { method: 'POST' }),
 };
 
 // 导出所有 API

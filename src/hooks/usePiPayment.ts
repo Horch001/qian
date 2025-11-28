@@ -80,26 +80,44 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
     getPiSDK();
   }, [getPiSDK]);
 
-  // 处理未完成的支付
+  // 处理未完成的支付（Pi SDK 会在 authenticate 时自动检测）
   const handleIncompletePayment = useCallback(async (payment: PiPaymentDTO) => {
     console.log('Found incomplete payment:', payment);
+    console.log('Payment status:', JSON.stringify(payment.status));
+    console.log('Transaction:', JSON.stringify(payment.transaction));
     
-    if (payment.status.developer_approved && payment.transaction?.txid) {
-      // 支付已批准且有交易ID，需要完成
-      try {
-        await piPaymentApi.completePayment(payment.identifier, payment.transaction.txid);
-        console.log('Completed incomplete payment');
-      } catch (err) {
-        console.error('Failed to complete incomplete payment:', err);
+    try {
+      if (payment.status.developer_completed) {
+        // 已经完成，无需处理
+        console.log('Payment already completed on server');
+        return;
       }
-    } else if (!payment.status.developer_approved) {
-      // 支付未批准，需要批准
-      try {
+      
+      if (payment.status.cancelled || payment.status.user_cancelled) {
+        // 已取消，无需处理
+        console.log('Payment was cancelled');
+        return;
+      }
+      
+      if (payment.status.developer_approved && payment.transaction?.txid) {
+        // 支付已批准且有交易ID，需要完成（这是最常见的恢复场景）
+        console.log('Completing incomplete payment with txid:', payment.transaction.txid);
+        const result = await piPaymentApi.completePayment(payment.identifier, payment.transaction.txid);
+        console.log('Completed incomplete payment:', result);
+        // 通知用户
+        alert(`检测到未完成的支付，已自动完成！金额: ${payment.amount} π`);
+      } else if (!payment.status.developer_approved) {
+        // 支付未批准，需要先批准
+        console.log('Approving incomplete payment');
         await piPaymentApi.approvePayment(payment.identifier);
-        console.log('Approved incomplete payment');
-      } catch (err) {
-        console.error('Failed to approve incomplete payment:', err);
+        console.log('Approved incomplete payment, waiting for user to complete in wallet');
+      } else if (payment.status.developer_approved && !payment.transaction?.txid) {
+        // 已批准但没有交易ID，说明用户还没在钱包确认
+        console.log('Payment approved but not yet confirmed by user');
       }
+    } catch (err: any) {
+      console.error('Failed to handle incomplete payment:', err);
+      // 不要抛出错误，让用户可以继续使用应用
     }
   }, []);
 
@@ -152,31 +170,36 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
             onReadyForServerApproval: (paymentId: string) => {
               console.log('Ready for server approval:', paymentId);
               
-              // 使用 .then() 而不是 await，保持回调同步返回
-              piPaymentApi.approvePayment(paymentId)
-                .then(() => {
-                  console.log('Payment approved successfully');
-                  // 异步创建本地记录（不阻塞）
-                  const info = paymentPromiseRef.current;
-                  if (info) {
-                    piPaymentApi.createPayment({
-                      paymentId,
-                      amount: info.amount,
-                      type: info.type,
-                      orderId: info.orderId,
-                      memo: info.memo,
-                    }).catch(err => {
-                      console.warn('Create payment record failed (non-blocking):', err);
-                    });
-                  }
-                })
-                .catch((err: any) => {
-                  console.error('Server approval failed:', err);
-                  setError(err.message || '服务端批准失败');
-                  setIsLoading(false);
-                  options.onError?.(err.message || '服务端批准失败');
-                  // 注意：这里不能 reject，因为 Pi SDK 会继续处理
-                });
+              const info = paymentPromiseRef.current;
+              
+              // 先创建本地记录，再调用 approve（顺序很重要）
+              // 使用 Promise 链保持同步返回
+              const createPromise = info 
+                ? piPaymentApi.createPayment({
+                    paymentId,
+                    amount: info.amount,
+                    type: info.type,
+                    orderId: info.orderId,
+                    memo: info.memo,
+                  }).catch(err => {
+                    console.warn('Create payment record failed:', err);
+                    // 即使创建失败也继续 approve
+                  })
+                : Promise.resolve();
+              
+              createPromise.then(() => {
+                // 调用 Pi API 批准支付（这是最关键的步骤）
+                return piPaymentApi.approvePayment(paymentId);
+              })
+              .then(() => {
+                console.log('Payment approved successfully');
+              })
+              .catch((err: any) => {
+                console.error('Server approval failed:', err);
+                setError(err.message || '服务端批准失败');
+                setIsLoading(false);
+                options.onError?.(err.message || '服务端批准失败');
+              });
             },
 
             // 用户完成支付后
@@ -255,6 +278,23 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
     return createPayment(amount, 'DEPOSIT', `商家保证金 ${amount} π`);
   }, [createPayment]);
 
+  // 手动检查并恢复未完成的支付
+  const checkIncompletePayments = useCallback(async () => {
+    try {
+      initPiSDK();
+      const Pi = getPiSDK();
+      
+      console.log('Manually checking for incomplete payments...');
+      
+      // 重新认证会触发 onIncompletePaymentFound 回调
+      await Pi.authenticate(['payments'], handleIncompletePayment);
+      
+      console.log('Incomplete payment check completed');
+    } catch (err: any) {
+      console.error('Failed to check incomplete payments:', err);
+    }
+  }, [initPiSDK, getPiSDK, handleIncompletePayment]);
+
   return {
     isLoading,
     error,
@@ -262,6 +302,7 @@ export function usePiPayment(options: UsePiPaymentOptions = {}) {
     recharge,
     payOrder,
     payDeposit,
+    checkIncompletePayments, // 导出手动检查功能
   };
 }
 
