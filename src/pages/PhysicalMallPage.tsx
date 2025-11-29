@@ -10,87 +10,52 @@ export const PhysicalMallPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(false); // 默认不显示加载状态
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [initialLoad, setInitialLoad] = useState(true); // 标记首次加载
 
-  // 从后端获取商品数据（带本地缓存 + 优化加载策略）
+  // 从后端获取商品数据（带本地缓存）
   useEffect(() => {
     const cacheKey = `products:PHYSICAL:${sortBy}`;
-    let isMounted = true;
     
-    // 1. 立即从本地缓存加载（同步操作，不阻塞渲染）
+    // 1. 先从本地缓存加载（立即显示）
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
         setProducts(parsed);
-        setInitialLoad(false); // 有缓存数据，不是首次加载
+        setLoading(false); // 有缓存时立即停止加载状态
       } catch (e) {
-        console.error('缓存解析失败:', e);
+        // 忽略解析错误
       }
-    } else {
-      // 无缓存时才显示加载状态
-      setLoading(true);
     }
 
-    // 2. 异步从后端获取最新数据（不阻塞渲染）
+    // 2. 异步从后端获取最新数据
     const fetchProducts = async () => {
       try {
+        if (!cached) {
+          setLoading(true); // 只有没有缓存时才显示加载状态
+        }
         setError(null);
-        
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
-        
-        if (isMounted) {
-          setProducts(response.items);
-          setInitialLoad(false);
-          // 缓存到本地（异步，不阻塞）
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify(response.items));
-          } catch (e) {
-            console.warn('缓存写入失败:', e);
-          }
-        }
+        setProducts(response.items);
+        // 缓存到本地
+        localStorage.setItem(cacheKey, JSON.stringify(response.items));
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        if (!cached && isMounted) {
+        // 只有没有缓存数据时才显示错误
+        if (!cached) {
           setError(err.message || '获取商品失败');
         }
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
-    // 使用 requestIdleCallback 或 setTimeout 延迟网络请求
-    // 优先让页面渲染缓存数据
-    if (cached) {
-      // 有缓存时，使用 requestIdleCallback 在浏览器空闲时更新
-      if ('requestIdleCallback' in window) {
-        const idleId = requestIdleCallback(() => fetchProducts(), { timeout: 200 });
-        return () => {
-          isMounted = false;
-          cancelIdleCallback(idleId);
-        };
-      } else {
-        const timer = setTimeout(fetchProducts, 100);
-        return () => {
-          isMounted = false;
-          clearTimeout(timer);
-        };
-      }
-    } else {
-      // 无缓存时，立即请求但不阻塞渲染
-      fetchProducts();
-      return () => {
-        isMounted = false;
-      };
-    }
+    fetchProducts();
   }, [sortBy]);
 
   const goToDetail = (product: Product) => {
