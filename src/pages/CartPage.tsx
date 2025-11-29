@@ -104,9 +104,24 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-24">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-500">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-3"></div>
-            <p>{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+          <div className="p-4 space-y-3">
+            {/* 骨架屏 - 显示3个商品卡片 */}
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                  <div className="w-16 h-16 bg-gray-200 rounded-lg"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-4 bg-gray-200 rounded w-16"></div>
+                      <div className="h-6 bg-gray-200 rounded w-20"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : cartItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">

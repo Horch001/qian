@@ -178,6 +178,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       }
     }
 
+    // 防止重复点击
+    if (paymentLoading) return;
+    
     setPaymentLoading(true);
     
     try {
@@ -193,20 +196,30 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       if (method === 'balance') {
         // 余额支付 - 调用后端扣款API
         try {
+          // 立即显示处理中状态
+          console.log('正在处理支付...');
+          
           await orderApi.payWithBalance(order.id);
           
-          // 支付成功后从后端获取最新用户信息
-          const userProfile = await userApi.getProfile();
-          const newBalance = parseFloat(userProfile.balance) || 0;
-          setUserBalance(newBalance);
-          
-          // 更新localStorage
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
-          user.balance = newBalance.toFixed(8);
-          localStorage.setItem('user', JSON.stringify(user));
-          
+          // 支付成功 - 立即显示成功界面
           setShowPaymentModal(false);
           setShowOrderSuccessModal(true);
+          
+          // 异步更新余额（不阻塞UI）
+          setTimeout(async () => {
+            try {
+              const userProfile = await userApi.getProfile();
+              const newBalance = parseFloat(userProfile.balance) || 0;
+              setUserBalance(newBalance);
+              
+              // 更新localStorage
+              const user = JSON.parse(localStorage.getItem('user') || '{}');
+              user.balance = newBalance.toFixed(8);
+              localStorage.setItem('user', JSON.stringify(user));
+            } catch (error) {
+              console.error('更新余额失败:', error);
+            }
+          }, 0);
         } catch (payError: any) {
           // 余额支付失败，提示用户
           const errorMsg = payError.message || '';
@@ -217,6 +230,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 : `Insufficient balance. Use Pi Wallet instead?`
             );
             if (confirmPi) {
+              setPaymentLoading(false);
               handlePayment('pi');
             }
           } else {
