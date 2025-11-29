@@ -65,7 +65,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     setTimeout(fetchBalance, 100);
   }, []);
   
-  const item = location.state?.item || {
+  const [item, setItem] = useState(location.state?.item || {
     id: '1',
     title: { zh: '商品详情', en: 'Product Detail', ko: '상품 상세', vi: 'Chi tiết sản phẩm' },
     price: 99,
@@ -75,9 +75,37 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     shop: { zh: '优质商家', en: 'Quality Shop', ko: '품질 상점', vi: 'Cửa hàng chất lượng' },
     icon: '📦',
     description: { zh: '暂无描述', en: 'No description', ko: '설명 없음', vi: 'Không có mô tả' },
-  };
+  });
   
   const pageType = location.state?.pageType || 'product';
+
+  // 获取完整的商品详情（包含所有图片）
+  useEffect(() => {
+    const fetchProductDetail = async () => {
+      const productId = location.state?.item?.id;
+      if (!productId || pageType !== 'product') return;
+
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_URL}/api/v1/products/${productId}`);
+        if (response.ok) {
+          const productData = await response.json();
+          // 合并数据，保留原有的多语言字段
+          setItem({
+            ...location.state?.item,
+            ...productData,
+            images: productData.images || [],
+            detailImages: productData.detailImages || [],
+            description: productData.description || '',
+          });
+        }
+      } catch (error) {
+        console.error('获取商品详情失败:', error);
+      }
+    };
+
+    fetchProductDetail();
+  }, [location.state?.item?.id, pageType]);
 
   const specs = [
     { zh: '标准版', en: 'Standard', ko: '표준', vi: 'Tiêu chuẩn' },
@@ -546,18 +574,19 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         </div>
 
         <div className="bg-white mt-2 p-4">
-          <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '详情介绍' : 'Description'}</h3>
+          <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '商品描述' : 'Description'}</h3>
           
-          {/* 商品描述文字 */}
-          <div className="text-sm text-gray-600 leading-relaxed mb-4">
-            <p>{item.description?.[language] || item.description || (language === 'zh' ? '商家暂未上传详细介绍，请联系商家了解更多信息。' : 'No detailed description available.')}</p>
+          {/* 商品描述文字 - 显示商家填写的内容 */}
+          <div className="text-sm text-gray-600 leading-relaxed mb-4 whitespace-pre-wrap">
+            {item.description || (language === 'zh' ? '商家暂未填写商品描述' : 'No description available')}
           </div>
           
           {/* 详情图展示 */}
           {item.detailImages && item.detailImages.length > 0 && (
-            <div className="space-y-2">
+            <div className="space-y-2 mt-4">
+              <h4 className="font-bold text-gray-800 text-sm mb-2">{language === 'zh' ? '详情图' : 'Detail Images'}</h4>
               {item.detailImages.map((img: string, idx: number) => (
-                <div key={idx} className="w-full rounded-lg overflow-hidden">
+                <div key={idx} className="w-full rounded-lg overflow-hidden bg-gray-50">
                   <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
                 </div>
               ))}
