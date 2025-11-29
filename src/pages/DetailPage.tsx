@@ -76,18 +76,35 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     icon: '📦',
     description: { zh: '暂无描述', en: 'No description', ko: '설명 없음', vi: 'Không có mô tả' },
   });
+  const [loadingDetail, setLoadingDetail] = useState(false);
   
   const pageType = location.state?.pageType || 'product';
 
-  // 获取完整的商品详情（包含所有图片）
+  // 获取完整的商品详情（包含所有图片）- 优化版
   useEffect(() => {
     const fetchProductDetail = async () => {
       const productId = location.state?.item?.id;
       if (!productId || pageType !== 'product') return;
 
+      // 如果已经有完整数据（images长度>1或有detailImages），不需要重新获取
+      const hasFullData = (location.state?.item?.images?.length > 1) || 
+                          (location.state?.item?.detailImages?.length > 0);
+      if (hasFullData) return;
+
+      setLoadingDetail(true);
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const response = await fetch(`${API_URL}/api/v1/products/${productId}`);
+        
+        // 添加超时控制（5秒）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(`${API_URL}/api/v1/products/${productId}`, {
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           const productData = await response.json();
           // 合并数据，保留原有的多语言字段
@@ -99,8 +116,14 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             description: productData.description || '',
           });
         }
-      } catch (error) {
-        console.error('获取商品详情失败:', error);
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log('获取商品详情超时，使用列表数据');
+        } else {
+          console.error('获取商品详情失败:', error);
+        }
+      } finally {
+        setLoadingDetail(false);
       }
     };
 
