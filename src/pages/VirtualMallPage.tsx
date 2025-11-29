@@ -14,20 +14,40 @@ export const VirtualMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据
+  // 从后端获取商品数据（带本地缓存）
   useEffect(() => {
+    const cacheKey = `products:VIRTUAL:${sortBy}`;
+    
+    // 1. 先从本地缓存加载（立即显示）
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setProducts(parsed);
+        setLoading(false);
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 2. 异步从后端获取最新数据
     const fetchProducts = async () => {
       try {
-        setLoading(true);
+        if (!cached) {
+          setLoading(true);
+        }
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
+        localStorage.setItem(cacheKey, JSON.stringify(response.items));
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        setError(err.message || '获取商品失败');
+        if (!cached) {
+          setError(err.message || '获取商品失败');
+        }
       } finally {
         setLoading(false);
       }
@@ -81,20 +101,8 @@ export const VirtualMallPage: React.FC = () => {
     { value: 'deposit', label: { zh: '已缴纳保证金', en: 'Deposit Paid', ko: '보증금 납부', vi: 'Đã đặt cọc' } },
   ];
 
-  // 加载状态
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
-        <p className="mt-2 text-gray-600 text-sm">
-          {language === 'zh' ? '加载中...' : 'Loading...'}
-        </p>
-      </div>
-    );
-  }
-
-  // 错误状态
-  if (error) {
+  // 错误状态（只在非加载状态且有错误时显示）
+  if (!loading && error && products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-red-500 text-sm">{error}</p>
@@ -138,7 +146,29 @@ export const VirtualMallPage: React.FC = () => {
       </div>
 
       {/* 商品列表 */}
-      {products.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {/* 骨架屏 - 显示5个商品卡片 */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white rounded-xl p-2 animate-pulse">
+              <div className="flex gap-2">
+                <div className="w-14 h-14 bg-gray-200 rounded-lg"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="flex items-center justify-between">
+                    <div className="h-5 bg-gray-200 rounded w-16"></div>
+                    <div className="flex gap-2">
+                      <div className="h-6 bg-gray-200 rounded w-8"></div>
+                      <div className="h-6 bg-gray-200 rounded w-8"></div>
+                    </div>
+                  </div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : products.length === 0 ? (
         <div className="text-center py-10 text-gray-500">
           {language === 'zh' ? '暂无商品' : 'No products'}
         </div>

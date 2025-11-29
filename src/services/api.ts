@@ -13,10 +13,11 @@ const getToken = (): string | null => {
   return localStorage.getItem('authToken');
 };
 
-// 通用请求方法
+// 通用请求方法（带超时控制）
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeout = 10000 // 默认 10 秒超时
 ): Promise<T> {
   const token = getToken();
   
@@ -29,17 +30,32 @@ async function request<T>(
     (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // 创建超时控制器
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: '请求失败' }));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: '请求失败' }));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 // ==================== 认证 API ====================

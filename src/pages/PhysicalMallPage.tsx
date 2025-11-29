@@ -10,30 +10,87 @@ export const PhysicalMallPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // 默认不显示加载状态
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [initialLoad, setInitialLoad] = useState(true); // 标记首次加载
 
-  // 从后端获取商品数据
+  // 从后端获取商品数据（带本地缓存 + 优化加载策略）
   useEffect(() => {
+    const cacheKey = `products:PHYSICAL:${sortBy}`;
+    let isMounted = true;
+    
+    // 1. 立即从本地缓存加载（同步操作，不阻塞渲染）
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setProducts(parsed);
+        setInitialLoad(false); // 有缓存数据，不是首次加载
+      } catch (e) {
+        console.error('缓存解析失败:', e);
+      }
+    } else {
+      // 无缓存时才显示加载状态
+      setLoading(true);
+    }
+
+    // 2. 异步从后端获取最新数据（不阻塞渲染）
     const fetchProducts = async () => {
       try {
-        setLoading(true);
         setError(null);
+        
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
-        setProducts(response.items);
+        
+        if (isMounted) {
+          setProducts(response.items);
+          setInitialLoad(false);
+          // 缓存到本地（异步，不阻塞）
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(response.items));
+          } catch (e) {
+            console.warn('缓存写入失败:', e);
+          }
+        }
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        setError(err.message || '获取商品失败');
+        if (!cached && isMounted) {
+          setError(err.message || '获取商品失败');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchProducts();
+    // 使用 requestIdleCallback 或 setTimeout 延迟网络请求
+    // 优先让页面渲染缓存数据
+    if (cached) {
+      // 有缓存时，使用 requestIdleCallback 在浏览器空闲时更新
+      if ('requestIdleCallback' in window) {
+        const idleId = requestIdleCallback(() => fetchProducts(), { timeout: 200 });
+        return () => {
+          isMounted = false;
+          cancelIdleCallback(idleId);
+        };
+      } else {
+        const timer = setTimeout(fetchProducts, 100);
+        return () => {
+          isMounted = false;
+          clearTimeout(timer);
+        };
+      }
+    } else {
+      // 无缓存时，立即请求但不阻塞渲染
+      fetchProducts();
+      return () => {
+        isMounted = false;
+      };
+    }
   }, [sortBy]);
 
   const goToDetail = (product: Product) => {
@@ -83,20 +140,8 @@ export const PhysicalMallPage: React.FC = () => {
     { value: 'deposit', label: { zh: '已缴纳保证金', en: 'Deposit Paid', ko: '보증금 납부', vi: 'Đã đặt cọc' } },
   ];
 
-  // 加载状态
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
-        <p className="mt-2 text-gray-600 text-sm">
-          {language === 'zh' ? '加载中...' : 'Loading...'}
-        </p>
-      </div>
-    );
-  }
-
-  // 错误状态
-  if (error) {
+  // 错误状态（只在非加载状态且有错误时显示）
+  if (!loading && error) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-red-500 text-sm">{error}</p>

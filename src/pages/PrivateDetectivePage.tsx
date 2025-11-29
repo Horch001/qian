@@ -15,18 +15,28 @@ export const PrivateDetectivePage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const cacheKey = `products:DETECTIVE:${sortBy}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        setProducts(JSON.parse(cached));
+        setLoading(false);
+      } catch (e) {}
+    }
+
     const fetchProducts = async () => {
       try {
-        setLoading(true);
+        if (!cached) setLoading(true);
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'DETECTIVE',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
+        localStorage.setItem(cacheKey, JSON.stringify(response.items));
       } catch (err: any) {
         console.error('获取服务失败:', err);
-        setError(err.message || '获取服务失败');
+        if (!cached) setError(err.message || '获取服务失败');
       } finally {
         setLoading(false);
       }
@@ -63,16 +73,7 @@ export const PrivateDetectivePage: React.FC = () => {
     { icon: Star, text: { zh: '专业服务', en: 'Pro Service', ko: '전문 서비스', vi: 'Dịch vụ chuyên nghiệp' } },
   ];
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-slate-600 animate-spin" />
-        <p className="mt-2 text-gray-600 text-sm">{language === 'zh' ? '加载中...' : 'Loading...'}</p>
-      </div>
-    );
-  }
-
-  if (error) {
+  if (!loading && error && products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-red-500 text-sm">{error}</p>
@@ -106,7 +107,22 @@ export const PrivateDetectivePage: React.FC = () => {
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
       </div>
 
-      {products.length === 0 ? (
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white rounded-xl p-2 animate-pulse">
+              <div className="flex gap-2">
+                <div className="w-14 h-14 bg-gray-200 rounded-lg"></div>
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-5 bg-gray-200 rounded w-16"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : products.length === 0 ? (
         <div className="text-center py-10 text-gray-500">{language === 'zh' ? '暂无服务' : 'No services'}</div>
       ) : (
         <div className="space-y-2">
