@@ -323,30 +323,83 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
             ) : (
               <div className="space-y-3">
                 {products.map((product) => (
-                  <div key={product.id} className="bg-white rounded-xl p-4 flex gap-4">
-                    <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center">
-                      {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover rounded-lg" />
-                      ) : (
-                        <span className="text-3xl">{product.icon || '📦'}</span>
-                      )}
+                  <div key={product.id} className="bg-white rounded-xl p-4">
+                    <div className="flex gap-4 mb-3">
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        {product.images?.[0] ? (
+                          <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover rounded-lg" />
+                        ) : (
+                          <span className="text-3xl">{product.icon || '📦'}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-800 truncate">{product.title}</h3>
+                        <p className="text-purple-600 font-bold">{product.price}π</p>
+                        <p className="text-sm text-gray-500">
+                          {getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}: {product.stock} · 
+                          {getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}: {product.sales || 0}
+                        </p>
+                        <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${
+                          product.status === 'ACTIVE' ? 'bg-green-100 text-green-600' :
+                          product.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-600' :
+                          'bg-red-100 text-red-600'
+                        }`}>
+                          {product.status === 'ACTIVE' ? getText({ zh: '已上架', en: 'Active', ko: '활성', vi: 'Đang bán' }) :
+                           product.status === 'INACTIVE' ? getText({ zh: '已下架', en: 'Inactive', ko: '비활성', vi: 'Đã ẩn' }) :
+                           getText({ zh: '已删除', en: 'Deleted', ko: '삭제됨', vi: 'Đã xóa' })}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-gray-800">{product.title}</h3>
-                      <p className="text-purple-600 font-bold">{product.price}π</p>
-                      <p className="text-sm text-gray-500">
-                        {getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}: {product.stock} · 
-                        {getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}: {product.sales || 0}
-                      </p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        product.status === 'ACTIVE' ? 'bg-green-100 text-green-600' :
-                        product.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-600' :
-                        'bg-red-100 text-red-600'
-                      }`}>
-                        {product.status === 'ACTIVE' ? getText({ zh: '已上架', en: 'Active', ko: '활성', vi: 'Đang bán' }) :
-                         product.status === 'INACTIVE' ? getText({ zh: '待审核', en: 'Pending', ko: '대기 중', vi: 'Chờ duyệt' }) :
-                         getText({ zh: '已下架', en: 'Inactive', ko: '비활성', vi: 'Đã ẩn' })}
-                      </span>
+                    <div className="flex gap-2">
+                      {product.status === 'ACTIVE' ? (
+                        <button
+                          onClick={async () => {
+                            if (confirm(getText({ zh: '确定要下架此商品吗？', en: 'Deactivate this product?', ko: '이 상품을 비활성화하시겠습니까?', vi: 'Ẩn sản phẩm này?' }))) {
+                              try {
+                                await merchantApi.deactivateProduct(product.id);
+                                alert(getText({ zh: '下架成功', en: 'Deactivated', ko: '비활성화됨', vi: 'Đã ẩn' }));
+                                fetchMerchantData();
+                              } catch (error: any) {
+                                alert(error.message || getText({ zh: '下架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                              }
+                            }
+                          }}
+                          className="flex-1 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold hover:bg-yellow-600 active:scale-95 transition-all"
+                        >
+                          {getText({ zh: '下架', en: 'Deactivate', ko: '비활성화', vi: 'Ẩn' })}
+                        </button>
+                      ) : product.status === 'INACTIVE' ? (
+                        <button
+                          onClick={async () => {
+                            try {
+                              await merchantApi.activateProduct(product.id);
+                              alert(getText({ zh: '上架成功', en: 'Activated', ko: '활성화됨', vi: 'Đã hiển thị' }));
+                              fetchMerchantData();
+                            } catch (error: any) {
+                              alert(error.message || getText({ zh: '上架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                            }
+                          }}
+                          className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 active:scale-95 transition-all"
+                        >
+                          {getText({ zh: '上架', en: 'Activate', ko: '활성화', vi: 'Hiển thị' })}
+                        </button>
+                      ) : null}
+                      <button
+                        onClick={async () => {
+                          if (confirm(getText({ zh: '确定要删除此商品吗？删除后无法恢复！', en: 'Delete permanently?', ko: '영구 삭제하시겠습니까?', vi: 'Xóa vĩnh viễn?' }))) {
+                            try {
+                              await merchantApi.deleteProduct(product.id);
+                              alert(getText({ zh: '删除成功', en: 'Deleted', ko: '삭제됨', vi: 'Đã xóa' }));
+                              fetchMerchantData();
+                            } catch (error: any) {
+                              alert(error.message || getText({ zh: '删除失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                            }
+                          }
+                        }}
+                        className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 active:scale-95 transition-all"
+                      >
+                        {getText({ zh: '删除', en: 'Delete', ko: '삭제', vi: 'Xóa' })}
+                      </button>
                     </div>
                   </div>
                 ))}

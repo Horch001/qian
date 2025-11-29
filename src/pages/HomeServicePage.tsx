@@ -17,27 +17,20 @@ export const HomeServicePage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const cacheKey = `products:SERVICE:${sortBy}:${searchKeyword}`;
-    const cached = safeStorage.getItem<Product[]>(cacheKey);
-    if (cached) {
-      setProducts(cached);
-      setLoading(false);
-    }
-
     const fetchProducts = async () => {
       try {
-        if (!cached) setLoading(true);
+        setLoading(true);
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'SERVICE',
           keyword: searchKeyword || undefined,
           sortBy: sortBy === 'default' ? undefined : sortBy,
+          limit: 20,
         });
         setProducts(response.items);
-        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取服务失败:', err);
-        if (!cached) setError(err.message || '获取服务失败');
+        setError(err.message || '获取服务失败');
       } finally {
         setLoading(false);
       }

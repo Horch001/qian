@@ -513,6 +513,24 @@ export const merchantApi = {
       body: JSON.stringify(data),
     }),
 
+  // 下架商品
+  deactivateProduct: (id: string) =>
+    request<Product>(`/merchants/products/${id}/deactivate`, {
+      method: 'PUT',
+    }),
+
+  // 上架商品
+  activateProduct: (id: string) =>
+    request<Product>(`/merchants/products/${id}/activate`, {
+      method: 'PUT',
+    }),
+
+  // 删除商品
+  deleteProduct: (id: string) =>
+    request(`/merchants/products/${id}`, {
+      method: 'DELETE',
+    }),
+
   // 获取商家详情
   getMerchant: (id: string) => request<Merchant>(`/merchants/${id}`),
 

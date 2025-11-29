@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
+import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize } from '../utils/imageCompressor';
 
 interface UploadProductPageProps {
   language: Language;
@@ -153,23 +154,28 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           {/* 商品主图 */}
           <div>
             <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品主图', en: 'Main Image', ko: '메인 이미지', vi: 'Hình ảnh chính' })} *</label>
-            <p className="text-gray-500 text-xs mb-2">{getText({ zh: '主图将显示在商品列表和详情页顶部', en: 'Main image will be shown in product list and detail page', ko: '메인 이미지는 상품 목록과 상세 페이지에 표시됩니다', vi: 'Hình ảnh chính sẽ hiển thị trong danh sách và trang chi tiết' })}</p>
+            <p className="text-gray-500 text-xs mb-2">{getText({ zh: '主图将显示在商品列表和详情页顶部（自动压缩优化）', en: 'Main image (auto-compressed)', ko: '메인 이미지 (자동 압축)', vi: 'Hình ảnh chính (tự động nén)' })}</p>
             <div className="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center bg-purple-50">
               {formData.mainImage ? (
                 <div className="relative inline-block">
                   <img src={formData.mainImage} alt="Main" className="max-h-40 mx-auto rounded" />
                   <button onClick={() => setFormData({ ...formData, mainImage: '' })} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"><X size={14} /></button>
+                  <p className="text-xs text-gray-500 mt-2">{formatFileSize(getCompressedSize(formData.mainImage))}</p>
                 </div>
               ) : (
                 <label className="cursor-pointer">
                   <Upload className="w-10 h-10 text-purple-400 mx-auto mb-2" />
                   <p className="text-purple-600 text-sm font-bold">{getText({ zh: '点击上传主图', en: 'Upload main image', ko: '메인 이미지 업로드', vi: 'Tải lên hình ảnh chính' })}</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setFormData({ ...formData, mainImage: ev.target?.result as string });
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                        setFormData({ ...formData, mainImage: compressed });
+                      } catch (error) {
+                        console.error('图片压缩失败:', error);
+                        alert(getText({ zh: '图片处理失败，请重试', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                      }
                     }
                   }} />
                 </label>
@@ -196,12 +202,15 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
                   <ImagePlus className="w-6 h-6 text-gray-400" />
                   <span className="text-xs text-gray-400 mt-1">{getText({ zh: '添加', en: 'Add', ko: '추가', vi: 'Thêm' })}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file && formData.subImages.length < 4) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setFormData({ ...formData, subImages: [...formData.subImages, ev.target?.result as string] });
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                        setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
+                      } catch (error) {
+                        console.error('图片压缩失败:', error);
+                      }
                     }
                   }} />
                 </label>
@@ -283,12 +292,15 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
                   <ImagePlus className="w-5 h-5 text-gray-400" />
                   <span className="text-[10px] text-gray-400 mt-1">{getText({ zh: '添加', en: 'Add', ko: '추가', vi: 'Thêm' })}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file && formData.detailImages.length < 5) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setFormData({ ...formData, detailImages: [...formData.detailImages, ev.target?.result as string] });
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, COMPRESS_PRESETS.detail);
+                        setFormData({ ...formData, detailImages: [...formData.detailImages, compressed] });
+                      } catch (error) {
+                        console.error('图片压缩失败:', error);
+                      }
                     }
                   }} />
                 </label>

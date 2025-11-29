@@ -15,38 +15,23 @@ export const PhysicalMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（带安全缓存）
+  // 从后端获取商品数据（禁用缓存 - 确保功能可用）
   useEffect(() => {
-    const cacheKey = `products:PHYSICAL:${sortBy}`;
-    
-    // 1. 先从本地缓存加载（立即显示）
-    const cached = safeStorage.getItem<Product[]>(cacheKey);
-    if (cached) {
-      setProducts(cached);
-      setLoading(false);
-    }
-
-    // 2. 异步从后端获取最新数据
     const fetchProducts = async () => {
       try {
-        if (!cached) {
-          setLoading(true);
-        }
+        setLoading(true);
         setError(null);
         
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
+          limit: 20, // 明确指定每页 20 条
         });
         
         setProducts(response.items);
-        // 安全地缓存到本地（自动处理配额超限）
-        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        if (!cached) {
-          setError(err.message || '获取商品失败');
-        }
+        setError(err.message || '获取商品失败');
       } finally {
         setLoading(false);
       }

@@ -15,28 +15,21 @@ export const VirtualMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（带安全缓存）
+  // 从后端获取商品数据（禁用缓存）
   useEffect(() => {
-    const cacheKey = `products:VIRTUAL:${sortBy}`;
-    const cached = safeStorage.getItem<Product[]>(cacheKey);
-    if (cached) {
-      setProducts(cached);
-      setLoading(false);
-    }
-
     const fetchProducts = async () => {
       try {
-        if (!cached) setLoading(true);
+        setLoading(true);
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
+          limit: 20,
         });
         setProducts(response.items);
-        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        if (!cached) setError(err.message || '获取商品失败');
+        setError(err.message || '获取商品失败');
       } finally {
         setLoading(false);
       }
