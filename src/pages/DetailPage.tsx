@@ -471,7 +471,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         {/* 主图展示 */}
         <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-64 flex items-center justify-center overflow-hidden">
           {item.images && item.images.length > 0 ? (
-            <img src={item.images[0]} alt={item.title?.[language] || '商品'} className="w-full h-full object-cover" />
+            <img src={item.images[0]} alt={item.title?.[language] || '商品'} className="w-full h-full object-contain" />
           ) : (
             <span className="text-7xl">{item.icon || '📦'}</span>
           )}
@@ -483,7 +483,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             <div className="flex gap-2 overflow-x-auto">
               {item.images.slice(1).map((img: string, idx: number) => (
                 <div key={idx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200">
-                  <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-cover" />
+                  <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-contain bg-white" />
                 </div>
               ))}
             </div>
