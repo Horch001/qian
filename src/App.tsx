@@ -41,6 +41,7 @@ import { NotificationDetailPage } from './pages/NotificationDetailPage';
 import { SearchResultPage } from './pages/SearchResultPage';
 import { MyShopsPage } from './pages/MyShopsPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import eventsSocketService from './services/eventsSocket';
 import './index.css';
 
 const HomePage: React.FC<{ 
@@ -110,6 +111,37 @@ export const App: React.FC = () => {
       setUserInfo(piUser ? JSON.parse(piUser) : JSON.parse(emailUser));
     }
   }, []);
+
+  // 实时事件连接
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (token && userInfo) {
+      eventsSocketService.connect(token);
+
+      eventsSocketService.on('balance:updated', ({ balance }) => {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.balance = balance;
+        localStorage.setItem('user', JSON.stringify(user));
+        window.dispatchEvent(new Event('balanceUpdated'));
+      });
+
+      eventsSocketService.on('cart:updated', (cart) => {
+        window.dispatchEvent(new CustomEvent('cartUpdated', { detail: cart }));
+      });
+
+      eventsSocketService.on('order:updated', (order) => {
+        window.dispatchEvent(new CustomEvent('orderUpdated', { detail: order }));
+      });
+
+      eventsSocketService.on('favorite:updated', (data) => {
+        window.dispatchEvent(new CustomEvent('favoriteUpdated', { detail: data }));
+      });
+    }
+
+    return () => {
+      eventsSocketService.disconnect();
+    };
+  }, [userInfo]);
 
   // 心跳功能 - 记录用户在线状态
   useEffect(() => {

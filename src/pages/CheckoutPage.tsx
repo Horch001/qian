@@ -32,6 +32,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'pi'>('balance');
   const [userBalance, setUserBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // 收货地址
@@ -85,6 +86,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
   const totalPrice = items.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
 
   const handlePayment = async () => {
+    // 防止重复点击
+    if (isPaymentProcessing) {
+      console.log('支付正在处理中，请勿重复点击');
+      return;
+    }
+
     // 检查实物商品地址
     if (hasPhysicalProduct) {
       if (!address.name || !address.phone || !address.province || !address.city || !address.detail) {
@@ -114,6 +121,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
       return;
     }
 
+    // 设置支付锁和加载状态
+    setIsPaymentProcessing(true);
     setIsLoading(true);
 
     try {
@@ -163,20 +172,26 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
             if (confirmPi) {
               // 使用Pi钱包支付同一订单
               await handlePiPayment(order.id, totalPrice);
+              return; // Pi 支付会在回调中解除锁
             }
           } else {
             alert(errorMsg || getText({ zh: '支付失败', en: 'Payment failed', ko: '결제 실패', vi: 'Thanh toán thất bại' }));
           }
         }
       } else {
-        // Pi钱包支付
+        // Pi钱包支付 - 不在这里解除锁，在回调中解除
         await handlePiPayment(order.id, totalPrice);
+        return; // Pi 支付会在回调中解除锁
       }
     } catch (error: any) {
       console.error('创建订单失败:', error);
       alert(error.message || getText({ zh: '创建订单失败', en: 'Failed to create order', ko: '주문 생성 실패', vi: 'Tạo đơn hàng thất bại' }));
     } finally {
-      setIsLoading(false);
+      // 只有余额支付才在这里解除锁
+      if (paymentMethod === 'balance') {
+        setIsLoading(false);
+        setIsPaymentProcessing(false);
+      }
     }
   };
 
@@ -227,18 +242,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
             } catch (error) {
               console.error('完成支付失败:', error);
               alert(getText({ zh: '支付完成处理失败，请联系客服', en: 'Payment completion failed, please contact support', ko: '결제 완료 처리 실패, 고객센터에 문의하세요', vi: 'Xử lý thanh toán thất bại, vui lòng liên hệ hỗ trợ' }));
+            } finally {
+              // Pi 支付完成后解除锁
+              setIsLoading(false);
+              setIsPaymentProcessing(false);
             }
           },
           onCancel: () => {
             alert(getText({ zh: '支付已取消', en: 'Payment cancelled', ko: '결제 취소됨', vi: 'Thanh toán đã hủy' }));
+            // 取消时解除锁
+            setIsLoading(false);
+            setIsPaymentProcessing(false);
           },
           onError: (error: any) => {
             console.error('支付错误:', error);
             alert(getText({ zh: '支付失败，请重试', en: 'Payment failed, please try again', ko: '결제 실패, 다시 시도해주세요', vi: 'Thanh toán thất bại, vui lòng thử lại' }));
+            // 错误时解除锁
+            setIsLoading(false);
+            setIsPaymentProcessing(false);
           },
         });
       } catch (error) {
         console.error('Pi支付错误:', error);
+        // 异常时解除锁
+        setIsLoading(false);
+        setIsPaymentProcessing(false);
       }
     } else {
       alert(getText({ 
@@ -247,6 +275,9 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
         ko: 'Pi 지갑이 연결되지 않았습니다. Pi Browser에서 앱을 열어주세요',
         vi: 'Ví Pi chưa kết nối. Vui lòng mở ứng dụng trong Pi Browser'
       }));
+      // 未连接时解除锁
+      setIsLoading(false);
+      setIsPaymentProcessing(false);
     }
   };
 
@@ -374,11 +405,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           </div>
           <button 
             onClick={handlePayment}
-            disabled={isLoading}
+            disabled={isLoading || isPaymentProcessing}
             className="px-8 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 text-white text-sm font-bold rounded-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {getText({ zh: '立即支付', en: 'Pay Now', ko: '지금 결제', vi: 'Thanh toán ngay' })}
+            {isPaymentProcessing 
+              ? getText({ zh: '支付处理中...', en: 'Processing...', ko: '처리 중...', vi: 'Đang xử lý...' })
+              : getText({ zh: '立即支付', en: 'Pay Now', ko: '지금 결제', vi: 'Thanh toán ngay' })
+            }
           </button>
         </div>
       </div>
