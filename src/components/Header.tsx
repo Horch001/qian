@@ -34,8 +34,8 @@ export const Header: React.FC<HeaderProps> = ({ language, translations, onLangua
         setOnlineCount(data.onlineCount);
       } catch (error) {
         console.error('Failed to fetch online count:', error);
-        // 如果获取失败，显示一个默认值
-        setOnlineCount(Math.floor(Math.random() * 1000) + 500);
+        // API失败时不使用模拟数据，保持为0显示"---"
+        // 不修改当前值，如果之前有值则保留，否则显示"---"
       }
     };
 

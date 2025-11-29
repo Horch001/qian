@@ -78,22 +78,34 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       return;
     }
 
+    // 乐观更新 - 立即更新UI
+    const wasIsFavorite = isFavorite;
+    const prevCount = favoriteCount;
+    
+    setIsFavorite(!isFavorite);
+    setFavoriteCount(prev => isFavorite ? Math.max(0, prev - 1) : prev + 1);
+
     try {
-      if (isFavorite) {
+      if (wasIsFavorite) {
         // 取消收藏 - 调用后端API
         await favoriteApi.removeFavorite(item.id);
-        setFavoriteCount(prev => Math.max(0, prev - 1));
       } else {
         // 添加收藏 - 调用后端API
         await favoriteApi.addFavorite(item.id);
-        setFavoriteCount(prev => prev + 1);
       }
-      setIsFavorite(!isFavorite);
+      // 显示成功提示
+      // 使用简单的方式显示成功反馈
+      console.log(language === 'zh' ? '操作成功' : 'Success');
     } catch (error: any) {
+      // 回滚UI状态
+      setIsFavorite(wasIsFavorite);
+      setFavoriteCount(prevCount);
       console.error('收藏操作失败:', error);
       alert(error.message || (language === 'zh' ? '操作失败' : 'Operation failed'));
     }
   };
+
+  const [addingToCart, setAddingToCart] = useState(false);
 
   const handleAddToCart = async () => {
     // 检查用户是否登录
@@ -103,14 +115,22 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       return;
     }
 
+    // 乐观更新 - 立即显示成功反馈
+    setAddingToCart(true);
+    setShowCartModal(false);
+    
+    // 立即显示成功提示（乐观更新）
+    alert(language === 'zh' ? '已加入购物车！' : 'Added to cart!');
+
     try {
       // 调用后端API添加到购物车
       await userApi.addToCart(item.id, quantity, selectedSpec);
-      setShowCartModal(false);
-      alert(language === 'zh' ? '已加入购物车！' : 'Added to cart!');
     } catch (error: any) {
       console.error('添加购物车失败:', error);
+      // 如果失败，显示错误提示
       alert(error.message || (language === 'zh' ? '添加失败，请重试' : 'Failed to add, please retry'));
+    } finally {
+      setAddingToCart(false);
     }
   };
 

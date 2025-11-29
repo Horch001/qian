@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
 import { usePiPayment } from '../hooks/usePiPayment';
 import { orderApi, authApi, userApi, chatApi, favoriteApi } from '../services/api';
+import eventsSocketService from '../services/eventsSocket';
 
 interface ProfilePageProps {
   language: Language;
@@ -254,33 +255,91 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     loadBackendData();
   }, []);
   
+  // 刷新收藏列表的函数
+  const refreshFavorites = useCallback(async () => {
+    try {
+      const favorites = await favoriteApi.getFavorites();
+      const formattedFavorites = favorites.map((fav: any) => ({
+        id: fav.product?.id || fav.id,
+        title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
+        icon: fav.product?.icon || '📦',
+        images: fav.product?.images || [],
+        price: fav.product?.price,
+        rating: fav.product?.rating || 5.0,
+        sales: fav.product?.sales || 0,
+        favorites: fav.product?.favorites || 0,
+        shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
+        addedAt: fav.createdAt,
+      }));
+      setFavoritesList(formattedFavorites);
+      setFavoritesCount(formattedFavorites.length);
+    } catch (error) {
+      console.error('刷新收藏失败:', error);
+    }
+  }, []);
+
+  // 刷新订单列表的函数
+  const refreshOrders = useCallback(async () => {
+    try {
+      const orders = await orderApi.getOrders();
+      const formattedOrders = orders.map((order: any) => ({
+        id: order.id,
+        orderNo: order.orderNo,
+        item: order.items?.[0]?.product ? {
+          id: order.items[0].product.id,
+          title: { zh: order.items[0].product.title, en: order.items[0].product.titleEn || order.items[0].product.title },
+          icon: order.items[0].product.icon || '📦',
+          images: order.items[0].product.images,
+        } : { title: { zh: '商品' }, icon: '📦' },
+        quantity: order.items?.[0]?.quantity || 1,
+        totalPrice: parseFloat(order.totalAmount),
+        paymentMethod: order.paymentMethod,
+        status: order.orderStatus?.toLowerCase() || 'pending',
+        createdAt: order.createdAt,
+      }));
+      setOrdersList(formattedOrders);
+      setOrdersCount(formattedOrders.length);
+    } catch (error) {
+      console.error('刷新订单失败:', error);
+    }
+  }, []);
+
   // 页面获得焦点时重新加载收藏列表
   useEffect(() => {
-    const handleFocus = async () => {
-      try {
-        const favorites = await favoriteApi.getFavorites();
-        const formattedFavorites = favorites.map((fav: any) => ({
-          id: fav.product?.id || fav.id,
-          title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
-          icon: fav.product?.icon || '📦',
-          images: fav.product?.images || [],
-          price: fav.product?.price,
-          rating: fav.product?.rating || 5.0,
-          sales: fav.product?.sales || 0,
-          favorites: fav.product?.favorites || 0,
-          shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
-          addedAt: fav.createdAt,
-        }));
-        setFavoritesList(formattedFavorites);
-        setFavoritesCount(formattedFavorites.length);
-      } catch (error) {
-        console.error('刷新收藏失败:', error);
-      }
+    window.addEventListener('focus', refreshFavorites);
+    return () => window.removeEventListener('focus', refreshFavorites);
+  }, [refreshFavorites]);
+
+  // WebSocket实时监听收藏和订单更新
+  useEffect(() => {
+    // 监听收藏更新
+    const handleFavoriteUpdate = () => {
+      console.log('[ProfilePage] Favorite updated via WebSocket');
+      refreshFavorites();
     };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+
+    // 监听订单更新
+    const handleOrderUpdate = () => {
+      console.log('[ProfilePage] Order updated via WebSocket');
+      refreshOrders();
+    };
+
+    // 监听购物车更新
+    const handleCartUpdate = () => {
+      console.log('[ProfilePage] Cart updated via WebSocket');
+      // 可以在这里更新购物车数量
+    };
+
+    eventsSocketService.on('favorite:updated', handleFavoriteUpdate);
+    eventsSocketService.on('order:updated', handleOrderUpdate);
+    eventsSocketService.on('cart:updated', handleCartUpdate);
+
+    return () => {
+      eventsSocketService.off('favorite:updated', handleFavoriteUpdate);
+      eventsSocketService.off('order:updated', handleOrderUpdate);
+      eventsSocketService.off('cart:updated', handleCartUpdate);
+    };
+  }, [refreshFavorites, refreshOrders]);
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 

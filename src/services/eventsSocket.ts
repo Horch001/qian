@@ -5,8 +5,14 @@ const EVENTS_SOCKET_URL = (import.meta.env.VITE_API_URL || 'http://localhost:300
 class EventsSocketService {
   private socket: Socket | null = null;
   private listeners = new Map<string, Set<Function>>();
+  private token: string | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private reconnectDelay = 1000; // 初始重连延迟1秒
 
   connect(token: string): Socket {
+    this.token = token;
+    
     if (this.socket?.connected) {
       return this.socket;
     }
@@ -14,14 +20,24 @@ class EventsSocketService {
     this.socket = io(EVENTS_SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionDelay: this.reconnectDelay,
+      reconnectionDelayMax: 10000, // 最大重连延迟10秒
     });
 
     this.socket.on('connect', () => {
       console.log('[Events] Connected');
+      this.reconnectAttempts = 0; // 重置重连计数
     });
 
-    this.socket.on('disconnect', () => {
-      console.log('[Events] Disconnected');
+    this.socket.on('disconnect', (reason) => {
+      console.log('[Events] Disconnected:', reason);
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error('[Events] Connection error:', error.message);
+      this.reconnectAttempts++;
     });
 
     this.setupEventListeners();
@@ -45,6 +61,11 @@ class EventsSocketService {
 
     this.socket.on('balance:updated', (data) => {
       this.emit('balance:updated', data);
+    });
+
+    // 公告更新事件
+    this.socket.on('announcement:updated', (announcement) => {
+      this.emit('announcement:updated', announcement);
     });
   }
 

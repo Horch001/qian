@@ -1,7 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, MapPin, ChevronDown, ChevronRight, ArrowLeft, Check, Globe } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Search, MapPin, ChevronDown, ChevronRight, ArrowLeft, Check, Globe, Loader2 } from 'lucide-react';
 import { Language, Translations, Country, Region } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
+import { productApi } from '../services/api';
+
+interface SearchSuggestion {
+  id: string;
+  title: string;
+  titleEn?: string;
+  icon?: string;
+  price: string;
+  images?: string[];
+}
 
 interface SearchBarProps {
   language: Language;
@@ -11,7 +21,13 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) => {
   const [selectedCity, setSelectedCity] = useState('NATIONWIDE');
   const [isOpen, setIsOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [viewLevel, setViewLevel] = useState<'COUNTRY' | 'REGION' | 'CITY'>('COUNTRY');
   const [currentCountry, setCurrentCountry] = useState<Country | null>(null);
@@ -51,6 +67,80 @@ export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) 
     setIsOpen(false);
   };
 
+  // 防抖搜索建议
+  const fetchSuggestions = useCallback(async (keyword: string) => {
+    if (keyword.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    try {
+      const results = await productApi.searchSuggestions(keyword, 8);
+      setSuggestions(results);
+      setShowSuggestions(results.length > 0);
+    } catch (error) {
+      console.error('Failed to fetch suggestions:', error);
+      setSuggestions([]);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, []);
+
+  // 处理搜索输入变化 - 300ms防抖
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchKeyword(value);
+
+    // 清除之前的定时器
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // 设置新的防抖定时器
+    debounceTimerRef.current = setTimeout(() => {
+      fetchSuggestions(value);
+    }, 300);
+  };
+
+  // 处理搜索
+  const handleSearch = (keyword?: string) => {
+    const searchTerm = keyword || searchKeyword.trim();
+    if (searchTerm) {
+      setShowSuggestions(false);
+      window.location.href = `/search?keyword=${encodeURIComponent(searchTerm)}&city=${encodeURIComponent(selectedCity)}`;
+    }
+  };
+
+  // 选择建议项
+  const handleSelectSuggestion = (suggestion: SearchSuggestion) => {
+    setSearchKeyword(language === 'en' && suggestion.titleEn ? suggestion.titleEn : suggestion.title);
+    setShowSuggestions(false);
+    // 直接跳转到商品详情或搜索
+    window.location.href = `/search?keyword=${encodeURIComponent(suggestion.title)}&city=${encodeURIComponent(selectedCity)}`;
+  };
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 点击外部关闭建议
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchInputRef.current && !searchInputRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <div className="relative w-full max-w-md mx-auto z-30" ref={dropdownRef}>
       <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
@@ -72,31 +162,62 @@ export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) 
 
         <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
 
-        <input
-          type="text"
-          placeholder={translations.searchPlaceholder[language]}
-          className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              const input = e.target as HTMLInputElement;
-              const keyword = input.value.trim();
-              if (keyword) {
-                // 全局搜索 - 跳转到搜索结果页面
-                window.location.href = `/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(selectedCity)}`;
+        <div className="flex-1 relative" ref={searchInputRef}>
+          <input
+            type="text"
+            value={searchKeyword}
+            onChange={handleSearchInputChange}
+            placeholder={translations.searchPlaceholder[language]}
+            className="w-full py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleSearch();
               }
-            }
-          }}
-        />
+            }}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setShowSuggestions(true);
+              }
+            }}
+          />
+
+          {/* 搜索建议下拉框 */}
+          {showSuggestions && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-200 max-h-80 overflow-y-auto z-50">
+              {isLoadingSuggestions ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-purple-500" />
+                </div>
+              ) : (
+                suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    className="w-full px-3 py-2 flex items-center gap-3 hover:bg-purple-50 transition-colors text-left"
+                  >
+                    <div className="w-10 h-10 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {suggestion.images && suggestion.images.length > 0 ? (
+                        <img src={suggestion.images[0]} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">{suggestion.icon || '📦'}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 truncate">
+                        {language === 'en' && suggestion.titleEn ? suggestion.titleEn : suggestion.title}
+                      </p>
+                      <p className="text-xs text-red-500 font-bold">{suggestion.price}π</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         <button 
           className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors"
-          onClick={() => {
-            const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-            const keyword = input?.value?.trim();
-            if (keyword) {
-              window.location.href = `/search?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(selectedCity)}`;
-            }
-          }}
+          onClick={() => handleSearch()}
         >
           <Search size={18} strokeWidth={2.5} />
         </button>

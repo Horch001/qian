@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Volume2, X } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { announcementApi, Announcement } from '../services/api';
+import eventsSocketService from '../services/eventsSocket';
 
 interface AnnouncementBarProps {
   language: Language;
@@ -25,9 +26,21 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
     
     fetchAnnouncement();
     
-    // 每60秒刷新一次公告
+    // 监听WebSocket公告更新 - 实时同步
+    const handleAnnouncementUpdate = (data: Announcement) => {
+      console.log('[AnnouncementBar] Received announcement update:', data);
+      setAnnouncement(data);
+    };
+    
+    eventsSocketService.on('announcement:updated', handleAnnouncementUpdate);
+    
+    // 每60秒刷新一次公告作为备选
     const interval = setInterval(fetchAnnouncement, 60000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      eventsSocketService.off('announcement:updated', handleAnnouncementUpdate);
+    };
   }, []);
   
   // 根据语言获取公告文本（滚动条显示：标题 + 内容）

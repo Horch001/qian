@@ -280,6 +280,12 @@ export const productApi = {
     const query = type ? `?type=${type}` : '';
     return request<Category[]>(`/products/categories${query}`);
   },
+
+  // 搜索建议 - 快速返回匹配的商品
+  searchSuggestions: (keyword: string, limit = 10) =>
+    request<Array<{ id: string; title: string; titleEn?: string; icon?: string; price: string; images?: string[] }>>(
+      `/products/search/suggestions?keyword=${encodeURIComponent(keyword)}&limit=${limit}`
+    ),
 };
 
 // ==================== 订单 API ====================
