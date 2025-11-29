@@ -8,6 +8,39 @@ const getApiBaseUrl = () => {
 };
 const API_BASE_URL = getApiBaseUrl();
 
+// 获取服务器基础URL（不含/api/v1）- 从环境变量读取
+const getServerBaseUrl = () => {
+  // 优先使用 VITE_API_URL 环境变量
+  const url = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
+};
+
+// 处理图片URL（兼容Base64和文件URL）- 动态从环境变量获取
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
+  // 如果是Base64，直接返回
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
+  // 如果是完整URL，直接返回
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  // 如果是相对路径，拼接服务器地址（动态获取）
+  if (imageUrl.startsWith('/uploads/')) {
+    const serverBaseUrl = getServerBaseUrl();
+    return `${serverBaseUrl}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
+// 处理商品对象中的图片URL
+const processProductImages = (product: any): any => {
+  if (!product) return product;
+  return {
+    ...product,
+    images: product.images?.map((img: string) => processImageUrl(img)) || [],
+    detailImages: product.detailImages?.map((img: string) => processImageUrl(img)) || [],
+    icon: product.icon,
+  };
+};
+
 // 获取存储的 token
 const getToken = (): string | null => {
   return localStorage.getItem('authToken');
@@ -235,7 +268,7 @@ export interface Category {
 
 export const productApi = {
   // 获取商品列表
-  getProducts: (params?: {
+  getProducts: async (params?: {
     categoryId?: string;
     categoryType?: string;
     keyword?: string;
@@ -252,7 +285,12 @@ export const productApi = {
       });
     }
     const query = searchParams.toString();
-    return request<ProductListResponse>(`/products${query ? `?${query}` : ''}`);
+    const response = await request<ProductListResponse>(`/products${query ? `?${query}` : ''}`);
+    // 处理图片URL
+    return {
+      ...response,
+      items: response.items.map(processProductImages),
+    };
   },
 
   // 搜索商品
@@ -273,7 +311,10 @@ export const productApi = {
   },
 
   // 获取商品详情
-  getProduct: (id: string) => request<Product>(`/products/${id}`),
+  getProduct: async (id: string) => {
+    const product = await request<Product>(`/products/${id}`);
+    return processProductImages(product);
+  },
 
   // 获取分类列表
   getCategories: (type?: string) => {
@@ -503,8 +544,13 @@ export const merchantApi = {
     }),
 
   // 获取我的商品列表
-  getMyProducts: (page = 1, limit = 20) =>
-    request<ProductListResponse>(`/merchants/products?page=${page}&limit=${limit}`),
+  getMyProducts: async (page = 1, limit = 20) => {
+    const response = await request<ProductListResponse>(`/merchants/products?page=${page}&limit=${limit}`);
+    return {
+      ...response,
+      items: response.items.map(processProductImages),
+    };
+  },
 
   // 更新商品
   updateProduct: (id: string, data: Partial<ProductUpload>) =>

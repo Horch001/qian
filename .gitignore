@@ -27,5 +27,7 @@ lerna-debug.log*
 .env.local
 .env.*.local
 
-# Local documentation
-DEVELOPMENT.md
+# Documentation (功能说明、开发文档等)
+*.md
+!README.md
+!CHANGELOG.md
