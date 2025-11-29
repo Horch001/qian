@@ -4,6 +4,7 @@ import { Star, Zap, Shield, Award, DollarSign, ChevronDown, Loader2 } from 'luci
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 export const VirtualMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
@@ -14,40 +15,28 @@ export const VirtualMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（带本地缓存）
+  // 从后端获取商品数据（带安全缓存）
   useEffect(() => {
     const cacheKey = `products:VIRTUAL:${sortBy}`;
-    
-    // 1. 先从本地缓存加载（立即显示）
-    const cached = localStorage.getItem(cacheKey);
+    const cached = safeStorage.getItem<Product[]>(cacheKey);
     if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setProducts(parsed);
-        setLoading(false);
-      } catch (e) {
-        // 忽略解析错误
-      }
+      setProducts(cached);
+      setLoading(false);
     }
 
-    // 2. 异步从后端获取最新数据
     const fetchProducts = async () => {
       try {
-        if (!cached) {
-          setLoading(true);
-        }
+        if (!cached) setLoading(true);
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
-        localStorage.setItem(cacheKey, JSON.stringify(response.items));
+        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        if (!cached) {
-          setError(err.message || '获取商品失败');
-        }
+        if (!cached) setError(err.message || '获取商品失败');
       } finally {
         setLoading(false);
       }

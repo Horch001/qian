@@ -4,6 +4,7 @@ import { ShoppingBag, Star, Package, Truck, Shield, ChevronDown, Loader2 } from 
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 export const PhysicalMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
@@ -14,39 +15,35 @@ export const PhysicalMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（带本地缓存）
+  // 从后端获取商品数据（带安全缓存）
   useEffect(() => {
     const cacheKey = `products:PHYSICAL:${sortBy}`;
     
     // 1. 先从本地缓存加载（立即显示）
-    const cached = localStorage.getItem(cacheKey);
+    const cached = safeStorage.getItem<Product[]>(cacheKey);
     if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setProducts(parsed);
-        setLoading(false); // 有缓存时立即停止加载状态
-      } catch (e) {
-        // 忽略解析错误
-      }
+      setProducts(cached);
+      setLoading(false);
     }
 
     // 2. 异步从后端获取最新数据
     const fetchProducts = async () => {
       try {
         if (!cached) {
-          setLoading(true); // 只有没有缓存时才显示加载状态
+          setLoading(true);
         }
         setError(null);
+        
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
+        
         setProducts(response.items);
-        // 缓存到本地
-        localStorage.setItem(cacheKey, JSON.stringify(response.items));
+        // 安全地缓存到本地（自动处理配额超限）
+        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        // 只有没有缓存数据时才显示错误
         if (!cached) {
           setError(err.message || '获取商品失败');
         }

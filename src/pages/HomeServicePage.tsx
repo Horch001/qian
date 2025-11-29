@@ -4,6 +4,7 @@ import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown, Loader2 
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
+import { safeStorage } from '../utils/safeStorage';
 
 export const HomeServicePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language, translations: Translations }>();
@@ -17,14 +18,10 @@ export const HomeServicePage: React.FC = () => {
 
   useEffect(() => {
     const cacheKey = `products:SERVICE:${sortBy}:${searchKeyword}`;
-    
-    // 先从本地缓存加载
-    const cached = localStorage.getItem(cacheKey);
+    const cached = safeStorage.getItem<Product[]>(cacheKey);
     if (cached) {
-      try {
-        setProducts(JSON.parse(cached));
-        setLoading(false);
-      } catch (e) {}
+      setProducts(cached);
+      setLoading(false);
     }
 
     const fetchProducts = async () => {
@@ -37,7 +34,7 @@ export const HomeServicePage: React.FC = () => {
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
-        localStorage.setItem(cacheKey, JSON.stringify(response.items));
+        safeStorage.setItem(cacheKey, response.items);
       } catch (err: any) {
         console.error('获取服务失败:', err);
         if (!cached) setError(err.message || '获取服务失败');
