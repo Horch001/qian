@@ -27,7 +27,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) 
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<number | null>(null);
 
   const [viewLevel, setViewLevel] = useState<'COUNTRY' | 'REGION' | 'CITY'>('COUNTRY');
   const [currentCountry, setCurrentCountry] = useState<Country | null>(null);
