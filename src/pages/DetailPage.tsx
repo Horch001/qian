@@ -30,17 +30,39 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [userBalance, setUserBalance] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 获取用户余额
+  // 获取用户余额 - 优先从本地缓存获取，异步更新
   useEffect(() => {
+    // 先从 localStorage 获取缓存的余额（立即显示）
+    const cachedUser = localStorage.getItem('user');
+    if (cachedUser) {
+      try {
+        const user = JSON.parse(cachedUser);
+        setUserBalance(parseFloat(user.balance || '0'));
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 异步从后端获取最新余额（不阻塞页面渲染）
     const fetchBalance = async () => {
       try {
         const user = await authApi.getCurrentUser();
-        setUserBalance(parseFloat(user.balance || '0'));
+        const newBalance = parseFloat(user.balance || '0');
+        setUserBalance(newBalance);
+        // 更新本地缓存
+        const cached = localStorage.getItem('user');
+        if (cached) {
+          const userData = JSON.parse(cached);
+          userData.balance = user.balance;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
       } catch (error) {
         console.error('获取余额失败:', error);
       }
     };
-    fetchBalance();
+    
+    // 延迟执行，不阻塞页面渲染
+    setTimeout(fetchBalance, 100);
   }, []);
   
   const item = location.state?.item || {
@@ -194,50 +216,68 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       });
 
       if (method === 'balance') {
-        // 余额支付 - 调用后端扣款API
-        try {
-          // 立即显示处理中状态
-          console.log('正在处理支付...');
-          
-          await orderApi.payWithBalance(order.id);
-          
-          // 支付成功 - 立即显示成功界面
-          setShowPaymentModal(false);
-          setShowOrderSuccessModal(true);
-          
-          // 异步更新余额（不阻塞UI）
-          setTimeout(async () => {
-            try {
-              const userProfile = await userApi.getProfile();
-              const newBalance = parseFloat(userProfile.balance) || 0;
-              setUserBalance(newBalance);
-              
-              // 更新localStorage
-              const user = JSON.parse(localStorage.getItem('user') || '{}');
-              user.balance = newBalance.toFixed(8);
-              localStorage.setItem('user', JSON.stringify(user));
-            } catch (error) {
-              console.error('更新余额失败:', error);
-            }
-          }, 0);
-        } catch (payError: any) {
-          // 余额支付失败，提示用户
-          const errorMsg = payError.message || '';
-          if (errorMsg.includes('余额不足') || errorMsg.includes('Insufficient')) {
-            const confirmPi = confirm(
-              language === 'zh' 
-                ? `余额不足，是否使用Pi钱包支付？` 
-                : `Insufficient balance. Use Pi Wallet instead?`
-            );
-            if (confirmPi) {
-              setPaymentLoading(false);
-              handlePayment('pi');
-            }
-          } else {
-            alert(errorMsg || (language === 'zh' ? '支付失败' : 'Payment failed'));
+        // 余额支付 - 乐观更新模式
+        // 1. 立即显示成功界面（不等待后端响应）
+        setShowPaymentModal(false);
+        setShowOrderSuccessModal(true);
+        
+        // 2. 立即更新本地余额（乐观更新）
+        const newBalance = userBalance - totalPrice;
+        setUserBalance(newBalance);
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.balance = newBalance.toFixed(8);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // 3. 立即更新本地订单缓存
+        const cachedOrders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
+        const newOrder = {
+          id: order.id,
+          orderNo: order.orderNo,
+          item: {
+            id: item.id,
+            title: { zh: item.title?.[language] || item.title, en: item.title?.en || item.title },
+            icon: item.icon || '📦',
+            images: item.images || [],
+          },
+          quantity: quantity,
+          totalPrice: totalPrice,
+          paymentMethod: 'BALANCE',
+          status: 'paid',
+          createdAt: new Date().toISOString(),
+        };
+        cachedOrders.unshift(newOrder);
+        localStorage.setItem('cachedOrders', JSON.stringify(cachedOrders));
+        
+        // 4. 异步调用后端完成支付（不阻塞UI）
+        orderApi.payWithBalance(order.id).then(async () => {
+          console.log('支付成功确认');
+          // 异步更新最新余额
+          try {
+            const userProfile = await userApi.getProfile();
+            const actualBalance = parseFloat(userProfile.balance) || 0;
+            setUserBalance(actualBalance);
+            const userData = JSON.parse(localStorage.getItem('user') || '{}');
+            userData.balance = actualBalance.toFixed(8);
+            localStorage.setItem('user', JSON.stringify(userData));
+          } catch (error) {
+            console.error('更新余额失败:', error);
           }
-          return;
-        }
+        }).catch((payError: any) => {
+          // 支付失败，回滚UI状态
+          console.error('支付失败:', payError);
+          const errorMsg = payError.message || '';
+          // 回滚余额
+          setUserBalance(userBalance);
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          userData.balance = userBalance.toFixed(8);
+          localStorage.setItem('user', JSON.stringify(userData));
+          // 移除订单缓存
+          const orders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
+          const filtered = orders.filter((o: any) => o.id !== order.id);
+          localStorage.setItem('cachedOrders', JSON.stringify(filtered));
+          // 显示错误
+          alert(errorMsg || (language === 'zh' ? '支付失败，请重试' : 'Payment failed, please retry'));
+        });
       } else {
         // Pi钱包支付 - 调用Pi SDK
         if (typeof window !== 'undefined' && (window as any).Pi) {

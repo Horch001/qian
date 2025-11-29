@@ -162,7 +162,46 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedReceiverName) setReceiverName(savedReceiverName);
     if (savedReceiverPhone) setReceiverPhone(savedReceiverPhone);
     
-    // 从后端加载收藏
+    // 获取当前用户ID，用于验证缓存数据
+    const currentUserId = user?.id || localStorage.getItem('authToken')?.substring(0, 20);
+    const cachedUserId = localStorage.getItem('cachedUserId');
+    
+    // 如果用户ID不匹配，清除旧缓存（防止数据串用户）
+    if (currentUserId && cachedUserId && currentUserId !== cachedUserId) {
+      console.log('用户已切换，清除旧缓存');
+      localStorage.removeItem('cachedFavorites');
+      localStorage.removeItem('cachedOrders');
+    }
+    
+    // 保存当前用户ID
+    if (currentUserId) {
+      localStorage.setItem('cachedUserId', currentUserId);
+    }
+
+    // 先从本地缓存加载数据（立即显示）- 仅当用户ID匹配时
+    const cachedFavorites = localStorage.getItem('cachedFavorites');
+    if (cachedFavorites && currentUserId === cachedUserId) {
+      try {
+        const parsed = JSON.parse(cachedFavorites);
+        setFavoritesList(parsed);
+        setFavoritesCount(parsed.length);
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    const cachedOrders = localStorage.getItem('cachedOrders');
+    if (cachedOrders && currentUserId === cachedUserId) {
+      try {
+        const parsed = JSON.parse(cachedOrders);
+        setOrdersList(parsed);
+        setOrdersCount(parsed.length);
+      } catch (e) {
+        // 忽略解析错误
+      }
+    }
+
+    // 从后端加载收藏（异步更新）
     const loadFavorites = async () => {
       try {
         const favorites = await favoriteApi.getFavorites();
@@ -181,15 +220,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         }));
         setFavoritesList(formattedFavorites);
         setFavoritesCount(formattedFavorites.length);
+        // 缓存到本地
+        localStorage.setItem('cachedFavorites', JSON.stringify(formattedFavorites));
       } catch (error) {
         console.error('加载收藏失败:', error);
-        setFavoritesList([]);
-        setFavoritesCount(0);
+        // 如果没有缓存数据，才清空
+        if (!cachedFavorites) {
+          setFavoritesList([]);
+          setFavoritesCount(0);
+        }
       }
     };
     loadFavorites();
     
-    // 从后端加载订单
+    // 从后端加载订单（异步更新）
     const loadOrders = async () => {
       try {
         const orders = await orderApi.getOrders();
@@ -211,12 +255,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         }));
         setOrdersList(formattedOrders);
         setOrdersCount(formattedOrders.length);
+        // 缓存到本地
+        localStorage.setItem('cachedOrders', JSON.stringify(formattedOrders));
       } catch (error) {
         console.error('加载订单失败:', error);
-        // 降级到localStorage
-        const localOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-        setOrdersList(localOrders);
-        setOrdersCount(localOrders.length);
+        // 如果没有缓存数据，才使用localStorage的旧数据
+        if (!cachedOrders) {
+          const localOrders = JSON.parse(localStorage.getItem('orders') || '[]');
+          setOrdersList(localOrders);
+          setOrdersCount(localOrders.length);
+        }
       }
     };
     loadOrders();
@@ -273,6 +321,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       }));
       setFavoritesList(formattedFavorites);
       setFavoritesCount(formattedFavorites.length);
+      // 更新本地缓存
+      localStorage.setItem('cachedFavorites', JSON.stringify(formattedFavorites));
     } catch (error) {
       console.error('刷新收藏失败:', error);
     }
@@ -299,6 +349,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       }));
       setOrdersList(formattedOrders);
       setOrdersCount(formattedOrders.length);
+      // 更新本地缓存
+      localStorage.setItem('cachedOrders', JSON.stringify(formattedOrders));
     } catch (error) {
       console.error('刷新订单失败:', error);
     }

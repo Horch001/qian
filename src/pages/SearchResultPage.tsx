@@ -136,9 +136,20 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
       {/* 内容区域 */}
       <main className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
-            <p className="mt-2 text-white text-sm">{getText({ zh: '搜索中...', en: 'Searching...', ko: '검색 중...', vi: 'Đang tìm...' })}</p>
+          <div className="space-y-3">
+            {/* 骨架屏 - 显示5个商品卡片 */}
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="bg-white rounded-xl p-3 animate-pulse">
+                <div className="flex gap-3">
+                  <div className="w-20 h-20 bg-gray-200 rounded-lg"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-5 bg-gray-200 rounded w-20"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20">

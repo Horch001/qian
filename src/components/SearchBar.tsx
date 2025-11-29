@@ -104,21 +104,27 @@ export const SearchBar: React.FC<SearchBarProps> = ({ language, translations }) 
     }, 300);
   };
 
-  // 处理搜索
+  // 处理搜索 - 使用 React Router 导航避免白屏
   const handleSearch = (keyword?: string) => {
     const searchTerm = keyword || searchKeyword.trim();
     if (searchTerm) {
       setShowSuggestions(false);
-      window.location.href = `/search?keyword=${encodeURIComponent(searchTerm)}&city=${encodeURIComponent(selectedCity)}`;
+      // 使用 history API 进行导航，避免页面刷新
+      const url = `/search?keyword=${encodeURIComponent(searchTerm)}&city=${encodeURIComponent(selectedCity)}`;
+      window.history.pushState({}, '', url);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      // 强制刷新当前路由
+      window.location.assign(url);
     }
   };
 
-  // 选择建议项
+  // 选择建议项 - 直接跳转到商品详情
   const handleSelectSuggestion = (suggestion: SearchSuggestion) => {
     setSearchKeyword(language === 'en' && suggestion.titleEn ? suggestion.titleEn : suggestion.title);
     setShowSuggestions(false);
-    // 直接跳转到商品详情或搜索
-    window.location.href = `/search?keyword=${encodeURIComponent(suggestion.title)}&city=${encodeURIComponent(selectedCity)}`;
+    // 直接跳转到搜索结果
+    const url = `/search?keyword=${encodeURIComponent(suggestion.title)}&city=${encodeURIComponent(selectedCity)}`;
+    window.location.assign(url);
   };
 
   // 清理定时器

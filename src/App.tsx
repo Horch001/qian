@@ -183,6 +183,15 @@ export const App: React.FC = () => {
     // 清除所有用户信息
     localStorage.removeItem('piUserInfo');
     localStorage.removeItem('userInfo');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    
+    // 清除缓存数据（防止下一个用户看到）
+    localStorage.removeItem('cachedOrders');
+    localStorage.removeItem('cachedFavorites');
+    localStorage.removeItem('cachedUserId');
+    localStorage.removeItem('cachedCart');
+    
     setUserInfo(null);
     // 返回首页
     navigate('/');

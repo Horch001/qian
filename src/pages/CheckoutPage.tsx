@@ -136,21 +136,41 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
       });
 
       if (paymentMethod === 'balance') {
-        // 余额支付
-        try {
-          await orderApi.payWithBalance(order.id);
-          
-          // 更新余额
-          const profile = await userApi.getProfile();
-          const newBalance = parseFloat(profile.balance) || 0;
-          setUserBalance(newBalance);
-          
-          // 更新localStorage
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
-          user.balance = newBalance.toFixed(8);
-          localStorage.setItem('user', JSON.stringify(user));
-
-          // 清空购物车中已购买的商品
+        // 余额支付 - 乐观更新模式
+        // 1. 立即显示成功界面
+        setShowSuccessModal(true);
+        
+        // 2. 立即更新本地余额
+        const newBalance = userBalance - totalPrice;
+        setUserBalance(newBalance);
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        user.balance = newBalance.toFixed(8);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // 3. 立即更新本地订单缓存
+        const cachedOrders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
+        const newOrder = {
+          id: order.id,
+          orderNo: order.orderNo || `ORD${Date.now()}`,
+          item: items[0]?.product ? {
+            id: items[0].product.id,
+            title: { zh: items[0].product.title, en: items[0].product.titleEn || items[0].product.title },
+            icon: items[0].product.icon || '📦',
+            images: items[0].product.images || [],
+          } : { title: { zh: '商品' }, icon: '📦' },
+          quantity: items.reduce((sum, i) => sum + i.quantity, 0),
+          totalPrice: totalPrice,
+          paymentMethod: 'BALANCE',
+          status: 'paid',
+          createdAt: new Date().toISOString(),
+        };
+        cachedOrders.unshift(newOrder);
+        localStorage.setItem('cachedOrders', JSON.stringify(cachedOrders));
+        
+        // 4. 异步调用后端完成支付（不阻塞UI）
+        orderApi.payWithBalance(order.id).then(async () => {
+          console.log('支付成功确认');
+          // 清空购物车
           for (const item of items) {
             try {
               await userApi.removeFromCart(item.id);
@@ -158,26 +178,33 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
               // 忽略错误
             }
           }
-
-          setShowSuccessModal(true);
-        } catch (payError: any) {
-          const errorMsg = payError.message || '';
-          if (errorMsg.includes('余额不足') || errorMsg.includes('Insufficient')) {
-            const confirmPi = confirm(getText({
-              zh: '余额不足，是否使用Pi钱包支付？',
-              en: 'Insufficient balance. Use Pi Wallet instead?',
-              ko: '잔액 부족. Pi 지갑으로 결제하시겠습니까?',
-              vi: 'Số dư không đủ. Sử dụng ví Pi?'
-            }));
-            if (confirmPi) {
-              // 使用Pi钱包支付同一订单
-              await handlePiPayment(order.id, totalPrice);
-              return; // Pi 支付会在回调中解除锁
-            }
-          } else {
-            alert(errorMsg || getText({ zh: '支付失败', en: 'Payment failed', ko: '결제 실패', vi: 'Thanh toán thất bại' }));
+          // 清除购物车缓存
+          localStorage.removeItem('cachedCart');
+          // 更新最新余额
+          try {
+            const profile = await userApi.getProfile();
+            const actualBalance = parseFloat(profile.balance) || 0;
+            setUserBalance(actualBalance);
+            const userData = JSON.parse(localStorage.getItem('user') || '{}');
+            userData.balance = actualBalance.toFixed(8);
+            localStorage.setItem('user', JSON.stringify(userData));
+          } catch (error) {
+            console.error('更新余额失败:', error);
           }
-        }
+        }).catch((payError: any) => {
+          console.error('支付失败:', payError);
+          // 回滚余额
+          setUserBalance(userBalance);
+          const userData = JSON.parse(localStorage.getItem('user') || '{}');
+          userData.balance = userBalance.toFixed(8);
+          localStorage.setItem('user', JSON.stringify(userData));
+          // 移除订单缓存
+          const orders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
+          const filtered = orders.filter((o: any) => o.id !== order.id);
+          localStorage.setItem('cachedOrders', JSON.stringify(filtered));
+          // 显示错误
+          alert(payError.message || getText({ zh: '支付失败，请重试', en: 'Payment failed, please retry', ko: '결제 실패, 다시 시도해주세요', vi: 'Thanh toán thất bại, vui lòng thử lại' }));
+        });
       } else {
         // Pi钱包支付 - 不在这里解除锁，在回调中解除
         await handlePiPayment(order.id, totalPrice);
