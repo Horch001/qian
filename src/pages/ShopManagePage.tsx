@@ -44,44 +44,59 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
   const fetchMerchantData = async () => {
     try {
-      // 如果指定了店铺ID，获取所有店铺然后找到对应的
-      if (stateData?.merchantId) {
-        const allMerchants = await merchantApi.getMyAllMerchants();
-        const targetMerchant = allMerchants.find(m => m.id === stateData.merchantId);
-        if (targetMerchant) {
-          setMerchant(targetMerchant);
-          setFormData({
-            shopName: targetMerchant.shopName || '',
-            description: targetMerchant.description || '',
-            logo: targetMerchant.logo || '',
-            banner: targetMerchant.banner || '',
-          });
-          // 获取该店铺的商品列表
-          const productsData = await merchantApi.getMyProducts();
-          // 过滤出属于该店铺的商品
-          const filteredProducts = productsData.items?.filter((p: any) => p.merchantId === stateData.merchantId) || [];
-          setProducts(filteredProducts);
-          setLoading(false);
-          return;
-        }
-      }
+      // 添加超时控制
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15秒超时
       
-      // 默认获取第一个店铺
-      const data = await merchantApi.getMyMerchant();
-      if (data) {
-        setMerchant(data);
-        setFormData({
-          shopName: data.shopName || '',
-          description: data.description || '',
-          logo: data.logo || '',
-          banner: data.banner || '',
-        });
-        // 获取商品列表
-        const productsData = await merchantApi.getMyProducts();
-        setProducts(productsData.items || []);
+      try {
+        // 如果指定了店铺ID，获取所有店铺然后找到对应的
+        if (stateData?.merchantId) {
+          const allMerchants = await merchantApi.getMyAllMerchants();
+          const targetMerchant = allMerchants.find(m => m.id === stateData.merchantId);
+          if (targetMerchant) {
+            setMerchant(targetMerchant);
+            setFormData({
+              shopName: targetMerchant.shopName || '',
+              description: targetMerchant.description || '',
+              logo: targetMerchant.logo || '',
+              banner: targetMerchant.banner || '',
+            });
+            // 获取该店铺的商品列表
+            const productsData = await merchantApi.getMyProducts();
+            // 过滤出属于该店铺的商品
+            const filteredProducts = productsData.items?.filter((p: any) => p.merchantId === stateData.merchantId) || [];
+            setProducts(filteredProducts);
+            setLoading(false);
+            clearTimeout(timeoutId);
+            return;
+          }
+        }
+        
+        // 默认获取第一个店铺
+        const data = await merchantApi.getMyMerchant();
+        if (data) {
+          setMerchant(data);
+          setFormData({
+            shopName: data.shopName || '',
+            description: data.description || '',
+            logo: data.logo || '',
+            banner: data.banner || '',
+          });
+          // 获取商品列表
+          const productsData = await merchantApi.getMyProducts();
+          setProducts(productsData.items || []);
+        }
+        clearTimeout(timeoutId);
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          alert(getText({ zh: '加载超时，请刷新重试', en: 'Loading timeout', ko: '로딩 시간 초과', vi: 'Hết thời gian tải' }));
+        } else {
+          throw err;
+        }
       }
     } catch (error) {
       console.error('Failed to fetch merchant:', error);
+      alert(getText({ zh: '加载失败，请重试', en: 'Loading failed', ko: '로딩 실패', vi: 'Tải thất bại' }));
     } finally {
       setLoading(false);
     }

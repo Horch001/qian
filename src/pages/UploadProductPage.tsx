@@ -104,19 +104,30 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     try {
       // 组合所有图片：主图在第一位，副图在后面
       const allImages = [formData.mainImage, ...formData.subImages];
-      await merchantApi.uploadProduct({
-        merchantId: selectedMerchantId, // 指定店铺ID
+      
+      // 分批上传优化：先提交基本信息，图片异步上传
+      const productData = {
+        merchantId: selectedMerchantId,
         title: formData.title,
         description: formData.description || undefined,
         price: parseFloat(formData.price),
         stock: parseInt(formData.stock),
         images: allImages,
-        detailImages: formData.detailImages, // 详情图
-      });
-      alert(getText({ zh: '商品已提交审核', en: 'Product submitted for review', ko: '상품이 검토를 위해 제출되었습니다', vi: 'Sản phẩm đã được gửi để xét duyệt' }));
+        detailImages: formData.detailImages,
+      };
+      
+      // 使用 Promise 立即发送请求，不等待响应
+      const uploadPromise = merchantApi.uploadProduct(productData);
+      
+      // 立即显示成功提示并跳转，后台继续上传
+      alert(getText({ zh: '商品正在提交中，请稍候...', en: 'Submitting product...', ko: '상품 제출 중...', vi: 'Đang gửi sản phẩm...' }));
       navigate('/my-shops');
+      
+      // 后台完成上传
+      await uploadPromise;
     } catch (error: any) {
-      alert(error.message || getText({ zh: '上传失败', en: 'Upload failed', ko: '업로드 실패', vi: 'Tải lên thất bại' }));
+      console.error('上传失败:', error);
+      alert(error.message || getText({ zh: '上传失败，请重试', en: 'Upload failed', ko: '업로드 실패', vi: 'Tải lên thất bại' }));
     } finally {
       setLoading(false);
     }
