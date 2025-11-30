@@ -1460,12 +1460,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {/* 充值弹窗 */}
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-center mb-6 relative">
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowRechargeModal(false)} className="absolute -top-2 -right-2 text-white/80 hover:text-white text-3xl bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">×</button>
+            <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
               </h2>
-              <button onClick={() => setShowRechargeModal(false)} className="absolute right-0 text-white/80 hover:text-white text-2xl">×</button>
             </div>
             
             <div className="space-y-4">
@@ -1478,7 +1478,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   placeholder={getText({ zh: '请在此处输入需要充值的金额', en: 'Enter amount to deposit', ko: '충전할 금액을 입력하세요', vi: 'Nhập số tiền cần nạp' })}
                   min="0.01"
                   step="0.01"
-                  className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-bold"
+                  className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg placeholder:font-normal"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
               </div>
@@ -1488,10 +1488,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <span className="text-yellow-300 text-base flex-shrink-0">⚠️</span>
                 <p className="text-white/80 text-xs leading-relaxed flex-1">
                   {getText({ 
-                    zh: '点击确认后将唤起 Pi 钱包 输入密码或指纹完成支付 充值即时到账', 
-                    en: 'Pi wallet will open after confirm Enter password or fingerprint to pay Instant deposit',
-                    ko: '확인 후 Pi 지갑이 열립니다 비밀번호 또는 지문으로 결제 즉시 충전',
-                    vi: 'Ví Pi sẽ mở sau khi xác nhận Nhập mật khẩu hoặc vân tay để thanh toán Nạp tiền ngay lập tức'
+                    zh: '点击确认后将调用官方API接口唤起pi钱包，输入助记词或识别指纹完成支付充值比例1:1，即时到账输入助记词或者识别指纹后请勿退出或刷新界面如果误点击了刷新，钱包余额余额已转出，充值金额未到账，请联系客服处理', 
+                    en: 'After confirmation, the official API will open Pi wallet. Enter mnemonic or fingerprint to complete payment. Recharge ratio 1:1, instant arrival. Do not exit or refresh after entering mnemonic or fingerprint. If accidentally refreshed and wallet balance transferred but recharge not received, please contact customer service',
+                    ko: '확인 후 공식 API가 Pi 지갑을 엽니다. 니모닉 또는 지문을 입력하여 결제를 완료하세요. 충전 비율 1:1, 즉시 도착. 니모닉 또는 지문 입력 후 종료하거나 새로고침하지 마세요. 실수로 새로고침하여 지갑 잔액이 이체되었지만 충전이 도착하지 않은 경우 고객 서비스에 문의하세요',
+                    vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi. Nhập cụm từ ghi nhớ hoặc vân tay để hoàn tất thanh toán. Tỷ lệ nạp 1:1, đến ngay lập tức. Không thoát hoặc làm mới sau khi nhập cụm từ ghi nhớ hoặc vân tay. Nếu vô tình làm mới và số dư ví đã chuyển nhưng chưa nhận được nạp tiền, vui lòng liên hệ dịch vụ khách hàng'
                   })}
                 </p>
               </div>
@@ -1658,15 +1658,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {toast.show && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={closeToast}>
           <div 
-            className={`rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 ${
-              toast.type === 'success' 
-                ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
-                : toast.type === 'error'
-                ? 'bg-gradient-to-br from-red-500 to-rose-600'
-                : 'bg-gradient-to-br from-blue-500 to-indigo-600'
-            }`}
+            className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 relative"
             onClick={(e) => e.stopPropagation()}
           >
+            <button onClick={closeToast} className="absolute -top-2 -right-2 text-white/80 hover:text-white text-3xl bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">×</button>
+            
             {/* 图标 */}
             <div className="flex justify-center mb-4">
               {toast.type === 'success' ? (
@@ -1706,14 +1702,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             <p className="text-white/90 text-center mb-6">
               {toast.message}
             </p>
-            
-            {/* 确认按钮 */}
-            <button
-              onClick={closeToast}
-              className="w-full py-3 px-4 bg-white text-gray-800 rounded-xl font-bold hover:bg-gray-100 transition-all active:scale-95 shadow-lg"
-            >
-              {getText({ zh: '确定', en: 'OK', ko: '확인', vi: 'OK' })}
-            </button>
           </div>
         </div>
       )}
