@@ -540,16 +540,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       return;
     }
     
-    // 验证钱包地址
-    if (walletAddress && !validateWalletAddress(walletAddress)) {
-      alert(getText({ 
-        zh: 'Pi钱包地址必须是56位大写字母和数字组合', 
-        en: 'Pi wallet address must be 56 characters of uppercase letters and numbers',
-        ko: 'Pi 지갑 주소는 56자의 대문자와 숫자 조합이어야 합니다',
-        vi: 'Địa chỉ ví Pi phải là 56 ký tự chữ in hoa và số'
-      }));
-      return;
-    }
+    // 钱包地址由充值自动绑定，无需验证
     
     // 组合完整地址
     const fullAddress = `${selectedProvince} ${selectedCity} ${selectedDistrict} ${detailAddress}`.trim();
@@ -604,13 +595,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
 
   const handleWithdraw = () => {
     if (!walletAddress) {
-      alert(getText({ 
-        zh: '请先在设置中绑定提现钱包地址', 
-        en: 'Please bind wallet address in settings first',
-        ko: '먼저 설정에서 지갑 주소를 연결하세요',
-        vi: 'Vui lòng liên kết địa chỉ ví trong cài đặt trước'
-      }));
-      setShowSettings(true);
+      // 根据用户类型给出不同的提示
+      if (isMerchant) {
+        alert(getText({ 
+          zh: '钱包地址未绑定。请先进行一笔任意金额的充值（如0.01π），系统将自动绑定您的钱包地址。', 
+          en: 'Wallet not bound. Please make a deposit of any amount (e.g. 0.01π) to auto-bind your wallet.',
+          ko: '지갑이 연결되지 않았습니다. 임의 금액(예: 0.01π)을 입금하여 지갑을 자동으로 연결하세요.',
+          vi: 'Ví chưa được liên kết. Vui lòng nạp bất kỳ số tiền nào (ví dụ: 0.01π) để tự động liên kết ví.'
+        }));
+      } else {
+        alert(getText({ 
+          zh: '钱包地址未绑定。请先充值，系统将自动绑定您的钱包地址。', 
+          en: 'Wallet not bound. Please deposit first to auto-bind your wallet.',
+          ko: '지갑이 연결되지 않았습니다. 먼저 충전하여 지갑을 자동으로 연결하세요.',
+          vi: 'Ví chưa được liên kết. Vui lòng nạp tiền trước để tự động liên kết ví.'
+        }));
+      }
       return;
     }
     setShowWithdrawModal(true);
@@ -627,15 +627,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       return;
     }
     
-    // 验证钱包地址格式
-    if (!walletAddress || walletAddress.length !== 56) {
-      alert(getText({ zh: '钱包地址必须是56位字符', en: 'Wallet address must be 56 characters', ko: '지갑 주소는 56자여야 합니다', vi: 'Địa chỉ ví phải có 56 ký tự' }));
-      return;
-    }
-    
-    // 验证钱包地址只包含大写字母和数字
-    if (!/^[A-Z0-9]+$/.test(walletAddress)) {
-      alert(getText({ zh: '钱包地址只能包含大写字母和数字', en: 'Wallet address can only contain uppercase letters and numbers', ko: '지갑 주소는 대문자와 숫자만 포함할 수 있습니다', vi: 'Địa chỉ ví chỉ có thể chứa chữ in hoa và số' }));
+    // 验证钱包地址是否已绑定
+    if (!walletAddress) {
+      if (isMerchant) {
+        alert(getText({ 
+          zh: '钱包地址未绑定。请先进行一笔任意金额的充值（如0.01π），系统将自动绑定您的钱包地址。', 
+          en: 'Wallet not bound. Please make a deposit of any amount (e.g. 0.01π) to auto-bind your wallet.',
+          ko: '지갑이 연결되지 않았습니다. 임의 금액(예: 0.01π)을 입금하여 지갑을 자동으로 연결하세요.',
+          vi: 'Ví chưa được liên kết. Vui lòng nạp bất kỳ số tiền nào (ví dụ: 0.01π) để tự động liên kết ví.'
+        }));
+      } else {
+        alert(getText({ 
+          zh: '钱包地址未绑定。请先充值，系统将自动绑定您的钱包地址。', 
+          en: 'Wallet not bound. Please deposit first to auto-bind your wallet.',
+          ko: '지갑이 연결되지 않았습니다. 먼저 충전하여 지갑을 자동으로 연결하세요.',
+          vi: 'Ví chưa được liên kết. Vui lòng nạp tiền trước để tự động liên kết ví.'
+        }));
+      }
       return;
     }
     
@@ -1510,15 +1518,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   <WalletIcon className="w-5 h-5" />
                   {getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
                 </label>
-                <input
-                  type="text"
-                  value={isWalletInputFocused || !walletAddress ? walletAddress : formatWalletAddressLarge(walletAddress)}
-                  onChange={(e) => handleWalletChange(e.target.value)}
-                  onFocus={() => setIsWalletInputFocused(true)}
-                  onBlur={() => setIsWalletInputFocused(false)}
-                  placeholder={getText({ zh: 'Pi钱包地址（大写字母+数字），必须与充值地址一致', en: 'Pi wallet (uppercase + numbers), must match deposit address', ko: 'Pi 지갑 (대문자+숫자), 충전 주소와 일치해야 함', vi: 'Ví Pi (chữ hoa + số), phải khớp với địa chỉ nạp' })}
-                  className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
-                />
+                {walletAddress ? (
+                  // 已绑定钱包地址，显示为只读
+                  <div className="w-full px-2 py-1.5 bg-white/50 text-gray-600 rounded-lg text-sm font-mono cursor-not-allowed">
+                    {formatWalletAddressLarge(walletAddress)}
+                  </div>
+                ) : (
+                  // 未绑定，显示输入框
+                  <input
+                    type="text"
+                    value={walletAddress}
+                    onChange={(e) => handleWalletChange(e.target.value)}
+                    placeholder={getText({ zh: '首次充值后自动绑定', en: 'Auto-bind on first deposit', ko: '첫 충전 시 자동 연결', vi: 'Tự động liên kết khi nạp lần đầu' })}
+                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
+                    readOnly
+                  />
+                )}
+                {walletAddress && (
+                  <p className="text-white/70 text-xs mt-1">
+                    {getText({ zh: '钱包地址已自动绑定，无法修改', en: 'Wallet address is auto-bound and cannot be changed', ko: '지갑 주소가 자동으로 연결되어 변경할 수 없습니다', vi: 'Địa chỉ ví đã được liên kết tự động và không thể thay đổi' })}
+                  </p>
+                )}
                 {walletError && (
                   <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
                     {walletError}
