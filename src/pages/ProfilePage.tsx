@@ -1461,7 +1461,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowRechargeModal(false)} className="absolute -top-2 -right-2 text-white/80 hover:text-white text-3xl bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">×</button>
+            <button onClick={() => setShowRechargeModal(false)} className="absolute top-2 right-2 text-white/80 hover:text-white text-2xl">×</button>
             <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
@@ -1486,14 +1486,39 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               {/* 提示信息 */}
               <div className="flex items-start gap-2">
                 <span className="text-yellow-300 text-base flex-shrink-0">⚠️</span>
-                <p className="text-white/80 text-xs leading-relaxed flex-1">
+                <div className="text-white/80 text-xs leading-relaxed flex-1 space-y-1">
                   {getText({ 
-                    zh: '点击确认后将调用官方API接口唤起pi钱包，输入助记词或识别指纹完成支付充值比例1:1，即时到账输入助记词或者识别指纹后请勿退出或刷新界面如果误点击了刷新，钱包余额余额已转出，充值金额未到账，请联系客服处理', 
-                    en: 'After confirmation, the official API will open Pi wallet. Enter mnemonic or fingerprint to complete payment. Recharge ratio 1:1, instant arrival. Do not exit or refresh after entering mnemonic or fingerprint. If accidentally refreshed and wallet balance transferred but recharge not received, please contact customer service',
-                    ko: '확인 후 공식 API가 Pi 지갑을 엽니다. 니모닉 또는 지문을 입력하여 결제를 완료하세요. 충전 비율 1:1, 즉시 도착. 니모닉 또는 지문 입력 후 종료하거나 새로고침하지 마세요. 실수로 새로고침하여 지갑 잔액이 이체되었지만 충전이 도착하지 않은 경우 고객 서비스에 문의하세요',
-                    vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi. Nhập cụm từ ghi nhớ hoặc vân tay để hoàn tất thanh toán. Tỷ lệ nạp 1:1, đến ngay lập tức. Không thoát hoặc làm mới sau khi nhập cụm từ ghi nhớ hoặc vân tay. Nếu vô tình làm mới và số dư ví đã chuyển nhưng chưa nhận được nạp tiền, vui lòng liên hệ dịch vụ khách hàng'
-                  })}
-                </p>
+                    zh: '点击确认后将调用官方API接口唤起pi钱包', 
+                    en: 'After confirmation, the official API will open Pi wallet',
+                    ko: '확인 후 공식 API가 Pi 지갑을 엽니다',
+                    vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi'
+                  }).split('\n').map((line: string, index: number) => (
+                    <div key={index} className="flex items-center gap-1">
+                      <span className="text-white/60">·</span>
+                      <span>{line}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '点击确认后将调用官方API接口唤起pi钱包', en: 'After confirmation, the official API will open Pi wallet', ko: '확인 후 공식 API가 Pi 지갑을 엽니다', vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '输入助记词或识别指纹完成支付', en: 'Enter mnemonic or fingerprint to complete payment', ko: '니모닉 또는 지문을 입력하여 결제 완료', vi: 'Nhập cụm từ ghi nhớ hoặc vân tay để thanh toán' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '输入助记词或者识别指纹后请勿退出或刷新界面', en: 'Do not exit or refresh after entering mnemonic or fingerprint', ko: '니모닉 또는 지문 입력 후 종료하거나 새로고침하지 마세요', vi: 'Không thoát hoặc làm mới sau khi nhập' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '如果误点击了刷新钱包余额已转出充值金额未到账请联系客服处理', en: 'If accidentally refreshed and balance transferred but not received, contact customer service', ko: '실수로 새로고침하여 잔액이 이체되었지만 도착하지 않은 경우 고객 서비스에 문의', vi: 'Nếu vô tình làm mới và số dư đã chuyển nhưng chưa nhận được, liên hệ dịch vụ khách hàng' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '充值比例1:1，即时到账', en: 'Recharge ratio 1:1, instant arrival', ko: '충전 비율 1:1, 즉시 도착', vi: 'Tỷ lệ nạp 1:1, đến ngay' })}</span>
+                  </div>
+                </div>
               </div>
               
 
@@ -1661,7 +1686,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={closeToast} className="absolute -top-2 -right-2 text-white/80 hover:text-white text-3xl bg-white/10 rounded-full w-8 h-8 flex items-center justify-center">×</button>
+            <button onClick={closeToast} className="absolute top-2 right-2 text-white/80 hover:text-white text-2xl">×</button>
             
             {/* 图标 */}
             <div className="flex justify-center mb-4">
