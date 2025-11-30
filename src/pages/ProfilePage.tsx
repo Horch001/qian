@@ -537,8 +537,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         await userApi.bindWallet(walletAddress);
       } catch (error: any) {
         console.error('绑定钱包错误:', error);
-        // 忽略所有钱包绑定错误，只保存到本地
-        // 因为可能是网络问题或后端问题，不应该阻止用户保存其他信息
+        alert(getText({ 
+          zh: '保存钱包地址失败，请重试', 
+          en: 'Failed to save wallet address, please try again',
+          ko: '지갑 주소 저장 실패, 다시 시도하세요',
+          vi: 'Lưu địa chỉ ví thất bại, vui lòng thử lại'
+        }));
+        return; // 保存失败时阻止继续
       }
     }
     
@@ -612,32 +617,60 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         try {
           await userApi.bindWallet(walletAddress);
         } catch (bindError: any) {
-          // 忽略"已锁定"的错误，其他错误继续抛出
-          if (!bindError.message?.includes('锁定')) {
-            throw bindError;
-          }
+          throw bindError;
         }
       }
       
       // 调用后端API提交提现申请
       await userApi.withdraw(amount);
       
-      // 更新本地余额显示
-      setUserInfo((prev: any) => ({
-        ...prev,
-        balance: (prev?.balance || 0) - amount
-      }));
+      // 从后端重新获取最新余额
+      try {
+        const userData = await authApi.getCurrentUser();
+        if (userData) {
+          setUserInfo((prev: any) => ({ ...prev, balance: userData.balance }));
+          // 同步更新 localStorage
+          const storageKey = localStorage.getItem('piUserInfo') ? 'piUserInfo' : 'userInfo';
+          const storedUser = JSON.parse(localStorage.getItem(storageKey) || '{}');
+          localStorage.setItem(storageKey, JSON.stringify({ ...storedUser, balance: userData.balance }));
+        }
+      } catch (error) {
+        console.error('获取最新余额失败:', error);
+      }
       
-
-      
-      alert(getText({ 
-        zh: `提现申请已提交！\n提现金额：${amount}π\n钱包地址：${walletAddress}\n\n温馨提示：\n• 提现仅在工作日处理\n• 人工审核，最迟12小时到账`, 
-        en: `Withdrawal submitted!\nAmount: ${amount}π\nWallet: ${walletAddress}\n\nNote:\n• Processed on business days only\n• Manual review, up to 12 hours`,
-        ko: `출금 신청 완료!\n금액: ${amount}π\n지갑: ${walletAddress}\n\n참고:\n• 영업일에만 처리\n• 수동 검토, 최대 12시간`,
-        vi: `Đã gửi yêu cầu rút tiền!\nSố tiền: ${amount}π\nVí: ${walletAddress}\n\nLưu ý:\n• Chỉ xử lý vào ngày làm việc\n• Xét duyệt thủ công, tối đa 12 giờ`
-      }));
+      // 显示成功提示
       setShowWithdrawModal(false);
       setWithdrawAmount('');
+      
+      // 显示成功弹窗
+      const successModal = document.createElement('div');
+      successModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-start justify-center p-4 pt-32';
+
+      successModal.innerHTML = `
+        <div class="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-[scale-in_0.3s_ease-out] relative">
+          <button class="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none" onclick="this.closest('.fixed').remove()">×</button>
+          <div class="flex flex-col items-center text-center space-y-4">
+            <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+              <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-2xl font-bold text-white">${getText({ zh: '提现申请已提交！', en: 'Withdrawal Submitted!', ko: '출금 신청 완료!', vi: 'Đã gửi yêu cầu rút tiền!' })}</h3>
+            <div class="space-y-3 text-white/90 w-full">
+              <p class="text-lg"><span class="text-white/70">${getText({ zh: '提现金额', en: 'Amount', ko: '금额', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
+              <div class="text-sm">
+                <p class="text-white/70 mb-1">${getText({ zh: '钱包地址', en: 'Wallet', ko: '지갑', vi: 'Ví' })}</p>
+                <p class="font-mono text-[10px] whitespace-nowrap overflow-hidden">${walletAddress}</p>
+              </div>
+              <p class="text-xs text-white/60 mt-2">${getText({ zh: '请在余额明细中查看处理状态', en: 'Check balance history for status', ko: '잔액 내역에서 처리 상태 확인', vi: 'Kiểm tra lịch sử số dư để xem trạng thái' })}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(successModal);
+      successModal.addEventListener('click', (e) => {
+        if (e.target === successModal) successModal.remove();
+      });
     } catch (error: any) {
       alert(error.message || getText({ zh: '提现申请失败', en: 'Withdrawal failed', ko: '출금 실패', vi: 'Rút tiền thất bại' }));
     }
@@ -843,15 +876,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               {/* 左侧余额信息 - 点击显示明细 */}
               <button 
                 onClick={async () => {
-                  // 从后端加载余额明细
+                  // 从后端加载余额明细和最新余额
                   try {
-                    const history = await userApi.getBalanceHistory();
+                    const [history, userData] = await Promise.all([
+                      userApi.getBalanceHistory(),
+                      authApi.getCurrentUser()
+                    ]);
+                    
                     setBalanceHistory(history.map((item: any) => ({
                       type: item.type === 'RECHARGE' || item.type === 'REFUND' || item.type === 'INCOME' ? 'add' : 'subtract',
                       amount: item.amount,
                       reason: item.reason,
                       time: item.createdAt,
+                      withdrawalStatus: item.withdrawalStatus,
                     })));
+                    
+                    // 更新余额
+                    if (userData) {
+                      setUserInfo((prev: any) => ({ ...prev, balance: userData.balance }));
+                      const storageKey = localStorage.getItem('piUserInfo') ? 'piUserInfo' : 'userInfo';
+                      const storedUser = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                      localStorage.setItem(storageKey, JSON.stringify({ ...storedUser, balance: userData.balance }));
+                    }
                   } catch (error) {
                     console.error('加载余额明细失败:', error);
                     // 降级到localStorage
@@ -1596,12 +1642,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               
               {/* 钱包地址显示 */}
               <div>
-                <p className="text-white/80 text-xs mb-1">{getText({ zh: '提现钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}</p>
-                <p className="text-white font-mono text-sm" title={walletAddress}>
-                  {walletAddress.length === 56 
-                    ? `${walletAddress.slice(0, 20)}...${walletAddress.slice(-20)}`
-                    : walletAddress
-                  }
+                <p className="text-white/80 text-xs mb-1">{getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}</p>
+                <p className="text-white font-mono text-[11px] whitespace-nowrap overflow-hidden w-full" title={walletAddress}>
+                  {walletAddress}
                 </p>
               </div>
               
@@ -1632,9 +1675,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <div className="flex justify-center pt-2">
                 <button
                   onClick={handleConfirmWithdraw}
-                  className="py-3 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                  className="py-1 px-1 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
                 >
-                  {getText({ zh: '确认提现', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+                  {getText({ zh: '确认提现', en: 'Confirm', ko: '确认', vi: 'Xác nhận' })}
                 </button>
               </div>
             </div>
@@ -1779,35 +1822,73 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         const currentItems = balanceHistory.slice(startIndex, startIndex + pageSize);
         
         return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-8" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl h-[calc(100vh-4rem)] flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
+                <div className="flex-1"></div>
                 <h2 className="text-xl font-bold text-white">
                   {getText({ zh: '余额明细', en: 'Balance History', ko: '잔액 내역', vi: 'Lịch sử số dư' })}
                 </h2>
-                <button onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }} className="text-white/80 hover:text-white text-2xl">×</button>
+                <div className="flex-1 flex justify-end">
+                  <button onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }} className="text-white/80 hover:text-white text-2xl">×</button>
+                </div>
               </div>
               
               {/* 当前余额 */}
-              <div className="bg-white/10 rounded-lg p-4 mb-4">
+              <div className="bg-white/10 rounded-lg p-3 mb-3 flex items-center justify-center gap-1">
                 <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
                 <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
               </div>
               
               {/* 明细列表 */}
-              <div className="flex-1 overflow-y-auto space-y-2">
+              <div className="flex-1 overflow-y-auto space-y-1.5 mb-3">
                 {balanceHistory.length > 0 ? (
-                  currentItems.map((item: any, index: number) => (
-                    <div key={startIndex + index} className="bg-white/10 rounded-lg p-3 flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-medium">{item.reason || getText({ zh: '余额变动', en: 'Balance Change', ko: '잔액 변동', vi: 'Thay đổi số dư' })}</p>
-                        <p className="text-white/60 text-xs">{item.time ? new Date(item.time).toLocaleString() : '-'}</p>
+                  currentItems.map((item: any, index: number) => {
+                    const getStatusText = (status: string) => {
+                      const statusMap: any = {
+                        'PENDING': { zh: '处理中', en: 'Processing', ko: '처리 중', vi: 'Đang xử lý', color: 'text-yellow-300' },
+                        'COMPLETED': { zh: '已完成', en: 'Completed', ko: '완료됨', vi: 'Đã hoàn thành', color: 'text-yellow-300' },
+                        'FAILED': { zh: '已拒绝', en: 'Rejected', ko: '거부됨', vi: 'Đã từ chối', color: 'text-yellow-300' },
+                      };
+                      return statusMap[status] || { zh: status, en: status, ko: status, vi: status, color: 'text-white/60' };
+                    };
+                    
+                    return (
+                      <div key={startIndex + index} className="bg-white/10 rounded-lg p-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <p className="text-sm font-medium text-white">
+                                {(() => {
+                                  const reason = item.reason || getText({ zh: '余额变动', en: 'Balance Change', ko: '잔액 변동', vi: 'Thay đổi số dư' });
+                                  // 如果是被拒绝的提现申请，分割原因文本（支持中英文冒号）
+                                  if (item.withdrawalStatus === 'FAILED' && (reason.includes('：') || reason.includes(':'))) {
+                                    const separator = reason.includes('：') ? '：' : ':';
+                                    const parts = reason.split(separator);
+                                    return (
+                                      <>
+                                        {parts[0]}{separator}<span className="text-yellow-400 font-bold">{parts.slice(1).join(separator)}</span>
+                                      </>
+                                    );
+                                  }
+                                  return reason;
+                                })()}
+                              </p>
+                              {item.withdrawalStatus && (
+                                <span className={`text-xs ${getStatusText(item.withdrawalStatus).color}`}>
+                                  {getText(getStatusText(item.withdrawalStatus))}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-white/60 text-xs">{item.time ? new Date(item.time).toLocaleString() : '-'}</p>
+                          </div>
+                          <div className={`text-sm font-bold ${item.type === 'add' ? 'text-green-400' : 'text-yellow-400'}`}>
+                            {item.type === 'add' ? '+' : '-'}{item.amount}π
+                          </div>
+                        </div>
                       </div>
-                      <div className={`text-lg font-bold ${item.type === 'add' ? 'text-green-400' : 'text-red-400'}`}>
-                        {item.type === 'add' ? '+' : '-'}{item.amount}π
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-white/60 text-sm">{getText({ zh: '暂无余额变动记录', en: 'No balance history', ko: '잔액 내역 없음', vi: 'Không có lịch sử số dư' })}</p>
@@ -1815,43 +1896,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 )}
               </div>
               
-              {/* 分页控制 */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-white/20">
-                  <button
-                    onClick={() => setBalanceHistoryPage(p => Math.max(1, p - 1))}
-                    disabled={balanceHistoryPage === 1}
-                    className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
-                  >
-                    {getText({ zh: '上一页', en: 'Prev', ko: '이전', vi: 'Trước' })}
-                  </button>
-                  <span className="text-white text-sm px-3">
-                    {balanceHistoryPage} / {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setBalanceHistoryPage(p => Math.min(totalPages, p + 1))}
-                    disabled={balanceHistoryPage === totalPages}
-                    className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
-                  >
-                    {getText({ zh: '下一页', en: 'Next', ko: '다음', vi: 'Sau' })}
-                  </button>
+              {/* 分页控制和总记录数 - 固定在底部 */}
+              {balanceHistory.length > 0 && (
+                <div className="flex items-center justify-between pt-3 border-t border-white/20 flex-shrink-0">
+                  <p className="text-white/50 text-xs">
+                    {getText({ zh: `共 ${balanceHistory.length} 条记录`, en: `Total ${balanceHistory.length} records`, ko: `총 ${balanceHistory.length}개 기록`, vi: `Tổng ${balanceHistory.length} bản ghi` })}
+                  </p>
+                  
+                  {totalPages > 1 && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setBalanceHistoryPage(p => Math.max(1, p - 1))}
+                        disabled={balanceHistoryPage === 1}
+                        className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
+                      >
+                        {getText({ zh: '上一页', en: 'Prev', ko: '이전', vi: 'Trước' })}
+                      </button>
+                      <span className="text-white text-sm px-3">
+                        {balanceHistoryPage} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setBalanceHistoryPage(p => Math.min(totalPages, p + 1))}
+                        disabled={balanceHistoryPage === totalPages}
+                        className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-white/30 transition-colors"
+                      >
+                        {getText({ zh: '下一页', en: 'Next', ko: '다음', vi: 'Sau' })}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-              
-              {/* 总记录数 */}
-              {balanceHistory.length > 0 && (
-                <p className="text-white/50 text-xs text-center mt-2">
-                  {getText({ zh: `共 ${balanceHistory.length} 条记录`, en: `Total ${balanceHistory.length} records`, ko: `총 ${balanceHistory.length}개 기록`, vi: `Tổng ${balanceHistory.length} bản ghi` })}
-                </p>
-              )}
-              
-              {/* 关闭按钮 */}
-              <button
-                onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}
-                className="mt-4 w-full py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
-              >
-                {getText({ zh: '关闭', en: 'Close', ko: '닫기', vi: 'Đóng' })}
-              </button>
             </div>
           </div>
         );
