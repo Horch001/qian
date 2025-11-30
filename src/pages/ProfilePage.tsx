@@ -491,8 +491,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   // 格式化钱包地址显示（用于个人中心设置，字体较大，显示前后各10位）
   const formatWalletAddressLarge = (address: string): string => {
     if (!address || address.length < 20) return address;
-    // 显示前10位和后10位，中间用更多省略号填充，让地址填满输入框
-    return `${address.substring(0, 10)}..................${address.substring(address.length - 10)}`;
+    // 显示前10位和后10位，中间用10个省略号
+    return `${address.substring(0, 10)}..........${address.substring(address.length - 10)}`;
   };
 
   const handleWalletChange = (value: string) => {
