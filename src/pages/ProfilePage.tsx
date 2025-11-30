@@ -20,6 +20,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showSettings, setShowSettings] = useState(false);
   const [shippingAddress, setShippingAddress] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [isWalletBound, setIsWalletBound] = useState(false); // 钱包是否已绑定（从后端加载）
   const [isWalletInputFocused, setIsWalletInputFocused] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showFavoritesDetails, setShowFavoritesDetails] = useState(false);
@@ -312,10 +313,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           // 如果钱包地址存在且不为空，则设置
           if (wallet.piAddress && wallet.piAddress.trim() !== '') {
             setWalletAddress(wallet.piAddress);
+            setIsWalletBound(true); // 标记为已绑定
             localStorage.setItem('walletAddress', wallet.piAddress);
           } else {
             // 如果钱包地址为空（管理员解绑后），清空本地缓存
             setWalletAddress('');
+            setIsWalletBound(false); // 标记为未绑定
             localStorage.removeItem('walletAddress');
           }
         }
@@ -558,9 +561,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     }
     
     // 同步钱包地址到后端
-    if (walletAddress) {
+    if (walletAddress && walletAddress.trim() !== '' && !isWalletBound) {
+      // 只有当钱包地址不为空且未绑定时才尝试绑定
+      if (walletAddress.length !== 56) {
+        alert(getText({ 
+          zh: 'Pi钱包地址必须是56位', 
+          en: 'Pi wallet address must be 56 characters',
+          ko: 'Pi 지갑 주소는 56자여야 합니다',
+          vi: 'Địa chỉ ví Pi phải có 56 ký tự'
+        }));
+        return;
+      }
+      
       try {
         await userApi.bindWallet(walletAddress);
+        setIsWalletBound(true); // 绑定成功后标记为已绑定
+        localStorage.setItem('walletAddress', walletAddress);
       } catch (error: any) {
         console.error('绑定钱包错误:', error);
         alert(getText({ 
@@ -1525,7 +1541,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   <WalletIcon className="w-5 h-5" />
                   {getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
                 </label>
-                {walletAddress && walletAddress.trim() !== '' ? (
+                {isWalletBound ? (
                   // 已绑定钱包地址，显示为只读
                   <div className="w-full px-2 py-1.5 bg-white/50 text-gray-600 rounded-lg text-sm font-mono cursor-not-allowed">
                     {formatWalletAddressLarge(walletAddress)}
@@ -1536,14 +1552,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     type="text"
                     value={walletAddress}
                     onChange={(e) => handleWalletChange(e.target.value)}
-                    placeholder={getText({ zh: '请输入56位Pi钱包地址', en: 'Enter 56-character Pi wallet address', ko: '56자 Pi 지갑 주소를 입력하세요', vi: 'Nhập địa chỉ ví Pi 56 ký tự' })}
+                    placeholder={getText({ zh: '请输入56位Pi钱包地址或充值自动绑定', en: 'Enter 56-char address or auto-bind via deposit', ko: '56자 주소 입력 또는 충전으로 자동 연결', vi: 'Nhập 56 ký tự hoặc tự động liên kết qua nạp tiền' })}
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
                     maxLength={56}
                   />
                 )}
-                {walletAddress && walletAddress.trim() !== '' && (
+                {isWalletBound && (
                   <p className="text-white/70 text-xs mt-1">
                     {getText({ zh: '钱包地址已绑定，如需修改请联系客服', en: 'Wallet address is bound, contact support to change', ko: '지갑 주소가 연결되었습니다. 변경하려면 고객 서비스에 문의하세요', vi: 'Địa chỉ ví đã được liên kết, liên hệ hỗ trợ để thay đổi' })}
+                  </p>
+                )}
+                {!isWalletBound && walletAddress && walletAddress.length < 56 && (
+                  <p className="text-white/70 text-xs mt-1">
+                    {getText({ zh: `已输入 ${walletAddress.length}/56 位`, en: `Entered ${walletAddress.length}/56 chars`, ko: `${walletAddress.length}/56자 입력됨`, vi: `Đã nhập ${walletAddress.length}/56 ký tự` })}
                   </p>
                 )}
                 {walletError && (
