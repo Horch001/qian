@@ -408,14 +408,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       // 可以在这里更新购物车数量
     };
 
+    // 钱包更新事件处理
+    const handleWalletUpdate = (wallet: any) => {
+      console.log('[Wallet] Received wallet update:', wallet);
+      if (wallet.piAddress && wallet.piAddress.trim() !== '') {
+        setWalletAddress(wallet.piAddress);
+        setIsWalletBound(true);
+        localStorage.setItem('walletAddress', wallet.piAddress);
+      }
+    };
+
     eventsSocketService.on('favorite:updated', handleFavoriteUpdate);
     eventsSocketService.on('order:updated', handleOrderUpdate);
     eventsSocketService.on('cart:updated', handleCartUpdate);
+    eventsSocketService.on('wallet:updated', handleWalletUpdate);
 
     return () => {
       eventsSocketService.off('favorite:updated', handleFavoriteUpdate);
       eventsSocketService.off('order:updated', handleOrderUpdate);
       eventsSocketService.off('cart:updated', handleCartUpdate);
+      eventsSocketService.off('wallet:updated', handleWalletUpdate);
     };
   }, [refreshFavorites, refreshOrders]);
 
@@ -1542,9 +1554,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   {getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
                 </label>
                 {isWalletBound ? (
-                  // 已绑定钱包地址，显示为只读
-                  <div className="w-full px-2 py-1.5 bg-white/50 text-gray-600 rounded-lg text-sm font-mono cursor-not-allowed">
+                  // 已绑定钱包地址，显示为只读，带悬浮提示
+                  <div 
+                    className="w-full px-2 py-1.5 bg-white/50 text-gray-600 rounded-lg text-sm font-mono cursor-not-allowed relative group"
+                    title={getText({ zh: '钱包地址已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Wallet address is auto-bound to payment wallet, cannot be changed except in special cases', ko: '지갑 주소가 결제 지갑에 자동으로 연결되었으며 특별한 경우를 제외하고는 변경할 수 없습니다', vi: 'Địa chỉ ví được tự động liên kết với ví thanh toán, không thể thay đổi trừ trường hợp đặc biệt' })}
+                  >
                     {formatWalletAddressLarge(walletAddress)}
+                    {/* 悬浮提示 */}
+                    <div className="absolute left-0 -top-16 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      {getText({ zh: '钱包地址已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Auto-bound to payment wallet, cannot be changed', ko: '결제 지갑에 자동 연결됨, 변경 불가', vi: 'Tự động liên kết ví thanh toán, không thể thay đổi' })}
+                      <div className="absolute left-4 -bottom-1 w-2 h-2 bg-gray-800 transform rotate-45"></div>
+                    </div>
                   </div>
                 ) : (
                   // 未绑定，显示可编辑输入框
@@ -1556,11 +1576,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
                     maxLength={56}
                   />
-                )}
-                {isWalletBound && (
-                  <p className="text-white/70 text-xs mt-1">
-                    {getText({ zh: '钱包地址已绑定，如需修改请联系客服', en: 'Wallet address is bound, contact support to change', ko: '지갑 주소가 연결되었습니다. 변경하려면 고객 서비스에 문의하세요', vi: 'Địa chỉ ví đã được liên kết, liên hệ hỗ trợ để thay đổi' })}
-                  </p>
                 )}
                 {!isWalletBound && walletAddress && walletAddress.length < 56 && (
                   <p className="text-white/70 text-xs mt-1">

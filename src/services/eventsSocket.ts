@@ -67,6 +67,11 @@ class EventsSocketService {
     this.socket.on('announcement:updated', (announcement) => {
       this.emit('announcement:updated', announcement);
     });
+
+    // 钱包更新事件
+    this.socket.on('wallet:updated', (wallet) => {
+      this.emit('wallet:updated', wallet);
+    });
   }
 
   on(event: string, callback: Function) {
