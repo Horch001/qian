@@ -1470,33 +1470,28 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             
             <div className="space-y-4">
               {/* 充值金额 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap">
-                  {getText({ zh: '充值金额', en: 'Deposit Amount', ko: '충전 금액', vi: 'Số tiền nạp' })}
-                </label>
-                <div className="relative flex-1 max-w-xs">
-                  <input
-                    type="number"
-                    value={rechargeAmount}
-                    onChange={(e) => setRechargeAmount(e.target.value)}
-                    placeholder="0.00"
-                    min="0.01"
-                    step="0.01"
-                    className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-bold"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
-                </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={rechargeAmount}
+                  onChange={(e) => setRechargeAmount(e.target.value)}
+                  placeholder={getText({ zh: '请在此处输入需要充值的金额', en: 'Enter amount to deposit', ko: '충전할 금액을 입력하세요', vi: 'Nhập số tiền cần nạp' })}
+                  min="0.01"
+                  step="0.01"
+                  className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-bold"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
               </div>
               
               {/* 提示信息 */}
               <div className="flex items-start gap-2">
-                <span className="text-yellow-300 text-base">⚠️</span>
-                <p className="text-white/80 text-xs leading-relaxed whitespace-pre-line">
+                <span className="text-yellow-300 text-base flex-shrink-0">⚠️</span>
+                <p className="text-white/80 text-xs leading-relaxed flex-1">
                   {getText({ 
-                    zh: '点击确认后将唤起 Pi 钱包\n输入密码或指纹完成支付\n充值即时到账', 
-                    en: 'Pi wallet will open after confirm\nEnter password or fingerprint to pay\nInstant deposit',
-                    ko: '확인 후 Pi 지갑이 열립니다\n비밀번호 또는 지문으로 결제\n즉시 충전',
-                    vi: 'Ví Pi sẽ mở sau khi xác nhận\nNhập mật khẩu hoặc vân tay để thanh toán\nNạp tiền ngay lập tức'
+                    zh: '点击确认后将唤起 Pi 钱包 输入密码或指纹完成支付 充值即时到账', 
+                    en: 'Pi wallet will open after confirm Enter password or fingerprint to pay Instant deposit',
+                    ko: '확인 후 Pi 지갑이 열립니다 비밀번호 또는 지문으로 결제 즉시 충전',
+                    vi: 'Ví Pi sẽ mở sau khi xác nhận Nhập mật khẩu hoặc vân tay để thanh toán Nạp tiền ngay lập tức'
                   })}
                 </p>
               </div>
@@ -1557,7 +1552,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     recharge(amount);
                   }}
                   disabled={isPaymentLoading || !rechargeAmount}
-                  className="w-full max-w-xs py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="py-3 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isPaymentLoading && paymentStage === 'authenticating' && (
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
