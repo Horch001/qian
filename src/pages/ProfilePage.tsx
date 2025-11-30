@@ -412,9 +412,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     const handleWalletUpdate = (wallet: any) => {
       console.log('[Wallet] Received wallet update:', wallet);
       if (wallet.piAddress && wallet.piAddress.trim() !== '') {
+        // 钱包绑定
         setWalletAddress(wallet.piAddress);
         setIsWalletBound(true);
         localStorage.setItem('walletAddress', wallet.piAddress);
+      } else {
+        // 钱包解绑（管理员操作）
+        setWalletAddress('');
+        setIsWalletBound(false);
+        localStorage.removeItem('walletAddress');
       }
     };
 
@@ -485,8 +491,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   // 格式化钱包地址显示（用于个人中心设置，字体较大，显示前后各10位）
   const formatWalletAddressLarge = (address: string): string => {
     if (!address || address.length < 20) return address;
-    // 显示前10位和后10位，中间用...代替
-    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+    // 显示前10位和后10位，中间用更多省略号填充，让地址填满输入框
+    return `${address.substring(0, 10)}..................${address.substring(address.length - 10)}`;
   };
 
   const handleWalletChange = (value: string) => {
@@ -1562,7 +1568,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     {formatWalletAddressLarge(walletAddress)}
                     {/* 悬浮提示 */}
                     <div className="absolute left-0 -top-16 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      {getText({ zh: '钱包地址已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Auto-bound to payment wallet, cannot be changed', ko: '결제 지갑에 자동 연결됨, 변경 불가', vi: 'Tự động liên kết ví thanh toán, không thể thay đổi' })}
+                      {getText({ zh: '已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Auto-bound to payment wallet, cannot be changed', ko: '결제 지갑에 자동 연결됨, 변경 불가', vi: 'Tự động liên kết ví thanh toán, không thể thay đổi' })}
                       <div className="absolute left-4 -bottom-1 w-2 h-2 bg-gray-800 transform rotate-45"></div>
                     </div>
                   </div>
