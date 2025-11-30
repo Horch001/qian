@@ -104,11 +104,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [selectedCity, setSelectedCity] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('');
   const [detailAddress, setDetailAddress] = useState('');
-  const [walletLocked, setWalletLocked] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addressStep, setAddressStep] = useState<'province' | 'city' | 'district'>('province');
+
   const [walletError, setWalletError] = useState('');
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
   const [usernameError, setUsernameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [receiverNameError, setReceiverNameError] = useState('');
+  const [receiverPhoneError, setReceiverPhoneError] = useState('');
+  const [detailAddressError, setDetailAddressError] = useState('');
   const [usernameLastModified, setUsernameLastModified] = useState<string | null>(null);
   const [isMerchant, setIsMerchant] = useState(false);
   const [favoritesCount, setFavoritesCount] = useState(0);
@@ -138,7 +144,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     const savedCity = localStorage.getItem('addressCity');
     const savedDistrict = localStorage.getItem('addressDistrict');
     const savedDetail = localStorage.getItem('addressDetail');
-    const savedWalletLocked = localStorage.getItem('walletLocked');
+
     const savedUsername = localStorage.getItem('customUsername');
     
     if (savedShippingAddress) setShippingAddress(savedShippingAddress);
@@ -148,7 +154,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedCity) setSelectedCity(savedCity);
     if (savedDistrict) setSelectedDistrict(savedDistrict);
     if (savedDetail) setDetailAddress(savedDetail);
-    if (savedWalletLocked === 'true') setWalletLocked(true);
+
     if (savedUsername) setUsername(savedUsername);
     
     const savedUsernameLastModified = localStorage.getItem('usernameLastModified');
@@ -290,11 +296,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
 
         if (wallet && wallet.piAddress) {
           setWalletAddress(wallet.piAddress);
-          setWalletLocked(wallet.isLocked || false);
           localStorage.setItem('walletAddress', wallet.piAddress);
-          if (wallet.isLocked) {
-            localStorage.setItem('walletLocked', 'true');
-          }
         }
       } finally {
         setIsLoading(false);
@@ -415,26 +417,92 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const cities = selectedProvince 
     ? LOCATION_DATA[0]?.regions.find(r => r.name === selectedProvince)?.cities || []
     : [];
+  
+  // 获取区列表（暂时为空，后续可扩展）
+  // 对于大城市如广州、深圳等，可以在这里添加区级数据
+  const districts: string[] = selectedCity ? (() => {
+    // 这里可以根据城市返回对应的区
+    const cityDistricts: Record<string, string[]> = {
+      '广州': ['天河区', '越秀区', '海珠区', '荔湾区', '白云区', '黄埔区', '番禺区', '花都区', '南沙区', '增城区', '从化区'],
+      '深圳': ['福田区', '罗湖区', '南山区', '宝安区', '龙岗区', '盐田区', '龙华区', '坪山区', '光明区', '大鹏新区'],
+      '北京市': ['东城区', '西城区', '朝阳区', '丰台区', '石景山区', '海淀区', '门头沟区', '房山区', '通州区', '顺义区', '昌平区', '大兴区', '怀柔区', '平谷区', '密云区', '延庆区'],
+      '上海市': ['黄浦区', '徐汇区', '长宁区', '静安区', '普陀区', '虹口区', '杨浦区', '闵行区', '宝山区', '嘉定区', '浦东新区', '金山区', '松江区', '青浦区', '奉贤区', '崇明区'],
+      '天津市': ['和平区', '河东区', '河西区', '南开区', '河北区', '红桥区', '东丽区', '西青区', '津南区', '北辰区', '武清区', '宝坻区', '滨海新区', '宁河区', '静海区', '蓟州区'],
+      '重庆市': ['渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区', '南岸区', '北碚区', '渝北区', '巴南区', '涪陵区', '綦江区', '大足区', '长寿区', '江津区', '合川区', '永川区', '南川区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区', '武隆区'],
+    };
+    return cityDistricts[selectedCity] || [];
+  })() : [];
 
-  // 验证Pi钱包地址格式（大写字母和数字组合）
+  // 验证Pi钱包地址格式（必须56位，大写字母和数字组合）
   const validateWalletAddress = (address: string): boolean => {
-    const piWalletRegex = /^[A-Z0-9]+$/;
-    return piWalletRegex.test(address) && address.length >= 20;
+    const piWalletRegex = /^[A-Z0-9]{56}$/;
+    return piWalletRegex.test(address);
   };
 
   const handleWalletChange = (value: string) => {
     const upperValue = value.toUpperCase();
-    setWalletAddress(upperValue);
-    if (upperValue && !validateWalletAddress(upperValue)) {
-      setWalletError(getText({ 
-        zh: 'Pi钱包地址必须是大写字母和数字组合，至少20位', 
-        en: 'Pi wallet must be uppercase letters and numbers, at least 20 characters',
-        ko: 'Pi 지갑은 대문자와 숫자 조합이어야 합니다',
-        vi: 'Ví Pi phải là chữ hoa và số, ít nhất 20 ký tự'
+    // 只允许大写字母和数字
+    if (/^[A-Z0-9]*$/.test(upperValue)) {
+      setWalletAddress(upperValue);
+      // 只有当长度正好是56位时才清除错误，否则不显示错误（让用户继续输入）
+      if (upperValue.length === 56) {
+        setWalletError('');
+      } else if (upperValue.length > 56) {
+        // 超过56位时显示错误
+        setWalletError(getText({ 
+          zh: 'Pi钱包地址必须是56位', 
+          en: 'Pi wallet address must be 56 characters',
+          ko: 'Pi 지갑 주소는 56자여야 합니다',
+          vi: 'Địa chỉ ví Pi phải có 56 ký tự'
+        }));
+      } else {
+        // 少于56位时不显示错误，让用户继续输入
+        setWalletError('');
+      }
+    }
+    // 不符合规则的字符不会被输入
+  };
+
+  const handleEmailChange = (value: string) => {
+    const lowerValue = value.toLowerCase();
+    // 只允许小写字母、数字和邮箱符号
+    if (/^[a-z0-9@._-]*$/.test(lowerValue)) {
+      setEmail(lowerValue);
+      setEmailError('');
+    }
+    // 不符合规则的字符不会被输入，所以不需要显示错误
+  };
+
+  const handleReceiverNameChange = (value: string) => {
+    // 允许所有输入，包括拼音输入法的中间状态
+    setReceiverName(value);
+    // 不允许全是数字
+    if (value && /^\d+$/.test(value)) {
+      setReceiverNameError(getText({ 
+        zh: '不能全是数字', 
+        en: 'Cannot be all numbers',
+        ko: '모두 숫자일 수 없습니다',
+        vi: 'Không thể toàn số'
       }));
     } else {
-      setWalletError('');
+      setReceiverNameError('');
     }
+  };
+
+  const handleReceiverPhoneChange = (value: string) => {
+    // 只允许数字，最多11位
+    const numericValue = value.replace(/\D/g, ''); // 移除所有非数字字符
+    if (numericValue.length <= 11) {
+      setReceiverPhone(numericValue);
+      setReceiverPhoneError('');
+    }
+  };
+
+  const handleDetailAddressChange = (value: string) => {
+    // 允许所有输入，包括拼音输入法的中间状态
+    setDetailAddress(value);
+    setDetailAddressError('');
+    // 只在保存时验证
   };
 
   const handleSaveSettings = async () => {
@@ -446,11 +514,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     
     // 验证钱包地址
     if (walletAddress && !validateWalletAddress(walletAddress)) {
-      setWalletError(getText({ 
-        zh: 'Pi钱包地址格式不正确', 
-        en: 'Invalid Pi wallet address format',
-        ko: '잘못된 Pi 지갑 주소 형식',
-        vi: 'Định dạng địa chỉ ví Pi không hợp lệ'
+      alert(getText({ 
+        zh: 'Pi钱包地址必须是56位大写字母和数字组合', 
+        en: 'Pi wallet address must be 56 characters of uppercase letters and numbers',
+        ko: 'Pi 지갑 주소는 56자의 대문자와 숫자 조합이어야 합니다',
+        vi: 'Địa chỉ ví Pi phải là 56 ký tự chữ in hoa và số'
       }));
       return;
     }
@@ -458,16 +526,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     // 组合完整地址
     const fullAddress = `${selectedProvince} ${selectedCity} ${selectedDistrict} ${detailAddress}`.trim();
     
-    // 检查用户名是否有变化，如果有变化则记录修改时间
-    const savedUsername = localStorage.getItem('customUsername');
-    if (username !== savedUsername && username.trim()) {
-      if (!canModifyUsername) {
-        alert(getText({ zh: '本月已修改过用户名，请下月再试', en: 'Username already modified this month', ko: '이번 달에 이미 수정됨', vi: 'Đã sửa tháng này' }));
-        return;
-      }
-      const now = new Date().toISOString();
-      localStorage.setItem('usernameLastModified', now);
-      setUsernameLastModified(now);
+    // 保存用户名（移除修改限制）
+    if (username.trim()) {
+      localStorage.setItem('customUsername', username);
     }
     
     // 同步钱包地址到后端
@@ -475,11 +536,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       try {
         await userApi.bindWallet(walletAddress);
       } catch (error: any) {
-        // 如果是钱包已锁定的错误，忽略它（说明已经绑定过了）
-        if (!error.message?.includes('锁定')) {
-          alert(error.message || getText({ zh: '绑定钱包失败', en: 'Failed to bind wallet', ko: '지갑 연결 실패', vi: 'Liên kết ví thất bại' }));
-          return;
-        }
+        console.error('绑定钱包错误:', error);
+        // 忽略所有钱包绑定错误，只保存到本地
+        // 因为可能是网络问题或后端问题，不应该阻止用户保存其他信息
       }
     }
     
@@ -535,6 +594,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       return;
     }
     
+    // 验证钱包地址格式
+    if (!walletAddress || walletAddress.length !== 56) {
+      alert(getText({ zh: '钱包地址必须是56位字符', en: 'Wallet address must be 56 characters', ko: '지갑 주소는 56자여야 합니다', vi: 'Địa chỉ ví phải có 56 ký tự' }));
+      return;
+    }
+    
+    // 验证钱包地址只包含大写字母和数字
+    if (!/^[A-Z0-9]+$/.test(walletAddress)) {
+      alert(getText({ zh: '钱包地址只能包含大写字母和数字', en: 'Wallet address can only contain uppercase letters and numbers', ko: '지갑 주소는 대문자와 숫자만 포함할 수 있습니다', vi: 'Địa chỉ ví chỉ có thể chứa chữ in hoa và số' }));
+      return;
+    }
+    
     try {
       // 先确保钱包地址已同步到后端
       if (walletAddress) {
@@ -557,11 +628,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         balance: (prev?.balance || 0) - amount
       }));
       
-      // 首次提现成功后锁定钱包地址
-      if (!walletLocked) {
-        setWalletLocked(true);
-        localStorage.setItem('walletLocked', 'true');
-      }
+
       
       alert(getText({ 
         zh: `提现申请已提交！\n提现金额：${amount}π\n钱包地址：${walletAddress}\n\n温馨提示：\n• 提现仅在工作日处理\n• 人工审核，最迟12小时到账`, 
@@ -1184,197 +1251,200 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {/* 设置弹窗 */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSettings(false)}>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowSettings(false)} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
+            <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '设置', en: 'Settings', ko: '설정', vi: 'Cài đặt' })}
               </h2>
-              <button onClick={() => setShowSettings(false)} className="text-white/80 hover:text-white text-2xl">×</button>
             </div>
             
             <div className="space-y-4">
               {/* 用户名 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
                   <Edit3 className="w-5 h-5" />
                   {getText({ zh: '用户名', en: 'Username', ko: '사용자 이름', vi: 'Tên người dùng' })}
-                  {usernameLastModified && (
-                    <span className="text-xs text-yellow-200">
-                      ({getText({ zh: '每月可修改一次', en: 'Once per month', ko: '월 1회 수정 가능', vi: 'Một lần mỗi tháng' })})
+                </label>
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^[a-zA-Z0-9\u4e00-\u9fa5]*$/.test(value)) {
+                        setUsername(value);
+                        setUsernameError('');
+                      } else {
+                        setUsernameError(getText({ zh: '只能输入数字、字母和中文', en: 'Only letters, numbers and Chinese allowed', ko: '문자, 숫자, 중국어만 허용', vi: 'Chỉ cho phép chữ cái, số và tiếng Trung' }));
+                      }
+                    }}
+                    placeholder={getText({ zh: '请输入用户名', en: 'Enter username', ko: '사용자 이름 입력', vi: 'Nhập tên' })}
+                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                  />
+                  {!username && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                      {getText({ zh: '限数字、字母、中文', en: 'Letters, numbers, Chinese only', ko: '문자, 숫자, 중국어만', vi: 'Chữ cái, số, tiếng Trung' })}
                     </span>
                   )}
-                </label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // 只允许数字、大小写字母和中文
-                    if (/^[a-zA-Z0-9\u4e00-\u9fa5]*$/.test(value)) {
-                      setUsername(value);
-                      setUsernameError('');
-                    } else {
-                      setUsernameError(getText({ zh: '只能输入数字、字母和中文', en: 'Only letters, numbers and Chinese allowed', ko: '문자, 숫자, 중국어만 허용', vi: 'Chỉ cho phép chữ cái, số và tiếng Trung' }));
-                    }
-                  }}
-                  disabled={!canModifyUsername}
-                  placeholder={getText({ zh: '请输入用户名（数字、字母、中文）', en: 'Enter username (letters, numbers, Chinese)', ko: '사용자 이름 입력 (문자, 숫자, 중국어)', vi: 'Nhập tên (chữ cái, số, tiếng Trung)' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                {usernameError && (
-                  <p className="text-yellow-200 text-xs mt-1">{usernameError}</p>
-                )}
-                {!canModifyUsername && (
-                  <p className="text-yellow-200 text-xs mt-1">
-                    {getText({ zh: '本月已修改过用户名，下次可修改时间：', en: 'Username modified this month. Next available: ', ko: '이번 달에 이미 수정됨. 다음 수정 가능: ', vi: 'Đã sửa tháng này. Lần tiếp theo: ' })}
-                    {nextUsernameModifyDate}
-                  </p>
-                )}
+                  {usernameError && (
+                    <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
+                      {usernameError}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* 邮箱设置 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
                   <Mail className="w-5 h-5" />
                   {getText({ zh: '邮箱设置', en: 'Email', ko: '이메일', vi: 'Email' })}
-                  {isMerchant && <span className="text-red-300 text-xs">*{getText({ zh: '必填', en: 'Required', ko: '필수', vi: 'Bắt buộc' })}</span>}
                 </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email address', ko: '이메일 주소를 입력하세요', vi: 'Nhập địa chỉ email' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
-                {!isMerchant && (
-                  <p className="text-white/60 text-xs mt-1">
-                    {getText({ zh: '普通用户可选填', en: 'Optional for regular users', ko: '일반 사용자는 선택 사항', vi: 'Tùy chọn cho người dùng thường' })}
-                  </p>
-                )}
+                <div className="flex-1 relative">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email', ko: '이메일 입력', vi: 'Nhập email' })}
+                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                  />
+                  {!email && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                      {getText({ zh: isMerchant ? '商家必填' : '非商家可选填', en: isMerchant ? 'Required for merchants' : 'Optional for non-merchants', ko: isMerchant ? '판매자 필수' : '비판매자 선택', vi: isMerchant ? 'Bắt buộc cho người bán' : 'Tùy chọn' })}
+                    </span>
+                  )}
+                  {emailError && (
+                    <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
+                      {emailError}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* 收件人信息 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
                   <User className="w-5 h-5" />
-                  {getText({ zh: '收件人姓名', en: 'Receiver Name', ko: '수령인 이름', vi: 'Tên người nhận' })}
-                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
+                  {getText({ zh: '收件人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}
                 </label>
-                <input
-                  type="text"
-                  value={receiverName}
-                  onChange={(e) => setReceiverName(e.target.value)}
-                  placeholder={getText({ zh: '请输入收件人姓名', en: 'Enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Nhập tên người nhận' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={receiverName}
+                    onChange={(e) => handleReceiverNameChange(e.target.value)}
+                    placeholder={getText({ zh: '请输入收件人姓名', en: 'Enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Nhập tên người nhận' })}
+                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                  />
+                  {!receiverName && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                      {getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })}
+                    </span>
+                  )}
+                  {receiverNameError && (
+                    <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
+                      {receiverNameError}
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* 联系电话 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
                   <Phone className="w-5 h-5" />
                   {getText({ zh: '联系电话', en: 'Phone Number', ko: '전화번호', vi: 'Số điện thoại' })}
-                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
                 </label>
-                <input
-                  type="tel"
-                  value={receiverPhone}
-                  onChange={(e) => setReceiverPhone(e.target.value)}
-                  placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone number', ko: '전화번호를 입력하세요', vi: 'Nhập số điện thoại' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
-              </div>
-              
-              {/* 收货地址 - 省市区下拉框 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
-                  <MapPin className="w-5 h-5" />
-                  {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
-                  <span className="text-yellow-200 text-xs">({getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })})</span>
-                </label>
-                
-                {/* 省份选择 */}
-                <select
-                  value={selectedProvince}
-                  onChange={(e) => {
-                    setSelectedProvince(e.target.value);
-                    setSelectedCity('');
-                    setSelectedDistrict('');
-                  }}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 mb-2"
-                >
-                  <option value="">{getText({ zh: '请选择省份', en: 'Select Province', ko: '지역 선택', vi: 'Chọn tỉnh' })}</option>
-                  {provinces.map(province => (
-                    <option key={province} value={province}>{province}</option>
-                  ))}
-                </select>
-                
-                {/* 城市选择 */}
-                <select
-                  value={selectedCity}
-                  onChange={(e) => {
-                    setSelectedCity(e.target.value);
-                    setSelectedDistrict('');
-                  }}
-                  disabled={!selectedProvince}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 mb-2 disabled:opacity-50"
-                >
-                  <option value="">{getText({ zh: '请选择城市/区', en: 'Select City', ko: '도시 선택', vi: 'Chọn thành phố' })}</option>
-                  {cities.map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-                
-                {/* 详细地址 */}
-                <input
-                  type="text"
-                  value={detailAddress}
-                  onChange={(e) => setDetailAddress(e.target.value)}
-                  placeholder={getText({ zh: '请输入详细地址（街道、门牌号等）', en: 'Enter detailed address', ko: '상세 주소를 입력하세요', vi: 'Nhập địa chỉ chi tiết' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
-              </div>
-              
-              {/* 提现钱包地址 */}
-              <div>
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
-                  <WalletIcon className="w-5 h-5" />
-                  {getText({ zh: '提现钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
-                  {walletLocked && (
-                    <span className="text-xs bg-red-500 px-2 py-0.5 rounded">
-                      {getText({ zh: '已锁定', en: 'Locked', ko: '잠김', vi: 'Đã khóa' })}
+                <div className="flex-1 relative">
+                  <input
+                    type="tel"
+                    value={receiverPhone}
+                    onChange={(e) => handleReceiverPhoneChange(e.target.value)}
+                    placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone number', ko: '전화번호를 입력하세요', vi: 'Nhập số điện thoại' })}
+                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                  />
+                  {!receiverPhone && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                      {getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })}
                     </span>
                   )}
+                  {receiverPhoneError && (
+                    <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
+                      {receiverPhoneError}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* 收货地址 - 点击打开地址选择弹窗 */}
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
+                  <MapPin className="w-5 h-5" />
+                  {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
+                </label>
+                <button
+                  onClick={() => {
+                    setShowAddressModal(true);
+                    setAddressStep('province');
+                  }}
+                  className="flex-1 px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-left text-sm"
+                >
+                  {selectedProvince && selectedCity ? 
+                    `${selectedProvince} ${selectedCity} ${selectedDistrict || ''}`.trim() : 
+                    getText({ zh: '请选择地址', en: 'Select address', ko: '주소 선택', vi: 'Chọn địa chỉ' })
+                  }
+                </button>
+              </div>
+              
+              {/* 详细地址输入 */}
+              {selectedCity && (
+                <div className="flex items-center gap-3">
+                  <label className="text-white font-bold whitespace-nowrap opacity-0 flex items-center gap-2 w-24">
+                    <MapPin className="w-5 h-5" />
+                    {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
+                  </label>
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={detailAddress}
+                      onChange={(e) => handleDetailAddressChange(e.target.value)}
+                      placeholder={getText({ zh: '请输入详细地址（街道、门牌号等）', en: 'Enter detailed address', ko: '상세 주소를 입력하세요', vi: 'Nhập địa chỉ chi tiết' })}
+                      className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    />
+                    {detailAddressError && (
+                      <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
+                        {detailAddressError}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* 钱包地址 */}
+              <div className="relative">
+                <label className="flex items-center gap-2 text-white font-bold mb-2">
+                  <WalletIcon className="w-5 h-5" />
+                  {getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
                 </label>
                 <input
                   type="text"
                   value={walletAddress}
                   onChange={(e) => handleWalletChange(e.target.value)}
-                  disabled={walletLocked}
                   placeholder={getText({ zh: 'Pi钱包地址（大写字母+数字），必须与充值地址一致', en: 'Pi wallet (uppercase + numbers), must match deposit address', ko: 'Pi 지갑 (대문자+숫자), 충전 주소와 일치해야 함', vi: 'Ví Pi (chữ hoa + số), phải khớp với địa chỉ nạp' })}
-                  className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50 disabled:cursor-not-allowed uppercase"
+                  className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-sm text-sm"
                 />
                 {walletError && (
-                  <p className="text-yellow-200 text-xs mt-1">{walletError}</p>
-                )}
-                {walletLocked && (
-                  <p className="text-yellow-200 text-xs mt-1">
-                    {getText({ zh: '首次提现成功后钱包地址不可更改', en: 'Wallet address cannot be changed after first withdrawal', ko: '첫 출금 후 지갑 주소 변경 불가', vi: 'Không thể thay đổi địa chỉ ví sau lần rút tiền đầu tiên' })}
-                  </p>
+                  <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
+                    {walletError}
+                  </div>
                 )}
               </div>
               
               {/* 按钮 */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="flex-1 py-3 px-4 bg-white/20 text-white rounded-lg font-bold hover:bg-white/30 transition-all active:scale-95"
-                >
-                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
-                </button>
+              <div className="flex justify-center pt-4">
                 <button
                   onClick={handleSaveSettings}
-                  className="flex-1 py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                  className="py-1.5 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
                 >
                   {getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
                 </button>
@@ -1384,70 +1454,185 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         </div>
       )}
       
+      {/* 地址选择弹窗 */}
+      {showAddressModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setShowAddressModal(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-800">{getText({ zh: '所在地区', en: 'Location', ko: '위치', vi: 'Vị trí' })}</h3>
+              <button onClick={() => setShowAddressModal(false)} className="text-gray-500 hover:text-gray-800 text-2xl">×</button>
+            </div>
+            
+            {/* 选择层级标签 */}
+            <div className="flex border-b">
+              <button
+                onClick={() => setAddressStep('province')}
+                className={`flex-1 py-3 text-center ${addressStep === 'province' ? 'text-purple-600 border-b-2 border-purple-600 font-bold' : 'text-gray-500'}`}
+              >
+                {selectedProvince || getText({ zh: '请选择', en: 'Select', ko: '선택', vi: 'Chọn' })}
+              </button>
+              {selectedProvince && (
+                <button
+                  onClick={() => setAddressStep('city')}
+                  className={`flex-1 py-3 text-center ${addressStep === 'city' ? 'text-purple-600 border-b-2 border-purple-600 font-bold' : 'text-gray-500'}`}
+                >
+                  {selectedCity || getText({ zh: '请选择', en: 'Select', ko: '선택', vi: 'Chọn' })}
+                </button>
+              )}
+              {selectedCity && districts.length > 0 && (
+                <button
+                  onClick={() => setAddressStep('district')}
+                  className={`flex-1 py-3 text-center ${addressStep === 'district' ? 'text-purple-600 border-b-2 border-purple-600 font-bold' : 'text-gray-500'}`}
+                >
+                  {selectedDistrict || getText({ zh: '请选择', en: 'Select', ko: '선택', vi: 'Chọn' })}
+                </button>
+              )}
+            </div>
+            
+            {/* 选项列表 */}
+            <div className="flex-1 overflow-y-auto">
+              {addressStep === 'province' && (
+                <div>
+                  {provinces.map(province => (
+                    <button
+                      key={province}
+                      onClick={() => {
+                        setSelectedProvince(province);
+                        setSelectedCity('');
+                        setSelectedDistrict('');
+                        setAddressStep('city');
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 ${selectedProvince === province ? 'text-purple-600 font-bold' : 'text-gray-800'}`}
+                    >
+                      {province}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {addressStep === 'city' && (
+                <div>
+                  {cities.map(city => (
+                    <button
+                      key={city}
+                      onClick={() => {
+                        setSelectedCity(city);
+                        setSelectedDistrict('');
+                        // 检查这个城市是否有区数据
+                        const cityDistricts: Record<string, string[]> = {
+                          '广州': ['天河区', '越秀区', '海珠区', '荔湾区', '白云区', '黄埔区', '番禺区', '花都区', '南沙区', '增城区', '从化区'],
+                          '深圳': ['福田区', '罗湖区', '南山区', '宝安区', '龙岗区', '盐田区', '龙华区', '坪山区', '光明区', '大鹏新区'],
+                          '北京市': ['东城区', '西城区', '朝阳区', '丰台区', '石景山区', '海淀区', '门头沟区', '房山区', '通州区', '顺义区', '昌平区', '大兴区', '怀柔区', '平谷区', '密云区', '延庆区'],
+                          '上海市': ['黄浦区', '徐汇区', '长宁区', '静安区', '普陀区', '虹口区', '杨浦区', '闵行区', '宝山区', '嘉定区', '浦东新区', '金山区', '松江区', '青浦区', '奉贤区', '崇明区'],
+                          '天津市': ['和平区', '河东区', '河西区', '南开区', '河北区', '红桥区', '东丽区', '西青区', '津南区', '北辰区', '武清区', '宝坻区', '滨海新区', '宁河区', '静海区', '蓟州区'],
+                          '重庆市': ['渝中区', '大渡口区', '江北区', '沙坪坝区', '九龙坡区', '南岸区', '北碚区', '渝北区', '巴南区', '涪陵区', '綦江区', '大足区', '长寿区', '江津区', '合川区', '永川区', '南川区', '璧山区', '铜梁区', '潼南区', '荣昌区', '开州区', '梁平区', '武隆区'],
+                        };
+                        const hasDistricts = cityDistricts[city] && cityDistricts[city].length > 0;
+                        if (hasDistricts) {
+                          setAddressStep('district');
+                        } else {
+                          setShowAddressModal(false);
+                        }
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 ${selectedCity === city ? 'text-purple-600 font-bold' : 'text-gray-800'}`}
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              )}
+              
+              {addressStep === 'district' && districts.length > 0 && (
+                <div>
+                  {districts.map(district => (
+                    <button
+                      key={district}
+                      onClick={() => {
+                        setSelectedDistrict(district);
+                        setShowAddressModal(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-gray-50 ${selectedDistrict === district ? 'text-purple-600 font-bold' : 'text-gray-800'}`}
+                    >
+                      {district}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* 提现弹窗 */}
       {showWithdrawModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowWithdrawModal(false)}>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowWithdrawModal(false)} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
+            <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '提现', en: 'Withdraw', ko: '출금', vi: 'Rút tiền' })}
               </h2>
-              <button onClick={() => setShowWithdrawModal(false)} className="text-white/80 hover:text-white text-2xl">×</button>
             </div>
             
             <div className="space-y-4">
               {/* 当前余额 */}
-              <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
-                <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
+              <div className="flex items-center gap-2">
+                <span className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</span>
+                <span className="text-2xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</span>
               </div>
               
               {/* 提现金额 */}
-              <div>
-                <label className="text-white font-bold mb-2 block">
-                  {getText({ zh: '提现金额', en: 'Withdraw Amount', ko: '출금 금액', vi: 'Số tiền rút' })}
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    placeholder="0.00"
-                    className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-xl font-bold"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
-                </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder={getText({ zh: '请在此输入提现金额', en: 'Enter withdrawal amount', ko: '출금 금액을 입력하세요', vi: 'Nhập số tiền rút' })}
+                  className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg placeholder:font-normal"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
               </div>
               
               {/* 钱包地址显示 */}
-              <div className="bg-white/10 rounded-lg p-3">
+              <div>
                 <p className="text-white/80 text-xs mb-1">{getText({ zh: '提现钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}</p>
-                <p className="text-white font-mono text-sm break-all">{walletAddress}</p>
-              </div>
-              
-              {/* 提示信息 */}
-              <div className="bg-yellow-500/20 rounded-lg p-3 border border-yellow-400/30">
-                <p className="text-yellow-200 text-xs leading-relaxed">
-                  {getText({ 
-                    zh: '⚠️ 温馨提示：\n• 提现仅在工作日处理\n• 人工审核处理，最迟12小时到账\n• 请确保钱包地址正确', 
-                    en: '⚠️ Note:\n• Withdrawals processed on business days only\n• Manual review, up to 12 hours\n• Please verify wallet address',
-                    ko: '⚠️ 참고:\n• 영업일에만 출금 처리\n• 수동 검토, 최대 12시간\n• 지갑 주소를 확인하세요',
-                    vi: '⚠️ Lưu ý:\n• Chỉ xử lý rút tiền vào ngày làm việc\n• Xét duyệt thủ công, tối đa 12 giờ\n• Vui lòng xác minh địa chỉ ví'
-                  })}
+                <p className="text-white font-mono text-sm" title={walletAddress}>
+                  {walletAddress.length === 56 
+                    ? `${walletAddress.slice(0, 20)}...${walletAddress.slice(-20)}`
+                    : walletAddress
+                  }
                 </p>
               </div>
               
+              {/* 提示信息 */}
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-300 text-base flex-shrink-0">⚠️</span>
+                <div className="text-white/80 text-xs leading-relaxed flex-1 space-y-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: 'pi钱包没有自动批量结算功能', en: 'Pi wallet has no automatic batch settlement', ko: 'Pi 지갑에 자동 일괄 결제 기능 없음', vi: 'Ví Pi không có chức năng thanh toán hàng loạt tự động' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '提现将由人工处理', en: 'Withdrawals processed manually', ko: '출금은 수동으로 처리됨', vi: 'Rút tiền được xử lý thủ công' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '到账时间：12小时之内', en: 'Arrival time: within 12 hours', ko: '도착 시간: 12시간 이내', vi: 'Thời gian đến: trong vòng 12 giờ' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '提现手续费：3%', en: 'Withdrawal fee: 3%', ko: '출금 수수료: 3%', vi: 'Phí rút tiền: 3%' })}</span>
+                  </div>
+                </div>
+              </div>
+              
               {/* 按钮 */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowWithdrawModal(false)}
-                  className="flex-1 py-3 px-4 bg-white/20 text-white rounded-lg font-bold hover:bg-white/30 transition-all active:scale-95"
-                >
-                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
-                </button>
+              <div className="flex justify-center pt-2">
                 <button
                   onClick={handleConfirmWithdraw}
-                  className="flex-1 py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                  className="py-3 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
                 >
                   {getText({ zh: '确认提现', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
                 </button>
@@ -1461,7 +1646,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowRechargeModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none">×</button>
+            <button onClick={() => setShowRechargeModal(false)} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
             <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
@@ -1501,7 +1686,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
-                    <span>{getText({ zh: '如果误点击了刷新钱包余额已转出充值金额未到账请联系客服处理', en: 'If accidentally refreshed, wallet balance transferred but recharge not received, please contact customer service', ko: '실수로 새로고침하여 지갑 잔액이 이체되었지만 충전이 도착하지 않은 경우 고객 서비스에 문의하세요', vi: 'Nếu vô tình làm mới, số dư ví đã chuyển nhưng chưa nhận được nạp tiền, vui lòng liên hệ dịch vụ khách hàng' })}</span>
+                    <span>{getText({ zh: '如果误点击了刷新钱包余额已转出', en: 'If accidentally refreshed, wallet balance transferred', ko: '실수로 새로고침하여 지갑 잔액이 이체됨', vi: 'Nếu vô tình làm mới, số dư ví đã chuyển' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-white/60">·</span>
+                    <span>{getText({ zh: '充值金额未到账请联系客服处理', en: 'Recharge not received, please contact customer service', ko: '충전이 도착하지 않은 경우 고객 서비스에 문의하세요', vi: 'Chưa nhận được nạp tiền, vui lòng liên hệ dịch vụ khách hàng' })}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
@@ -1675,7 +1864,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={closeToast} className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none">×</button>
+            <button onClick={closeToast} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
             
             {/* 图标 */}
             <div className="flex justify-center mb-4">
