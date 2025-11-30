@@ -1460,31 +1460,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {/* 充值弹窗 */}
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
-          {/* 验证身份置顶提示 */}
-          {isPaymentLoading && paymentStage === 'authenticating' && (
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-blue-500 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-pulse">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-              <span className="font-bold">
-                {getText({ zh: '正在验证身份...', en: 'Authenticating...', ko: '인증 중...', vi: 'Đang xác thực...' })}
-              </span>
-            </div>
-          )}
-          
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-center mb-6 relative">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
               </h2>
-              <button onClick={() => setShowRechargeModal(false)} className="text-white/80 hover:text-white text-2xl">×</button>
+              <button onClick={() => setShowRechargeModal(false)} className="absolute right-0 text-white/80 hover:text-white text-2xl">×</button>
             </div>
             
             <div className="space-y-4">
-              {/* 当前余额 */}
-              <div className="bg-white/10 rounded-lg p-4">
-                <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
-                <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
-              </div>
-              
               {/* 充值金额 */}
               <div className="flex items-center gap-3">
                 <label className="text-white font-bold whitespace-nowrap">
@@ -1498,24 +1482,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     placeholder="0.00"
                     min="0.01"
                     step="0.01"
-                    className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-xl font-bold"
+                    className="w-full px-4 py-2 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-bold"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">π</span>
                 </div>
               </div>
               
               {/* 提示信息 */}
-              <div className="bg-green-500/20 rounded-lg p-3 border border-green-400/30">
-                <p className="text-green-200 text-xs leading-relaxed flex items-start gap-2">
-                  <span className="text-base">⚠️</span>
-                  <span>
-                    {getText({ 
-                      zh: '• 点击确认后将唤起 Pi 钱包\n• 输入密码或指纹完成支付\n• 充值即时到账', 
-                      en: '• Pi wallet will open after confirm\n• Enter password or fingerprint to pay\n• Instant deposit',
-                      ko: '• 확인 후 Pi 지갑이 열립니다\n• 비밀번호 또는 지문으로 결제\n• 즉시 충전',
-                      vi: '• Ví Pi sẽ mở sau khi xác nhận\n• Nhập mật khẩu hoặc vân tay để thanh toán\n• Nạp tiền ngay lập tức'
-                    })}
-                  </span>
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-300 text-base">⚠️</span>
+                <p className="text-white/80 text-xs leading-relaxed whitespace-pre-line">
+                  {getText({ 
+                    zh: '点击确认后将唤起 Pi 钱包\n输入密码或指纹完成支付\n充值即时到账', 
+                    en: 'Pi wallet will open after confirm\nEnter password or fingerprint to pay\nInstant deposit',
+                    ko: '확인 후 Pi 지갑이 열립니다\n비밀번호 또는 지문으로 결제\n즉시 충전',
+                    vi: 'Ví Pi sẽ mở sau khi xác nhận\nNhập mật khẩu hoặc vân tay để thanh toán\nNạp tiền ngay lập tức'
+                  })}
                 </p>
               </div>
               
@@ -1577,12 +1559,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   disabled={isPaymentLoading || !rechargeAmount}
                   className="w-full max-w-xs py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isPaymentLoading && (
+                  {isPaymentLoading && paymentStage === 'authenticating' && (
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
                   )}
-                  {isPaymentLoading 
-                    ? getText({ zh: '处理中...', en: 'Processing...', ko: '처리 중...', vi: 'Đang xử lý...' })
-                    : getText({ zh: '确认充值', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })
+                  {isPaymentLoading && paymentStage === 'authenticating'
+                    ? getText({ zh: '正在验证身份...', en: 'Authenticating...', ko: '인증 중...', vi: 'Đang xác thực...' })
+                    : getText({ zh: '确认充值', en: 'Confirm', ko: '确认', vi: 'Xác nhận' })
                   }
                 </button>
               </div>
