@@ -1460,6 +1460,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {/* 充值弹窗 */}
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
+          {/* 验证身份置顶提示 */}
+          {isPaymentLoading && paymentStage === 'authenticating' && (
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-blue-500 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-pulse">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              <span className="font-bold">
+                {getText({ zh: '正在验证身份...', en: 'Authenticating...', ko: '인증 중...', vi: 'Đang xác thực...' })}
+              </span>
+            </div>
+          )}
+          
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-white">
@@ -1476,11 +1486,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
               
               {/* 充值金额 */}
-              <div>
-                <label className="text-white font-bold mb-2 block">
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap">
                   {getText({ zh: '充值金额', en: 'Deposit Amount', ko: '충전 금액', vi: 'Số tiền nạp' })}
                 </label>
-                <div className="relative">
+                <div className="relative flex-1 max-w-xs">
                   <input
                     type="number"
                     value={rechargeAmount}
@@ -1494,56 +1504,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </div>
               </div>
               
-              {/* 快捷金额选择 */}
-              <div className="grid grid-cols-4 gap-2">
-                {[1, 5, 10, 50].map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => setRechargeAmount(amount.toString())}
-                    className={`py-2 rounded-lg font-bold transition-all ${
-                      rechargeAmount === amount.toString()
-                        ? 'bg-white text-purple-600'
-                        : 'bg-white/20 text-white hover:bg-white/30'
-                    }`}
-                  >
-                    {amount}π
-                  </button>
-                ))}
-              </div>
-              
               {/* 提示信息 */}
               <div className="bg-green-500/20 rounded-lg p-3 border border-green-400/30">
-                <p className="text-green-200 text-xs leading-relaxed">
-                  {getText({ 
-                    zh: '💡 充值说明：\n• 点击确认后将唤起 Pi 钱包\n• 输入密码或指纹完成支付\n• 充值即时到账', 
-                    en: '💡 Note:\n• Pi wallet will open after confirm\n• Enter password or fingerprint to pay\n• Instant deposit',
-                    ko: '💡 참고:\n• 확인 후 Pi 지갑이 열립니다\n• 비밀번호 또는 지문으로 결제\n• 즉시 충전',
-                    vi: '💡 Lưu ý:\n• Ví Pi sẽ mở sau khi xác nhận\n• Nhập mật khẩu hoặc vân tay để thanh toán\n• Nạp tiền ngay lập tức'
-                  })}
+                <p className="text-green-200 text-xs leading-relaxed flex items-start gap-2">
+                  <span className="text-base">⚠️</span>
+                  <span>
+                    {getText({ 
+                      zh: '• 点击确认后将唤起 Pi 钱包\n• 输入密码或指纹完成支付\n• 充值即时到账', 
+                      en: '• Pi wallet will open after confirm\n• Enter password or fingerprint to pay\n• Instant deposit',
+                      ko: '• 확인 후 Pi 지갑이 열립니다\n• 비밀번호 또는 지문으로 결제\n• 즉시 충전',
+                      vi: '• Ví Pi sẽ mở sau khi xác nhận\n• Nhập mật khẩu hoặc vân tay để thanh toán\n• Nạp tiền ngay lập tức'
+                    })}
+                  </span>
                 </p>
               </div>
               
-              {/* 支付状态提示 */}
-              {isPaymentLoading && paymentStage && paymentStage !== 'idle' && (
-                <div className="bg-blue-500/20 rounded-lg p-4 border border-blue-400/30">
-                  <div className="flex items-center gap-3">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-400 border-t-transparent"></div>
-                    <div>
-                      <p className="text-blue-200 text-sm font-bold">
-                        {paymentStage === 'authenticating' && getText({ zh: '正在验证身份...', en: 'Authenticating...', ko: '인증 중...', vi: 'Đang xác thực...' })}
-                        {paymentStage === 'approving' && getText({ zh: '正在处理支付请求...', en: 'Processing payment...', ko: '결제 처리 중...', vi: 'Đang xử lý thanh toán...' })}
-                        {paymentStage === 'confirming' && getText({ zh: '正在等待区块链确认...', en: 'Waiting for blockchain confirmation...', ko: '블록체인 확인 대기 중...', vi: 'Đang chờ xác nhận blockchain...' })}
-                        {paymentStage === 'completing' && getText({ zh: '正在完成支付...', en: 'Completing payment...', ko: '결제 완료 중...', vi: 'Đang hoàn tất thanh toán...' })}
-                      </p>
-                      {paymentStage === 'confirming' && (
-                        <p className="text-blue-200/70 text-xs mt-1">
-                          {getText({ zh: '请耐心等待，区块链确认可能需要几十秒到几分钟', en: 'Please wait, blockchain confirmation may take seconds to minutes', ko: '잠시 기다려주세요, 블록체인 확인에 몇 초에서 몇 분이 걸릴 수 있습니다', vi: 'Vui lòng đợi, xác nhận blockchain có thể mất vài giây đến vài phút' })}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+
               
               {/* 错误提示 */}
               {paymentError && (
@@ -1553,14 +1529,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               )}
               
               {/* 按钮 */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowRechargeModal(false)}
-                  disabled={isPaymentLoading}
-                  className="flex-1 py-3 px-4 bg-white/20 text-white rounded-lg font-bold hover:bg-white/30 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
-                </button>
+              <div className="flex justify-center pt-2">
                 <button
                   onClick={() => {
                     const amount = parseFloat(rechargeAmount);
@@ -1606,8 +1575,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     recharge(amount);
                   }}
                   disabled={isPaymentLoading || !rechargeAmount}
-                  className="flex-1 py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full max-w-xs py-3 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
+                  {isPaymentLoading && (
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-600 border-t-transparent"></div>
+                  )}
                   {isPaymentLoading 
                     ? getText({ zh: '处理中...', en: 'Processing...', ko: '처리 중...', vi: 'Đang xử lý...' })
                     : getText({ zh: '确认充值', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })
