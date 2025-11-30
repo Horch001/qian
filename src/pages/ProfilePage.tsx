@@ -20,6 +20,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showSettings, setShowSettings] = useState(false);
   const [shippingAddress, setShippingAddress] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
+  const [isWalletInputFocused, setIsWalletInputFocused] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showFavoritesDetails, setShowFavoritesDetails] = useState(false);
   const [showStoreDetails, setShowStoreDetails] = useState(false);
@@ -112,6 +113,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [receiverPhone, setReceiverPhone] = useState('');
   const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  
+  // 保存原始值，用于取消编辑时恢复
+  const [originalSettings, setOriginalSettings] = useState({
+    email: '',
+    username: '',
+    walletAddress: '',
+    receiverName: '',
+    receiverPhone: '',
+    selectedProvince: '',
+    selectedCity: '',
+    selectedDistrict: '',
+    detailAddress: ''
+  });
   const [receiverNameError, setReceiverNameError] = useState('');
   const [receiverPhoneError, setReceiverPhoneError] = useState('');
   const [detailAddressError, setDetailAddressError] = useState('');
@@ -439,6 +453,20 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     return piWalletRegex.test(address);
   };
 
+  // 格式化钱包地址显示（用于提现弹窗和成功提示，保留前后各部分，中间用省略号）
+  const formatWalletAddressShort = (address: string): string => {
+    if (!address || address.length < 30) return address;
+    // 显示前15位和后15位，中间用...代替
+    return `${address.substring(0, 15)}...${address.substring(address.length - 15)}`;
+  };
+
+  // 格式化钱包地址显示（用于个人中心设置，字体较大，显示前后各10位）
+  const formatWalletAddressLarge = (address: string): string => {
+    if (!address || address.length < 20) return address;
+    // 显示前10位和后10位，中间用...代替
+    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
+  };
+
   const handleWalletChange = (value: string) => {
     const upperValue = value.toUpperCase();
     // 只允许大写字母和数字
@@ -660,7 +688,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <p class="text-lg"><span class="text-white/70">${getText({ zh: '提现金额', en: 'Amount', ko: '금额', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
               <div class="text-sm">
                 <p class="text-white/70 mb-1">${getText({ zh: '钱包地址', en: 'Wallet', ko: '지갑', vi: 'Ví' })}</p>
-                <p class="font-mono text-[10px] whitespace-nowrap overflow-hidden">${walletAddress}</p>
+                <p class="font-mono text-sm break-all" title="${walletAddress}">${formatWalletAddressShort(walletAddress)}</p>
               </div>
               <p class="text-xs text-white/60 mt-2">${getText({ zh: '请在余额明细中查看处理状态', en: 'Check balance history for status', ko: '잔액 내역에서 처리 상태 확인', vi: 'Kiểm tra lịch sử số dư để xem trạng thái' })}</p>
             </div>
@@ -863,7 +891,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         
         {/* 设置按钮 - 右上角，与用户名高度一致 */}
         <button 
-          onClick={() => setShowSettings(true)}
+          onClick={() => {
+            // 保存当前值作为原始值
+            setOriginalSettings({
+              email,
+              username,
+              walletAddress,
+              receiverName,
+              receiverPhone,
+              selectedProvince,
+              selectedCity,
+              selectedDistrict,
+              detailAddress
+            });
+            setShowSettings(true);
+          }}
           className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md border border-white/30"
         >
           <Settings className="w-5 h-5 text-white" />
@@ -1296,9 +1338,33 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       
       {/* 设置弹窗 */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSettings(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => {
+          // 恢复原始值
+          setEmail(originalSettings.email);
+          setUsername(originalSettings.username);
+          setWalletAddress(originalSettings.walletAddress);
+          setReceiverName(originalSettings.receiverName);
+          setReceiverPhone(originalSettings.receiverPhone);
+          setSelectedProvince(originalSettings.selectedProvince);
+          setSelectedCity(originalSettings.selectedCity);
+          setSelectedDistrict(originalSettings.selectedDistrict);
+          setDetailAddress(originalSettings.detailAddress);
+          setShowSettings(false);
+        }}>
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowSettings(false)} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
+            <button onClick={() => {
+              // 恢复原始值
+              setEmail(originalSettings.email);
+              setUsername(originalSettings.username);
+              setWalletAddress(originalSettings.walletAddress);
+              setReceiverName(originalSettings.receiverName);
+              setReceiverPhone(originalSettings.receiverPhone);
+              setSelectedProvince(originalSettings.selectedProvince);
+              setSelectedCity(originalSettings.selectedCity);
+              setSelectedDistrict(originalSettings.selectedDistrict);
+              setDetailAddress(originalSettings.detailAddress);
+              setShowSettings(false);
+            }} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
             <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '设置', en: 'Settings', ko: '설정', vi: 'Cài đặt' })}
@@ -1317,27 +1383,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     type="text"
                     value={username}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      if (/^[a-zA-Z0-9\u4e00-\u9fa5]*$/.test(value)) {
-                        setUsername(value);
-                        setUsernameError('');
-                      } else {
-                        setUsernameError(getText({ zh: '只能输入数字、字母和中文', en: 'Only letters, numbers and Chinese allowed', ko: '문자, 숫자, 중국어만 허용', vi: 'Chỉ cho phép chữ cái, số và tiếng Trung' }));
-                      }
+                      setUsername(e.target.value);
                     }}
                     placeholder={getText({ zh: '请输入用户名', en: 'Enter username', ko: '사용자 이름 입력', vi: 'Nhập tên' })}
-                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
                   />
-                  {!username && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
-                      {getText({ zh: '限数字、字母、中文', en: 'Letters, numbers, Chinese only', ko: '문자, 숫자, 중국어만', vi: 'Chữ cái, số, tiếng Trung' })}
-                    </span>
-                  )}
-                  {usernameError && (
-                    <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap">
-                      {usernameError}
-                    </div>
-                  )}
                 </div>
               </div>
               
@@ -1353,13 +1403,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={email}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email', ko: '이메일 입력', vi: 'Nhập email' })}
-                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
                   />
-                  {!email && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
-                      {getText({ zh: isMerchant ? '商家必填' : '非商家可选填', en: isMerchant ? 'Required for merchants' : 'Optional for non-merchants', ko: isMerchant ? '판매자 필수' : '비판매자 선택', vi: isMerchant ? 'Bắt buộc cho người bán' : 'Tùy chọn' })}
-                    </span>
-                  )}
+
                   {emailError && (
                     <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
                       {emailError}
@@ -1380,13 +1426,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={receiverName}
                     onChange={(e) => handleReceiverNameChange(e.target.value)}
                     placeholder={getText({ zh: '请输入收件人姓名', en: 'Enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Nhập tên người nhận' })}
-                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
                   />
-                  {!receiverName && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
-                      {getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })}
-                    </span>
-                  )}
+
                   {receiverNameError && (
                     <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
                       {receiverNameError}
@@ -1407,13 +1449,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={receiverPhone}
                     onChange={(e) => handleReceiverPhoneChange(e.target.value)}
                     placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone number', ko: '전화번호를 입력하세요', vi: 'Nhập số điện thoại' })}
-                    className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
                   />
-                  {!receiverPhone && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
-                      {getText({ zh: '购买实物商品时必填', en: 'Required for physical products', ko: '실물 상품 구매 시 필수', vi: 'Bắt buộc khi mua hàng thực' })}
-                    </span>
-                  )}
+
                   {receiverPhoneError && (
                     <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
                       {receiverPhoneError}
@@ -1433,7 +1471,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     setShowAddressModal(true);
                     setAddressStep('province');
                   }}
-                  className="flex-1 px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-left text-sm"
+                  className="flex-1 px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-left text-sm"
                 >
                   {selectedProvince && selectedCity ? 
                     `${selectedProvince} ${selectedCity} ${selectedDistrict || ''}`.trim() : 
@@ -1455,7 +1493,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       value={detailAddress}
                       onChange={(e) => handleDetailAddressChange(e.target.value)}
                       placeholder={getText({ zh: '请输入详细地址（街道、门牌号等）', en: 'Enter detailed address', ko: '상세 주소를 입력하세요', vi: 'Nhập địa chỉ chi tiết' })}
-                      className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                      className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
                     />
                     {detailAddressError && (
                       <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
@@ -1474,10 +1512,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </label>
                 <input
                   type="text"
-                  value={walletAddress}
+                  value={isWalletInputFocused || !walletAddress ? walletAddress : formatWalletAddressLarge(walletAddress)}
                   onChange={(e) => handleWalletChange(e.target.value)}
+                  onFocus={() => setIsWalletInputFocused(true)}
+                  onBlur={() => setIsWalletInputFocused(false)}
                   placeholder={getText({ zh: 'Pi钱包地址（大写字母+数字），必须与充值地址一致', en: 'Pi wallet (uppercase + numbers), must match deposit address', ko: 'Pi 지갑 (대문자+숫자), 충전 주소와 일치해야 함', vi: 'Ví Pi (chữ hoa + số), phải khớp với địa chỉ nạp' })}
-                  className="w-full px-4 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-sm text-sm"
+                  className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
                 />
                 {walletError && (
                   <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
@@ -1643,8 +1683,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               {/* 钱包地址显示 */}
               <div>
                 <p className="text-white/80 text-xs mb-1">{getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}</p>
-                <p className="text-white font-mono text-[11px] whitespace-nowrap overflow-hidden w-full" title={walletAddress}>
-                  {walletAddress}
+                <p className="text-white font-mono text-sm break-all w-full" title={walletAddress}>
+                  {formatWalletAddressShort(walletAddress)}
                 </p>
               </div>
               
