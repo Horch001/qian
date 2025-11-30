@@ -1461,7 +1461,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {showRechargeModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowRechargeModal(false)}>
           <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => setShowRechargeModal(false)} className="absolute top-2 right-2 text-white/80 hover:text-white text-2xl">×</button>
+            <button onClick={() => setShowRechargeModal(false)} className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none">×</button>
             <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
                 {getText({ zh: '充值', en: 'Deposit', ko: '충전', vi: 'Nạp tiền' })}
@@ -1487,17 +1487,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <div className="flex items-start gap-2">
                 <span className="text-yellow-300 text-base flex-shrink-0">⚠️</span>
                 <div className="text-white/80 text-xs leading-relaxed flex-1 space-y-1">
-                  {getText({ 
-                    zh: '点击确认后将调用官方API接口唤起pi钱包', 
-                    en: 'After confirmation, the official API will open Pi wallet',
-                    ko: '확인 후 공식 API가 Pi 지갑을 엽니다',
-                    vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi'
-                  }).split('\n').map((line: string, index: number) => (
-                    <div key={index} className="flex items-center gap-1">
-                      <span className="text-white/60">·</span>
-                      <span>{line}</span>
-                    </div>
-                  ))}
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
                     <span>{getText({ zh: '点击确认后将调用官方API接口唤起pi钱包', en: 'After confirmation, the official API will open Pi wallet', ko: '확인 후 공식 API가 Pi 지갑을 엽니다', vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi' })}</span>
@@ -1512,7 +1501,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
-                    <span>{getText({ zh: '如果误点击了刷新钱包余额已转出充值金额未到账请联系客服处理', en: 'If accidentally refreshed and balance transferred but not received, contact customer service', ko: '실수로 새로고침하여 잔액이 이체되었지만 도착하지 않은 경우 고객 서비스에 문의', vi: 'Nếu vô tình làm mới và số dư đã chuyển nhưng chưa nhận được, liên hệ dịch vụ khách hàng' })}</span>
+                    <span>{getText({ zh: '如果误点击了刷新钱包余额已转出充值金额未到账请联系客服处理', en: 'If accidentally refreshed, wallet balance transferred but recharge not received, please contact customer service', ko: '실수로 새로고침하여 지갑 잔액이 이체되었지만 충전이 도착하지 않은 경우 고객 서비스에 문의하세요', vi: 'Nếu vô tình làm mới, số dư ví đã chuyển nhưng chưa nhận được nạp tiền, vui lòng liên hệ dịch vụ khách hàng' })}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
@@ -1686,7 +1675,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all duration-300 scale-100 relative"
             onClick={(e) => e.stopPropagation()}
           >
-            <button onClick={closeToast} className="absolute top-2 right-2 text-white/80 hover:text-white text-2xl">×</button>
+            <button onClick={closeToast} className="absolute top-4 right-4 text-white/80 hover:text-white text-3xl leading-none">×</button>
             
             {/* 图标 */}
             <div className="flex justify-center mb-4">
