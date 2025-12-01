@@ -274,18 +274,10 @@ export const App: React.FC = () => {
     return <VentureCreatePage language={language} translations={TRANSLATIONS} />;
   }
 
-  // Chat list page
-  if (location.pathname === '/chat') {
-    return <ChatListPage />;
-  }
+  // Chat pages moved to Routes below
 
-  // Chat room page
-  if (location.pathname.startsWith('/chat/')) {
-    return <ChatRoomPage />;
-  }
-
-  // Shop manage page
-  if (location.pathname === '/shop-manage') {
+  // Shop manage pages
+  if (location.pathname === '/shop-manage' || location.pathname === '/shop-info' || location.pathname === '/shop-products' || location.pathname === '/shop-orders' || location.pathname === '/shop-stats') {
     return <ShopManagePage language={language} translations={TRANSLATIONS} />;
   }
 
@@ -314,18 +306,6 @@ export const App: React.FC = () => {
     return <CheckoutPage language={language} translations={TRANSLATIONS} />;
   }
 
-  // Merchant detail page
-  if (location.pathname.startsWith('/merchant/')) {
-    const MerchantDetailPage = React.lazy(() => 
-      import('./pages/MerchantDetailPage').then(m => ({ default: m.MerchantDetailPage }))
-    );
-    return (
-      <React.Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div>}>
-        <MerchantDetailPage language={language} translations={TRANSLATIONS} />
-      </React.Suspense>
-    );
-  }
-
   // Detail pages layout
   return (
     <Routes>
@@ -342,6 +322,16 @@ export const App: React.FC = () => {
         <Route path="/escrow-trade" element={<EscrowTradePage />} />
         <Route path="/friendly-links" element={<FriendlyLinksPage />} />
         <Route path="/seek-resources" element={<SeekResourcesPage />} />
+        <Route path="/merchant/:id" element={
+          <React.Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div>}>
+            {React.createElement(
+              React.lazy(() => import('./pages/MerchantDetailPage').then(m => ({ default: m.MerchantDetailPage }))),
+              { language, translations: TRANSLATIONS }
+            )}
+          </React.Suspense>
+        } />
+        <Route path="/chat" element={<ChatListPage />} />
+        <Route path="/chat/:roomId" element={<ChatRoomPage />} />
       </Route>
     </Routes>
   );

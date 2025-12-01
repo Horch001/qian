@@ -24,18 +24,46 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     shopName: '',
     description: '',
     logo: '',
-    banner: '',
+    announcement: '',
+    businessHours: '',
   });
   const [saving, setSaving] = useState(false);
+  const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
+  // 根据路由路径获取页面标题
+  const getPageTitle = () => {
+    if (location.pathname === '/shop-info') {
+      return getText({ zh: '店铺装修', en: 'Shop Info', ko: '상점 정보', vi: 'Thông tin' });
+    } else if (location.pathname === '/shop-products') {
+      return getText({ zh: '我的商品', en: 'My Products', ko: '내 상품', vi: 'Sản phẩm' });
+    } else if (location.pathname === '/shop-orders') {
+      return getText({ zh: '订单管理', en: 'Orders', ko: '주문 관리', vi: 'Đơn hàng' });
+    } else if (location.pathname === '/shop-stats') {
+      return getText({ zh: '店铺数据', en: 'Statistics', ko: '통계', vi: 'Thống kê' });
+    }
+    return getText({ zh: '店铺管理', en: 'Shop Management', ko: '상점 관리', vi: 'Quản lý cửa hàng' });
+  };
+
   // 从路由state获取指定的店铺ID和tab
-  const stateData = location.state as { merchantId?: string; tab?: string } | null;
+  const stateData = location.state as { merchantId?: string; tab?: string; autoEdit?: boolean } | null;
 
   useEffect(() => {
-    // 如果指定了tab，切换到对应tab
-    if (stateData?.tab === 'stats') {
+    // 根据路由路径自动设置tab
+    if (location.pathname === '/shop-stats') {
+      setActiveTab('stats');
+    } else if (location.pathname === '/shop-products') {
+      setActiveTab('products');
+    } else if (location.pathname === '/shop-orders') {
+      setActiveTab('orders');
+    } else if (location.pathname === '/shop-info') {
+      setActiveTab('info');
+      // 如果传入了 autoEdit 参数，自动进入编辑模式
+      if (stateData?.autoEdit) {
+        setEditing(true);
+      }
+    } else if (stateData?.tab === 'stats') {
       setActiveTab('stats');
     } else if (stateData?.tab === 'products') {
       setActiveTab('products');
@@ -45,7 +73,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       setActiveTab('info');
     }
     fetchMerchantData();
-  }, [stateData?.merchantId, stateData?.tab]);
+  }, [stateData?.merchantId, stateData?.tab, stateData?.autoEdit, location.pathname]);
 
   const fetchMerchantData = async () => {
     try {
@@ -64,7 +92,8 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
               shopName: targetMerchant.shopName || '',
               description: targetMerchant.description || '',
               logo: targetMerchant.logo || '',
-              banner: targetMerchant.banner || '',
+              announcement: targetMerchant.announcement || '',
+              businessHours: targetMerchant.businessHours || '',
             });
             // 获取该店铺的商品列表
             const productsData = await merchantApi.getMyProducts();
@@ -85,7 +114,8 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
             shopName: data.shopName || '',
             description: data.description || '',
             logo: data.logo || '',
-            banner: data.banner || '',
+            announcement: data.announcement || '',
+            businessHours: data.businessHours || '',
           });
           // 获取商品列表
           const productsData = await merchantApi.getMyProducts();
@@ -135,11 +165,11 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
-          <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="text-white">
+          <header className="p-4 flex items-center justify-center relative">
+            <button onClick={() => navigate('/my-shops')} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-lg font-bold text-white">{getText({ zh: '我的店铺', en: 'My Shop', ko: '내 상점', vi: 'Cửa hàng' })}</h1>
+            <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
           </header>
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <Store size={64} className="text-white/50 mb-4" />
@@ -160,11 +190,11 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
-          <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="text-white">
+          <header className="p-4 flex items-center justify-center relative">
+            <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-lg font-bold text-white">{getText({ zh: '我的店铺', en: 'My Shop', ko: '내 상점', vi: 'Cửa hàng' })}</h1>
+            <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
           </header>
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
@@ -182,11 +212,11 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
-          <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="text-white">
+          <header className="p-4 flex items-center justify-center relative">
+            <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-lg font-bold text-white">{getText({ zh: '我的店铺', en: 'My Shop', ko: '내 상점', vi: 'Cửa hàng' })}</h1>
+            <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
           </header>
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mb-4">
@@ -208,61 +238,55 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
-      <div className="w-full max-w-md flex flex-col min-h-screen">
+      <div className="w-full max-w-md flex flex-col min-h-screen relative">
         {/* Header */}
-        <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="text-white">
+        <header className="p-4 flex items-center justify-center relative">
+          <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
             <ArrowLeft size={24} />
           </button>
-          <h1 className="text-lg font-bold text-white">{getText({ zh: '店铺管理', en: 'Shop Management', ko: '상점 관리', vi: 'Quản lý cửa hàng' })}</h1>
+          <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
         </header>
 
-        {/* Tabs */}
-        <div className="flex bg-white/10 mx-4 mt-4 rounded-lg p-1">
-        {[
-          { key: 'info', label: { zh: '店铺装修', en: 'Shop Info', ko: '상점 정보', vi: 'Thông tin' }, icon: Edit2 },
-          { key: 'products', label: { zh: '我的商品', en: 'Products', ko: '상품', vi: 'Sản phẩm' }, icon: Package },
-          { key: 'orders', label: { zh: '订单管理', en: 'Orders', ko: '주문', vi: 'Đơn hàng' }, icon: ShoppingBag },
-          { key: 'stats', label: { zh: '数据统计', en: 'Stats', ko: '통계', vi: 'Thống kê' }, icon: BarChart3 },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-bold transition-colors ${
-              activeTab === tab.key ? 'bg-white text-purple-600' : 'text-white/80'
-            }`}
-          >
-            <tab.icon size={16} />
-            {getText(tab.label)}
-          </button>
-        ))}
-      </div>
+
 
       {/* Content */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-4 overflow-y-auto pb-20">
         {activeTab === 'info' && (
           <div className="space-y-4">
-            {/* 店铺横幅 */}
+            {/* 店铺信息 */}
             <div className="bg-white rounded-xl overflow-hidden">
-              <div className="h-32 bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center relative">
-                {formData.banner ? (
-                  <img src={formData.banner} alt="Banner" className="w-full h-full object-cover" />
-                ) : (
-                  <Image size={32} className="text-white/50" />
-                )}
-                {editing && (
-                  <button className="absolute bottom-2 right-2 bg-black/50 text-white px-3 py-1 rounded-full text-xs">
-                    {getText({ zh: '更换横幅', en: 'Change Banner', ko: '배너 변경', vi: 'Đổi banner' })}
-                  </button>
-                )}
-              </div>
               <div className="p-4">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
+                  <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden relative">
                     {formData.logo ? (
                       <img src={formData.logo} alt="Logo" className="w-full h-full object-cover" />
                     ) : (
                       <Store size={32} className="text-purple-400" />
+                    )}
+                    {editing && (
+                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity">
+                        <Upload size={20} className="text-white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              if (file.size > 2 * 1024 * 1024) {
+                                alert(getText({ zh: '图片大小不能超过2MB', en: 'Image size cannot exceed 2MB', ko: '이미지 크기는 2MB를 초과할 수 없습니다', vi: 'Kích thước ảnh không được vượt quá 2MB' }));
+                                return;
+                              }
+                              const reader = new FileReader();
+                              reader.onload = (e) => {
+                                const base64 = e.target?.result as string;
+                                setFormData({ ...formData, logo: base64 });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
                     )}
                   </div>
                   <div className="flex-1">
@@ -281,17 +305,50 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                   </div>
                 </div>
 
-                {editing ? (
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    rows={3}
-                    placeholder={getText({ zh: '店铺简介', en: 'Shop Description', ko: '상점 설명', vi: 'Mô tả cửa hàng' })}
-                  />
-                ) : (
-                  <p className="text-gray-600">{merchant.description || getText({ zh: '暂无简介', en: 'No description', ko: '설명 없음', vi: 'Chưa có mô tả' })}</p>
-                )}
+                <div className="mb-3">
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">{getText({ zh: '店铺简介', en: 'Description', ko: '설명', vi: 'Mô tả' })}</label>
+                  {editing ? (
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      rows={3}
+                      placeholder={getText({ zh: '介绍您的店铺特色...', en: 'Describe your shop...', ko: '상점을 설명하세요...', vi: 'Mô tả cửa hàng...' })}
+                    />
+                  ) : (
+                    <p className="text-gray-600 text-sm">{merchant.description || getText({ zh: '暂无简介', en: 'No description', ko: '설명 없음', vi: 'Chưa có mô tả' })}</p>
+                  )}
+                </div>
+
+                <div className="mb-3">
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">{getText({ zh: '店铺公告', en: 'Announcement', ko: '공지', vi: 'Thông báo' })}</label>
+                  {editing ? (
+                    <textarea
+                      value={formData.announcement}
+                      onChange={(e) => setFormData({ ...formData, announcement: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      rows={2}
+                      placeholder={getText({ zh: '发布重要通知...', en: 'Important notice...', ko: '중요 공지...', vi: 'Thông báo quan trọng...' })}
+                    />
+                  ) : (
+                    <p className="text-gray-600 text-sm">{merchant.announcement || getText({ zh: '暂无公告', en: 'No announcement', ko: '공지 없음', vi: 'Chưa có thông báo' })}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm font-bold text-gray-700 mb-1 block">{getText({ zh: '营业时间', en: 'Hours', ko: '영업시간', vi: 'Giờ mở cửa' })}</label>
+                  {editing ? (
+                    <input
+                      type="text"
+                      value={formData.businessHours}
+                      onChange={(e) => setFormData({ ...formData, businessHours: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      placeholder="9:00-22:00"
+                    />
+                  ) : (
+                    <p className="text-gray-600 text-sm">{merchant.businessHours || '-'}</p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -329,131 +386,172 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
         {activeTab === 'products' && (
           <div className="space-y-4">
-            <button
-              onClick={() => navigate('/upload-product', { state: { merchantId: merchant.id, shopName: merchant.shopName } })}
-              className="w-full py-4 bg-white rounded-xl flex items-center justify-center gap-2 text-purple-600 font-bold"
-            >
-              <Plus size={20} />
-              {getText({ zh: '上传新商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })}
-            </button>
-
             {products.length === 0 ? (
               <div className="text-center py-8 text-white/60">
                 {getText({ zh: '暂无商品', en: 'No products yet', ko: '상품 없음', vi: 'Chưa có sản phẩm' })}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {products.map((product) => (
-                  <div key={product.id} className="bg-white rounded-xl p-4">
-                    <div className="flex gap-4 mb-3">
-                      <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div key={product.id} className="bg-white rounded-xl overflow-hidden">
+                    <div className="p-3 flex gap-3 items-center relative">
+                      {/* 左侧：商品图片 */}
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
                         {product.images?.[0] ? (
                           <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover rounded-lg" />
                         ) : (
-                          <span className="text-3xl">{product.icon || '📦'}</span>
+                          <span className="text-2xl">{product.icon || '📦'}</span>
                         )}
                       </div>
+                      
+                      {/* 中间：商品信息 */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-800 truncate">{product.title}</h3>
-                        <p className="text-purple-600 font-bold">{product.price}π</p>
-                        <p className="text-sm text-gray-500">
+                        <h3 className="font-bold text-gray-800 text-sm truncate">{product.title}</h3>
+                        <p className="text-purple-600 font-bold text-sm">{product.price}π</p>
+                        <p className="text-xs text-gray-500">
                           {getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}: {product.stock} · 
                           {getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}: {product.sales || 0}
                         </p>
                         <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${
                           product.status === 'ACTIVE' ? 'bg-green-100 text-green-600' :
+                          product.status === 'SOLD_OUT' ? 'bg-gray-100 text-gray-600' :
                           product.status === 'INACTIVE' ? 'bg-yellow-100 text-yellow-600' :
                           'bg-red-100 text-red-600'
                         }`}>
                           {product.status === 'ACTIVE' ? getText({ zh: '已上架', en: 'Active', ko: '활성', vi: 'Đang bán' }) :
-                           product.status === 'INACTIVE' ? getText({ zh: '已下架', en: 'Inactive', ko: '비활성', vi: 'Đã ẩn' }) :
+                           product.status === 'SOLD_OUT' ? getText({ zh: '已下架', en: 'Off Shelf', ko: '판매중지', vi: 'Đã gỡ' }) :
+                           product.status === 'INACTIVE' ? getText({ zh: '待审核', en: 'Pending', ko: '대기', vi: 'Chờ duyệt' }) :
                            getText({ zh: '已删除', en: 'Deleted', ko: '삭제됨', vi: 'Đã xóa' })}
                         </span>
                       </div>
+                      
+                      {/* 右上角：展开按钮 */}
+                      <button
+                        onClick={() => setExpandedProduct(expandedProduct === product.id ? null : product.id)}
+                        className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <svg className={`w-5 h-5 text-gray-400 transition-transform ${expandedProduct === product.id ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
                     </div>
-                    <div className="flex gap-2">
-                      {product.status === 'ACTIVE' ? (
+                    
+                    {/* 展开的操作按钮（横向排列）*/}
+                    {expandedProduct === product.id && (
+                      <div className="px-3 pb-3 flex gap-2">
                         <button
-                          onClick={async () => {
-                            if (confirm(getText({ zh: '确定要下架此商品吗？', en: 'Deactivate this product?', ko: '이 상품을 비활성화하시겠습니까?', vi: 'Ẩn sản phẩm này?' }))) {
+                          onClick={() => navigate('/upload-product', { state: { merchantId: merchant.id, shopName: merchant.shopName, editProduct: product } })}
+                          className="flex-1 py-2 bg-purple-500 text-white rounded text-xs font-bold hover:bg-purple-600 active:scale-95 transition-all"
+                        >
+                          {getText({ zh: '编辑', en: 'Edit', ko: '편집', vi: 'Sửa' })}
+                        </button>
+                        <button
+                          onClick={() => navigate('/detail', { state: { item: product, pageType: 'product' } })}
+                          className="flex-1 py-2 bg-blue-500 text-white rounded text-xs font-bold hover:bg-blue-600 active:scale-95 transition-all"
+                        >
+                          {getText({ zh: '查看', en: 'View', ko: '보기', vi: 'Xem' })}
+                        </button>
+                        {product.status === 'ACTIVE' ? (
+                          <button
+                            onClick={async () => {
+                              if (confirm(getText({ zh: '确定要下架此商品吗？', en: 'Deactivate this product?', ko: '이 상품을 비활성화하시겠습니까?', vi: 'Ẩn sản phẩm này?' }))) {
+                                try {
+                                  await merchantApi.deactivateProduct(product.id);
+                                  setProducts(prevProducts => 
+                                    prevProducts.map(p => 
+                                      p.id === product.id ? { ...p, status: 'SOLD_OUT' } : p
+                                    )
+                                  );
+                                  alert(getText({ zh: '下架成功', en: 'Deactivated', ko: '비활성화됨', vi: 'Đã ẩn' }));
+                                } catch (error: any) {
+                                  alert(error.message || getText({ zh: '下架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                                }
+                              }
+                            }}
+                            className="flex-1 py-2 bg-yellow-500 text-white rounded text-xs font-bold hover:bg-yellow-600 active:scale-95 transition-all"
+                          >
+                            {getText({ zh: '下架', en: 'Hide', ko: '숨김', vi: 'Ẩn' })}
+                          </button>
+                        ) : product.status === 'SOLD_OUT' || product.status === 'INACTIVE' ? (
+                          <button
+                            onClick={async () => {
                               try {
-                                await merchantApi.deactivateProduct(product.id);
-                                // 立即更新本地状态
+                                await merchantApi.activateProduct(product.id);
                                 setProducts(prevProducts => 
                                   prevProducts.map(p => 
-                                    p.id === product.id ? { ...p, status: 'INACTIVE' } : p
+                                    p.id === product.id ? { ...p, status: 'ACTIVE' } : p
                                   )
                                 );
-                                alert(getText({ zh: '下架成功', en: 'Deactivated', ko: '비활성화됨', vi: 'Đã ẩn' }));
+                                alert(getText({ zh: '上架成功', en: 'Activated', ko: '활성화됨', vi: 'Đã hiển thị' }));
                               } catch (error: any) {
-                                alert(error.message || getText({ zh: '下架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                                alert(error.message || getText({ zh: '上架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                              }
+                            }}
+                            className="flex-1 py-2 bg-green-500 text-white rounded text-xs font-bold hover:bg-green-600 active:scale-95 transition-all"
+                          >
+                            {getText({ zh: '上架', en: 'Show', ko: '表示', vi: 'Hiện' })}
+                          </button>
+                        ) : null}
+                        <button
+                          onClick={async () => {
+                            if (confirm(getText({ zh: '确定要删除此商品吗？删除后无法恢复！', en: 'Delete permanently?', ko: '영구 삭제하시겠습니까?', vi: 'Xóa vĩnh viễn?' }))) {
+                              try {
+                                await merchantApi.deleteProduct(product.id);
+                                alert(getText({ zh: '删除成功', en: 'Deleted', ko: '삭제됨', vi: 'Đã xóa' }));
+                                fetchMerchantData();
+                              } catch (error: any) {
+                                alert(error.message || getText({ zh: '删除失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
                               }
                             }
                           }}
-                          className="flex-1 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold hover:bg-yellow-600 active:scale-95 transition-all"
+                          className="flex-1 py-2 bg-red-500 text-white rounded text-xs font-bold hover:bg-red-600 active:scale-95 transition-all"
                         >
-                          {getText({ zh: '下架', en: 'Deactivate', ko: '비활성化', vi: 'Ẩn' })}
+                          {getText({ zh: '删除', en: 'Delete', ko: '삭제', vi: 'Xóa' })}
                         </button>
-                      ) : product.status === 'INACTIVE' ? (
-                        <button
-                          onClick={async () => {
-                            try {
-                              await merchantApi.activateProduct(product.id);
-                              // 立即更新本地状态
-                              setProducts(prevProducts => 
-                                prevProducts.map(p => 
-                                  p.id === product.id ? { ...p, status: 'ACTIVE' } : p
-                                )
-                              );
-                              alert(getText({ zh: '上架成功', en: 'Activated', ko: '활성화됨', vi: 'Đã hiển thị' }));
-                            } catch (error: any) {
-                              alert(error.message || getText({ zh: '上架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
-                            }
-                          }}
-                          className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600 active:scale-95 transition-all"
-                        >
-                          {getText({ zh: '上架', en: 'Activate', ko: '활성화', vi: 'Hiển thị' })}
-                        </button>
-                      ) : null}
-                      <button
-                        onClick={async () => {
-                          if (confirm(getText({ zh: '确定要删除此商品吗？删除后无法恢复！', en: 'Delete permanently?', ko: '영구 삭제하시겠습니까?', vi: 'Xóa vĩnh viễn?' }))) {
-                            try {
-                              await merchantApi.deleteProduct(product.id);
-                              alert(getText({ zh: '删除成功', en: 'Deleted', ko: '삭제됨', vi: 'Đã xóa' }));
-                              fetchMerchantData();
-                            } catch (error: any) {
-                              alert(error.message || getText({ zh: '删除失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
-                            }
-                          }
-                        }}
-                        className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600 active:scale-95 transition-all"
-                      >
-                        {getText({ zh: '删除', en: 'Delete', ko: '삭제', vi: 'Xóa' })}
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
+            
           </div>
         )}
 
         {activeTab === 'orders' && (
           <div className="space-y-4">
-            <button
-              onClick={async () => {
-                try {
-                  const ordersData = await merchantApi.getMyOrders();
-                  setOrders(ordersData || []);
-                } catch (error: any) {
-                  alert(error.message || getText({ zh: '加载订单失败', en: 'Failed to load orders', ko: '주문 로드 실패', vi: 'Tải đơn hàng thất bại' }));
-                }
-              }}
-              className="w-full py-3 bg-white rounded-xl text-purple-600 font-bold"
-            >
-              {getText({ zh: '刷新订单', en: 'Refresh Orders', ko: '주문 새로고침', vi: 'Làm mới đơn hàng' })}
-            </button>
+            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
+              {['ALL', 'PENDING', 'PAID', 'SHIPPED', 'COMPLETED', 'CANCELLED'].map((status) => (
+                <button
+                  key={status}
+                  onClick={async () => {
+                    try {
+                      const ordersData = await merchantApi.getMyOrders();
+                      // 筛选当前店铺的订单
+                      const currentMerchantOrders = (ordersData || []).filter((o: any) => 
+                        o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+                      );
+                      
+                      if (status === 'ALL') {
+                        setOrders(currentMerchantOrders);
+                      } else {
+                        setOrders(currentMerchantOrders.filter((o: any) => o.orderStatus === status));
+                      }
+                    } catch (error: any) {
+                      alert(error.message || getText({ zh: '加载订单失败', en: 'Failed to load orders', ko: '주문 로드 실패', vi: 'Tải đơn hàng thất bại' }));
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium whitespace-nowrap hover:bg-purple-50 active:scale-95 transition-all flex-shrink-0"
+                >
+                  {status === 'ALL' ? getText({ zh: '全部', en: 'All', ko: '전체', vi: 'Tất cả' }) :
+                   status === 'PENDING' ? getText({ zh: '待付款', en: 'Pending', ko: '대기', vi: 'Chờ' }) :
+                   status === 'PAID' ? getText({ zh: '待发货', en: 'Paid', ko: '결제됨', vi: 'Đã trả' }) :
+                   status === 'SHIPPED' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' }) :
+                   status === 'COMPLETED' ? getText({ zh: '已完成', en: 'Done', ko: '완료', vi: 'Xong' }) :
+                   getText({ zh: '已取消', en: 'Cancelled', ko: '취소됨', vi: 'Hủy' })}
+                </button>
+              ))}
+            </div>
 
             {orders.length === 0 ? (
               <div className="text-center py-8 text-white/60">
@@ -472,12 +570,14 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                     </div>
                     <div className="space-y-2 text-sm">
                       <p><span className="text-gray-500">{getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}:</span> {order.user?.username || '-'}</p>
-                      <p><span className="text-gray-500">{getText({ zh: '金额', en: 'Amount', ko: '금액', vi: 'Số tiền' })}:</span> <span className="text-red-600 font-bold">{order.totalAmount}π</span></p>
-                      {order.address && (
+                      <p><span className="text-gray-500">{getText({ zh: '金额', en: 'Amount', ko: '金额', vi: 'Số tiền' })}:</span> <span className="text-red-600 font-bold">{order.totalAmount}π</span></p>
+                      {order.address ? (
                         <>
                           <p><span className="text-gray-500">{getText({ zh: '收件人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}:</span> {order.address.receiverName} {order.address.receiverPhone}</p>
                           <p><span className="text-gray-500">{getText({ zh: '地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })}:</span> {order.address.province} {order.address.city} {order.address.district} {order.address.detail}</p>
                         </>
+                      ) : (
+                        <p className="text-xs text-orange-500">{getText({ zh: '⚠️ 旧订单无地址信息，请联系买家', en: '⚠️ No address, contact buyer', ko: '⚠️ 주소 없음, 구매자에게 연락', vi: '⚠️ Không có địa chỉ, liên hệ người mua' })}</p>
                       )}
                       <div className="pt-2 border-t">
                         <p className="text-gray-500 mb-1">{getText({ zh: '商品', en: 'Items', ko: '상품', vi: 'Sản phẩm' })}:</p>
@@ -495,27 +595,94 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
         {activeTab === 'stats' && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{products.length}</p>
-                <p className="text-gray-500 text-sm">{getText({ zh: '商品数', en: 'Products', ko: '상품 수', vi: 'Sản phẩm' })}</p>
+            {/* 核心数据 */}
+            <div className="bg-white rounded-xl p-4">
+              <h3 className="font-bold text-gray-800 mb-3">{getText({ zh: '核心数据', en: 'Key Metrics', ko: '핵심 데이터', vi: 'Dữ liệu chính' })}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="text-center p-3 bg-purple-50 rounded-lg">
+                  <p className="text-2xl font-bold text-purple-600">{products.length}</p>
+                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '商品数', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</p>
+                </div>
+                <div className="text-center p-3 bg-blue-50 rounded-lg">
+                  <p className="text-2xl font-bold text-blue-600">{products.reduce((sum, p) => sum + (p.sales || 0), 0)}</p>
+                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '总销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}</p>
+                </div>
+                <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                  <p className="text-2xl font-bold text-yellow-600">⭐ {merchant.rating?.toFixed(1) || '5.0'}</p>
+                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '店铺评分', en: 'Rating', ko: '평점', vi: 'Đánh giá' })}</p>
+                </div>
+                <div className="text-center p-3 bg-green-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-600">{merchant.deposit || '0'}π</p>
+                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '保证金', en: 'Deposit', ko: '보증금', vi: 'Cọc' })}</p>
+                </div>
               </div>
-              <div className="bg-white rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{products.reduce((sum, p) => sum + (p.sales || 0), 0)}</p>
-                <p className="text-gray-500 text-sm">{getText({ zh: '总销量', en: 'Total Sales', ko: '총 판매', vi: 'Tổng bán' })}</p>
+            </div>
+
+            {/* 商品状态 */}
+            <div className="bg-white rounded-xl p-4">
+              <h3 className="font-bold text-gray-800 mb-3">{getText({ zh: '商品状态', en: 'Product Status', ko: '상품 상태', vi: 'Trạng thái' })}</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '在售商品', en: 'Active', ko: '판매 중', vi: 'Đang bán' })}</span>
+                  <span className="font-bold text-green-600">{products.filter(p => p.status === 'ACTIVE').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '已下架', en: 'Inactive', ko: '숨김', vi: 'Đã ẩn' })}</span>
+                  <span className="font-bold text-yellow-600">{products.filter(p => p.status === 'INACTIVE').length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '库存不足', en: 'Low Stock', ko: '재고 부족', vi: 'Sắp hết' })}</span>
+                  <span className="font-bold text-red-600">{products.filter(p => p.stock < 10).length}</span>
+                </div>
               </div>
-              <div className="bg-white rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{merchant.rating?.toFixed(1) || '5.0'}</p>
-                <p className="text-gray-500 text-sm">{getText({ zh: '店铺评分', en: 'Rating', ko: '평점', vi: 'Đánh giá' })}</p>
-              </div>
-              <div className="bg-white rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{merchant.deposit || '0'}π</p>
-                <p className="text-gray-500 text-sm">{getText({ zh: '保证金', en: 'Deposit', ko: '보증금', vi: 'Tiền cọc' })}</p>
+            </div>
+
+            {/* 热销商品 */}
+            <div className="bg-white rounded-xl p-4">
+              <h3 className="font-bold text-gray-800 mb-3">{getText({ zh: '热销商品 TOP3', en: 'Top Products', ko: '인기 상품', vi: 'Bán chạy' })}</h3>
+              <div className="space-y-2">
+                {products
+                  .sort((a, b) => (b.sales || 0) - (a.sales || 0))
+                  .slice(0, 3)
+                  .map((product, index) => (
+                    <div key={product.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        index === 0 ? 'bg-yellow-400 text-white' :
+                        index === 1 ? 'bg-gray-300 text-white' :
+                        'bg-orange-300 text-white'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{product.title}</p>
+                        <p className="text-xs text-gray-500">{getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Bán' })}: {product.sales || 0}</p>
+                      </div>
+                      <p className="text-sm font-bold text-purple-600">{product.price}π</p>
+                    </div>
+                  ))}
+                {products.length === 0 && (
+                  <p className="text-center text-gray-400 text-sm py-4">{getText({ zh: '暂无数据', en: 'No data', ko: '데이터 없음', vi: 'Chưa có' })}</p>
+                )}
               </div>
             </div>
           </div>
         )}
         </div>
+
+        {/* 固定在底部的上传新商品按钮 - 仅在商品标签页显示 */}
+        {activeTab === 'products' && (
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-purple-600 to-transparent pointer-events-none">
+            <div className="max-w-md mx-auto pointer-events-auto">
+              <button
+                onClick={() => navigate('/upload-product', { state: { merchantId: merchant.id, shopName: merchant.shopName } })}
+                className="w-full py-3 bg-white rounded-full flex items-center justify-center gap-2 text-purple-600 font-bold shadow-lg hover:bg-gray-50 active:scale-95 transition-all"
+              >
+                <Plus size={20} />
+                {getText({ zh: '上传新商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

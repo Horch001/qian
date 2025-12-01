@@ -273,6 +273,48 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     setPaymentLoading(true);
     
     try {
+      // 获取收货地址信息（从数据库）
+      let addressId = '';
+      let receiverName = '';
+      let receiverPhone = '';
+      let addressProvince = '';
+      let addressCity = '';
+      let addressDistrict = '';
+      let addressDetail = '';
+      
+      if (pageType === 'product') {
+        try {
+          const addresses = await userApi.getAddresses();
+          const defaultAddress = addresses.find((addr: any) => addr.isDefault);
+          if (defaultAddress) {
+            addressId = defaultAddress.id; // 保存地址ID
+            receiverName = defaultAddress.receiverName;
+            receiverPhone = defaultAddress.receiverPhone;
+            addressProvince = defaultAddress.province;
+            addressCity = defaultAddress.city;
+            addressDistrict = defaultAddress.district || '';
+            addressDetail = defaultAddress.detail;
+          } else {
+            // 如果数据库没有，从localStorage获取（兼容旧数据）
+            receiverName = localStorage.getItem('receiverName') || '';
+            receiverPhone = localStorage.getItem('receiverPhone') || '';
+            addressProvince = localStorage.getItem('addressProvince') || '';
+            addressCity = localStorage.getItem('addressCity') || '';
+            addressDistrict = localStorage.getItem('addressDistrict') || '';
+            addressDetail = localStorage.getItem('addressDetail') || '';
+          }
+        } catch (error) {
+          console.error('获取地址失败:', error);
+          // 失败时从localStorage获取
+          receiverName = localStorage.getItem('receiverName') || '';
+          receiverPhone = localStorage.getItem('receiverPhone') || '';
+          addressProvince = localStorage.getItem('addressProvince') || '';
+          addressCity = localStorage.getItem('addressCity') || '';
+          addressDistrict = localStorage.getItem('addressDistrict') || '';
+          addressDetail = localStorage.getItem('addressDetail') || '';
+        }
+      }
+      
       // 创建真实订单
       const order = await orderApi.createOrder({
         items: [{
@@ -280,6 +322,19 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           quantity: quantity,
           spec: selectedSpec,
         }],
+        // 如果是实物商品且有地址ID，传递地址ID
+        ...(pageType === 'product' && addressId && {
+          addressId,
+        }),
+        // 如果没有地址ID，传递地址详细信息（兼容旧数据）
+        ...(pageType === 'product' && !addressId && receiverName && {
+          receiverName,
+          receiverPhone,
+          province: addressProvince,
+          city: addressCity,
+          district: addressDistrict,
+          detail: addressDetail,
+        }),
       });
 
       if (method === 'balance') {
@@ -610,6 +665,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             <button 
               onClick={() => {
                 const merchantId = item.merchantId || item.merchant?.id;
+                console.log('商品数据:', item);
+                console.log('店铺ID:', merchantId);
+                console.log('merchantId字段:', item.merchantId);
+                console.log('merchant对象:', item.merchant);
+                
                 if (merchantId) {
                   navigate(`/merchant/${merchantId}`);
                 } else {

@@ -42,8 +42,8 @@ export const PhysicalMallPage: React.FC = () => {
     // 监听商品状态更新（WebSocket）
     const handleProductUpdate = (updatedProduct: any) => {
       setProducts(prevProducts => {
-        // 如果商品已下架，从列表中移除
-        if (updatedProduct.status === 'INACTIVE' || updatedProduct.status === 'DELETED') {
+        // 如果商品已下架或删除，从列表中移除
+        if (updatedProduct.status === 'SOLD_OUT' || updatedProduct.status === 'INACTIVE' || updatedProduct.status === 'DELETED') {
           return prevProducts.filter(p => p.id !== updatedProduct.id);
         }
         // 如果商品重新上架，添加到列表（如果不存在）

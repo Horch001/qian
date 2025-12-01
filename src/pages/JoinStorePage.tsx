@@ -25,6 +25,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
     idCard: '',
     idCardImage: '',
     businessLicense: '',
+    logo: '',
   });
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -104,6 +105,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
         idCard: formData.idCard || undefined,
         idCardImage: formData.idCardImage || undefined,
         businessLicense: formData.businessLicense || undefined,
+        logo: formData.logo || undefined,
       });
       setShowSuccess(true);
     } catch (err: any) {
@@ -138,27 +140,16 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
       <div className="w-full max-w-md flex flex-col min-h-screen">
-        <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="text-white"><ArrowLeft size={24} /></button>
+        <header className="p-4 flex items-center justify-center relative">
+          <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
           <h1 className="text-lg font-bold text-white">{getText({ zh: '商家入驻申请', en: 'Seller Application', ko: '판매자 신청', vi: 'Đăng ký bán hàng' })}</h1>
         </header>
 
-        <main className="flex-1 overflow-auto pb-24 p-4">
-        {/* 余额提示 */}
-        <div className={`rounded-xl p-3 mb-4 ${userBalance >= 1 ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-          <p className="text-white text-sm">{getText({ zh: '当前余额', en: 'Balance', ko: '잔액', vi: 'Số dư' })}: {userBalance}π {userBalance >= 1 ? '✓' : '(需≥1π)'}</p>
-        </div>
-
+        <main className="flex-1 overflow-auto p-4">
         {error && <div className="bg-red-500/20 rounded-xl p-3 mb-4"><p className="text-white text-sm">{error}</p></div>}
 
         <div className="bg-white rounded-xl p-4 space-y-4">
-          {/* 店铺名称 */}
-          <div>
-            <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><Store className="w-4 h-4" />{getText({ zh: '店铺名称', en: 'Store Name', ko: '상점 이름', vi: 'Tên cửa hàng' })} *</label>
-            <input type="text" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder={getText({ zh: '请输入店铺名称', en: 'Enter store name', ko: '상점 이름 입력', vi: 'Nhập tên cửa hàng' })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
-          </div>
-
-          {/* 入驻板块 */}
+          {/* 入驻板块 - 移到第一个 */}
           <div>
             <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><Package className="w-4 h-4" />{getText({ zh: '入驻板块', en: 'Category', ko: '카테고리', vi: 'Danh mục' })} *</label>
             <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm">
@@ -168,6 +159,42 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
               ))}
             </select>
             {needsVerification && <p className="text-orange-500 text-xs mt-1">{getText({ zh: '⚠️ 该板块需要实名认证', en: '⚠️ This category requires ID verification', ko: '⚠️ 이 카테고리는 신원 확인이 필요합니다', vi: '⚠️ Danh mục này cần xác minh danh tính' })}</p>}
+          </div>
+
+          {/* 店铺名称 */}
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><Store className="w-4 h-4" />{getText({ zh: '店铺名称', en: 'Store Name', ko: '상점 이름', vi: 'Tên cửa hàng' })} *</label>
+            <input type="text" value={formData.storeName} onChange={(e) => setFormData({ ...formData, storeName: e.target.value })} placeholder={getText({ zh: '请输入店铺名称', en: 'Enter store name', ko: '상점 이름 입력', vi: 'Nhập tên cửa hàng' })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
+          </div>
+
+          {/* 店铺Logo */}
+          <div>
+            <label className="text-gray-700 font-bold text-sm mb-2 block">{getText({ zh: '店铺Logo', en: 'Store Logo', ko: '상점 로고', vi: 'Logo cửa hàng' })}</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+              {formData.logo ? (
+                <div className="relative">
+                  <img src={formData.logo} alt="Logo" className="max-h-32 mx-auto rounded" />
+                  <button onClick={() => setFormData({ ...formData, logo: '' })} className="absolute top-0 right-0 bg-red-500 text-white rounded-full w-6 h-6 text-xs">×</button>
+                </div>
+              ) : (
+                <label className="cursor-pointer">
+                  <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">{getText({ zh: '点击上传店铺Logo', en: 'Upload logo', ko: '로고 업로드', vi: 'Tải logo' })}</p>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 2 * 1024 * 1024) {
+                        alert(getText({ zh: '图片大小不能超过2MB', en: 'Image size cannot exceed 2MB', ko: '이미지 크기는 2MB를 초과할 수 없습니다', vi: 'Kích thước ảnh không được vượt quá 2MB' }));
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setFormData({ ...formData, logo: ev.target?.result as string });
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
+              )}
+            </div>
           </div>
 
           {/* 邮箱 */}
@@ -259,25 +286,30 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
           </div>
 
           {/* 联系人 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-gray-700 font-bold text-sm mb-2 block">{getText({ zh: '联系人', en: 'Contact', ko: '연락처', vi: 'Liên hệ' })}</label>
-              <input type="text" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
-            </div>
-            <div>
-              <label className="text-gray-700 font-bold text-sm mb-2 block">{getText({ zh: '电话', en: 'Phone', ko: '전화', vi: 'Điện thoại' })}</label>
-              <input type="tel" value={formData.contactPhone} onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
-            </div>
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><User className="w-4 h-4" />{getText({ zh: '联系人', en: 'Contact', ko: '연락처', vi: 'Liên hệ' })}</label>
+            <input type="text" value={formData.contactName} onChange={(e) => setFormData({ ...formData, contactName: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
           </div>
-        </div>
-      </main>
 
-        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-sm border-t p-4">
-          <button onClick={handleSubmit} disabled={userBalance < 1 || isSubmitting} className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+          {/* 联系电话 */}
+          <div>
+            <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><FileText className="w-4 h-4" />{getText({ zh: '联系电话', en: 'Phone', ko: '전화', vi: 'Điện thoại' })}</label>
+            <input type="tel" value={formData.contactPhone} onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
+          </div>
+
+          {/* 提交按钮 */}
+          <button onClick={handleSubmit} disabled={userBalance < 1 || isSubmitting} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold disabled:opacity-50 disabled:bg-gray-400 flex items-center justify-center gap-2">
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSubmitting ? getText({ zh: '提交中...', en: 'Submitting...', ko: '제출 중...', vi: 'Đang gửi...' }) : getText({ zh: '提交申请', en: 'Submit', ko: '제출', vi: 'Gửi' })}
           </button>
         </div>
+      </main>
+
+      {/* 底部余额提示 */}
+      <div className="p-4 text-center text-white text-xs bg-purple-700/30">
+        <p>💡 {getText({ zh: '提示：入驻需要账户余额≥1π', en: 'Tip: Balance ≥1π required', ko: '팁: 잔액 ≥1π 필요', vi: 'Mẹo: Cần số dư ≥1π' })}</p>
+        <p className="mt-1">{getText({ zh: '当前余额', en: 'Balance', ko: '잔액', vi: 'Số dư' })}: <span className={userBalance >= 1 ? 'text-green-300 font-bold' : 'text-red-300 font-bold'}>{userBalance}π</span></p>
+      </div>
       </div>
     </div>
   );

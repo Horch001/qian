@@ -119,13 +119,15 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     // 真正的 Pi Browser 检测：
     // 1. UserAgent 包含 PiBrowser
     // 2. 域名包含 minepi.com
-    // 3. window.Pi 存在且可用
+    // 注意：本地开发环境(localhost)强制使用测试账号，即使加载了Pi SDK
     const userAgent = navigator.userAgent.toLowerCase();
-    const isRealPiBrowser = userAgent.includes('pibrowser') || 
-                          window.location.hostname.includes('minepi.com') ||
-                          (window.Pi !== undefined);
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isRealPiBrowser = !isLocalhost && (
+      userAgent.includes('pibrowser') || 
+      window.location.hostname.includes('minepi.com')
+    );
     
-    console.log('Login attempt - isProduction:', isProduction, 'isRealPiBrowser:', isRealPiBrowser);
+    console.log('Login attempt - isProduction:', isProduction, 'isRealPiBrowser:', isRealPiBrowser, 'isLocalhost:', isLocalhost);
 
     // 生产环境安全检查：必须在 Pi Browser 中打开
     if (isProduction && !isRealPiBrowser) {

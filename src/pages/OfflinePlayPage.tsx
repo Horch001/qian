@@ -44,6 +44,31 @@ export const OfflinePlaYPage: React.FC = () => {
       }
     };
     fetchProducts();
+
+    // 监听商品状态更新（WebSocket）
+    const handleProductUpdate = (updatedProduct: any) => {
+      setProducts(prevProducts => {
+        if (updatedProduct.status === 'SOLD_OUT' || updatedProduct.status === 'INACTIVE' || updatedProduct.status === 'DELETED') {
+          return prevProducts.filter(p => p.id !== updatedProduct.id);
+        }
+        if (updatedProduct.status === 'ACTIVE') {
+          const exists = prevProducts.some(p => p.id === updatedProduct.id);
+          if (!exists && updatedProduct.category?.type === 'OFFLINE_PLAY') {
+            return [updatedProduct, ...prevProducts];
+          }
+          return prevProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+        }
+        return prevProducts;
+      });
+    };
+
+    window.addEventListener('product:updated', ((e: CustomEvent) => {
+      handleProductUpdate(e.detail);
+    }) as EventListener);
+
+    return () => {
+      window.removeEventListener('product:updated', handleProductUpdate as any);
+    };
   }, [sortBy, searchKeyword]);
 
   const handleSearch = (keyword: string) => {

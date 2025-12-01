@@ -39,8 +39,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     HOUSE_LEASE: { zh: '房屋租赁', en: 'House Lease', ko: '주택 임대', vi: 'Cho thuê nhà' },
   };
 
-  // 从路由state获取指定的店铺ID
-  const stateData = location.state as { merchantId?: string; shopName?: string } | null;
+  // 从路由state获取指定的店铺ID和编辑的商品
+  const stateData = location.state as { merchantId?: string; shopName?: string; editProduct?: any } | null;
+  const isEditMode = !!stateData?.editProduct;
 
   useEffect(() => {
     const fetchMerchants = async () => {
@@ -56,21 +57,33 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           if (targetMerchant) {
             setMerchant(targetMerchant);
             setSelectedMerchantId(targetMerchant.id);
-            return;
           }
-        }
-        
-        // 否则使用第一个已通过的店铺
-        if (approvedMerchants.length > 0) {
+        } else if (approvedMerchants.length > 0) {
+          // 否则使用第一个已通过的店铺
           setMerchant(approvedMerchants[0]);
           setSelectedMerchantId(approvedMerchants[0].id);
+        }
+        
+        // 如果是编辑模式，加载商品数据
+        if (stateData?.editProduct) {
+          const product = stateData.editProduct;
+          console.log('加载编辑商品数据:', product);
+          setFormData({
+            title: product.title || '',
+            description: product.description || '',
+            price: product.price?.toString() || '',
+            stock: product.stock?.toString() || '',
+            mainImage: product.images?.[0] || '',
+            subImages: product.images?.slice(1, 5) || [],
+            detailImages: product.detailImages || [],
+          });
         }
       } catch (error) {
         console.error('Failed to fetch merchants:', error);
       }
     };
     fetchMerchants();
-  }, [stateData?.merchantId]);
+  }, [stateData?.merchantId, stateData?.editProduct]);
 
   // 切换店铺
   const handleMerchantChange = (merchantId: string) => {
@@ -105,7 +118,6 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
       // 组合所有图片：主图在第一位，副图在后面
       const allImages = [formData.mainImage, ...formData.subImages];
       
-      // 分批上传优化：先提交基本信息，图片异步上传
       const productData = {
         merchantId: selectedMerchantId,
         title: formData.title,
@@ -116,18 +128,25 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         detailImages: formData.detailImages,
       };
       
-      // 使用 Promise 立即发送请求，不等待响应
-      const uploadPromise = merchantApi.uploadProduct(productData);
+      if (isEditMode && stateData?.editProduct) {
+        // 编辑模式：更新商品
+        await merchantApi.updateProduct(stateData.editProduct.id, productData);
+        alert(getText({ zh: '商品已更新，等待管理员审核', en: 'Product updated, pending review', ko: '상품이 업데이트되었습니다. 검토 대기 중', vi: 'Sản phẩm đã cập nhật, chờ duyệt' }));
+      } else {
+        // 新增模式：上传商品
+        await merchantApi.uploadProduct(productData);
+        alert(getText({ zh: '商品已提交，等待管理员审核', en: 'Product submitted, pending review', ko: '상품이 제출되었습니다. 검토 대기 중', vi: 'Sản phẩm đã gửi, chờ duyệt' }));
+      }
       
-      // 立即显示成功提示并跳转，后台继续上传
-      alert(getText({ zh: '商品正在提交中，请稍候...', en: 'Submitting product...', ko: '상품 제출 중...', vi: 'Đang gửi sản phẩm...' }));
       navigate('/my-shops');
-      
-      // 后台完成上传
-      await uploadPromise;
     } catch (error: any) {
-      console.error('上传失败:', error);
-      alert(error.message || getText({ zh: '上传失败，请重试', en: 'Upload failed', ko: '업로드 실패', vi: 'Tải lên thất bại' }));
+      console.error(isEditMode ? '更新失败:' : '上传失败:', error);
+      alert(error.message || getText({ 
+        zh: isEditMode ? '更新失败，请重试' : '上传失败，请重试', 
+        en: isEditMode ? 'Update failed' : 'Upload failed', 
+        ko: isEditMode ? '업데이트 실패' : '업로드 실패', 
+        vi: isEditMode ? 'Cập nhật thất bại' : 'Tải lên thất bại' 
+      }));
     } finally {
       setLoading(false);
     }
@@ -137,9 +156,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
-          <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="text-white"><ArrowLeft size={24} /></button>
-            <h1 className="text-lg font-bold text-white">{getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })}</h1>
+          <header className="p-4 flex items-center justify-center relative">
+            <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
+            <h1 className="text-lg font-bold text-white">
+              {isEditMode 
+                ? getText({ zh: '编辑商品', en: 'Edit Product', ko: '상품 편집', vi: 'Chỉnh sửa sản phẩm' })
+                : getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })
+              }
+            </h1>
           </header>
           <div className="flex-1 flex items-center justify-center p-8 text-center">
             <div className="text-white">
@@ -155,9 +179,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
       <div className="w-full max-w-md flex flex-col min-h-screen">
-        <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="text-white"><ArrowLeft size={24} /></button>
-          <h1 className="text-lg font-bold text-white">{getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })}</h1>
+        <header className="p-4 flex items-center justify-center relative">
+          <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
+          <h1 className="text-lg font-bold text-white">
+            {isEditMode 
+              ? getText({ zh: '编辑商品', en: 'Edit Product', ko: '상품 편집', vi: 'Chỉnh sửa sản phẩm' })
+              : getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })
+            }
+          </h1>
         </header>
 
         <div className="flex-1 p-4 overflow-y-auto">
@@ -235,26 +264,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
             <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder={getText({ zh: '请输入商品名称', en: 'Enter product name', ko: '상품명 입력', vi: 'Nhập tên sản phẩm' })} className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
           </div>
 
-          {/* 选择店铺（多店铺时显示） */}
-          {allMerchants.length > 1 && (
-            <div>
-              <label className="block text-gray-700 font-bold mb-2">
-                <Store className="w-4 h-4 inline mr-1" />
-                {getText({ zh: '选择店铺', en: 'Select Shop', ko: '상점 선택', vi: 'Chọn cửa hàng' })} *
-              </label>
-              <select
-                value={selectedMerchantId}
-                onChange={(e) => handleMerchantChange(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white"
-              >
-                {allMerchants.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.shopName} ({categoryLabels[m.category || '']?.[language] || m.category})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* 店铺信息显示 */}
+          <div className="bg-purple-50 p-3 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <Store className="w-4 h-4 inline mr-1" />
+              {getText({ zh: '上传到店铺', en: 'Upload to', ko: '업로드 대상', vi: 'Tải lên' })}: 
+              <span className="font-bold text-purple-600 ml-2">{merchant?.shopName}</span>
+            </p>
+          </div>
 
           {/* 商品分类 - 固定为入驻板块 */}
           <div>

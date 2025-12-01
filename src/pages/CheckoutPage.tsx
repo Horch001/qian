@@ -16,7 +16,9 @@ interface CartItem {
     icon?: string;
     images: string[];
     price: string;
-    productType?: string;
+    category?: {
+      type: string;
+    };
   };
 }
 
@@ -37,10 +39,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
   
   // 收货地址
   const [address, setAddress] = useState({
+    id: '', // 地址ID
     name: '',
     phone: '',
     province: '',
     city: '',
+    district: '',
     detail: '',
   });
 
@@ -67,21 +71,63 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
     };
     loadUserInfo();
 
-    // 从localStorage加载地址
-    setAddress({
-      name: localStorage.getItem('receiverName') || '',
-      phone: localStorage.getItem('receiverPhone') || '',
-      province: localStorage.getItem('addressProvince') || '',
-      city: localStorage.getItem('addressCity') || '',
-      detail: localStorage.getItem('addressDetail') || '',
-    });
+    // 从数据库加载默认地址
+    const loadAddress = async () => {
+      try {
+        const addresses = await userApi.getAddresses();
+        const defaultAddress = addresses.find((addr: any) => addr.isDefault);
+        if (defaultAddress) {
+          setAddress({
+            id: defaultAddress.id, // 保存地址ID
+            name: defaultAddress.receiverName,
+            phone: defaultAddress.receiverPhone,
+            province: defaultAddress.province,
+            city: defaultAddress.city,
+            district: defaultAddress.district || '',
+            detail: defaultAddress.detail,
+          });
+        } else {
+          // 如果数据库没有，尝试从localStorage加载（兼容旧数据）
+          setAddress({
+            id: '',
+            name: localStorage.getItem('receiverName') || '',
+            phone: localStorage.getItem('receiverPhone') || '',
+            province: localStorage.getItem('addressProvince') || '',
+            city: localStorage.getItem('addressCity') || '',
+            district: localStorage.getItem('addressDistrict') || '',
+            detail: localStorage.getItem('addressDetail') || '',
+          });
+        }
+      } catch (error) {
+        console.error('加载地址失败:', error);
+        // 失败时从localStorage加载
+        setAddress({
+          id: '',
+          name: localStorage.getItem('receiverName') || '',
+          phone: localStorage.getItem('receiverPhone') || '',
+          province: localStorage.getItem('addressProvince') || '',
+          city: localStorage.getItem('addressCity') || '',
+          district: localStorage.getItem('addressDistrict') || '',
+          detail: localStorage.getItem('addressDetail') || '',
+        });
+      }
+    };
+    loadAddress();
   }, [location.state, navigate]);
 
 
-  // 检查是否有实物商品需要地址
-  const hasPhysicalProduct = items.some(item => 
-    item.product.productType === 'physical' || !item.product.productType
-  );
+  // 检查是否有实物商品需要地址（通过category.type判断）
+  const hasPhysicalProduct = items.some(item => {
+    console.log('🔍 商品调试:', {
+      title: item.product.title,
+      category: item.product.category,
+      categoryType: item.product.category?.type,
+      isPhysical: item.product.category?.type === 'PHYSICAL'
+    });
+    return item.product.category?.type === 'PHYSICAL';
+  });
+  
+  console.log('📦 是否需要地址:', hasPhysicalProduct);
 
   const totalPrice = items.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
 
@@ -133,6 +179,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           quantity: item.quantity,
           spec: item.spec,
         })),
+        // 如果有实物商品，传递地址ID（如果有）或地址详细信息
+        ...(hasPhysicalProduct && address.id && {
+          addressId: address.id, // 优先使用地址ID
+        }),
+        // 如果没有地址ID，传递地址详细信息（兼容旧数据）
+        ...(hasPhysicalProduct && !address.id && {
+          receiverName: address.name,
+          receiverPhone: address.phone,
+          province: address.province,
+          city: address.city,
+          district: address.district,
+          detail: address.detail,
+        }),
       });
 
       if (paymentMethod === 'balance') {
@@ -335,7 +394,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
             {address.name ? (
               <div className="text-sm text-gray-600">
                 <p className="font-medium">{address.name} {address.phone}</p>
-                <p>{address.province} {address.city} {address.detail}</p>
+                <p>{address.province} {address.city} {address.district} {address.detail}</p>
               </div>
             ) : (
               <button 

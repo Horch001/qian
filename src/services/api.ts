@@ -491,6 +491,9 @@ export interface Merchant {
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
   category?: string;
   reviewNote?: string;
+  announcement?: string;
+  contactPhone?: string;
+  businessHours?: string;
   createdAt: string;
 }
 
@@ -506,6 +509,7 @@ export interface MerchantApplication {
   idCard?: string;
   idCardImage?: string;
   businessLicense?: string;
+  logo?: string;
 }
 
 export interface ProductUpload {
@@ -593,6 +597,12 @@ export const merchantApi = {
     const query = status ? `?status=${status}` : '';
     return request<any[]>(`/merchants/my/orders${query}`);
   },
+
+  // 删除店铺
+  deleteMerchant: (merchantId: string) =>
+    request(`/merchants/${merchantId}`, {
+      method: 'DELETE',
+    }),
 };
 
 // ==================== 统计 API ====================

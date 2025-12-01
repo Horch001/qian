@@ -628,7 +628,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     
     // 钱包地址只能通过充值自动绑定，保存设置时不处理钱包地址
     
-    // 保存地址信息到 localStorage
+    // 保存地址信息到数据库
+    if (receiverName && receiverPhone && selectedProvince && selectedCity && detailAddress) {
+      try {
+        // 先获取现有地址列表
+        const addresses = await userApi.getAddresses();
+        const defaultAddress = addresses.find((addr: any) => addr.isDefault);
+        
+        const addressData = {
+          receiverName,
+          receiverPhone,
+          province: selectedProvince,
+          city: selectedCity,
+          district: selectedDistrict,
+          detail: detailAddress,
+          isDefault: true, // 设为默认地址
+        };
+        
+        if (defaultAddress) {
+          // 更新现有默认地址
+          await userApi.updateAddress(defaultAddress.id, addressData);
+        } else {
+          // 创建新地址
+          await userApi.createAddress(addressData);
+        }
+      } catch (error) {
+        console.error('保存地址失败:', error);
+      }
+    }
+    
+    // 同时保存到 localStorage（兼容旧逻辑）
     localStorage.setItem('shippingAddress', fullAddress);
     localStorage.setItem('walletAddress', walletAddress);
     localStorage.setItem('userEmail', email);

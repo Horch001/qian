@@ -70,66 +70,103 @@ export const MerchantDetailPage: React.FC<MerchantDetailPageProps> = ({ language
     <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
       <div className="w-full max-w-md flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-white/10 backdrop-blur-sm p-4 flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="text-white">
+        <header className="p-4 flex items-center justify-center relative">
+          <button onClick={() => navigate(-1)} className="text-white absolute left-4">
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-lg font-bold text-white">{getText({ zh: '店铺详情', en: 'Shop Details', ko: '상점 상세', vi: 'Chi tiết cửa hàng' })}</h1>
         </header>
 
         {/* 店铺信息 */}
-        <div className="bg-white m-4 rounded-xl overflow-hidden">
-          {merchant.banner && (
-            <div className="h-32 bg-gradient-to-r from-purple-400 to-pink-400">
-              <img src={merchant.banner} alt="Banner" className="w-full h-full object-cover" />
-            </div>
-          )}
-          <div className="p-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
+        <div className="bg-white mx-4 mt-2 mb-2 rounded-xl overflow-hidden">
+          <div className="p-2">
+            <div className="flex items-center gap-2">
+              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
                 {merchant.logo ? (
                   <img src={merchant.logo} alt="Logo" className="w-full h-full object-cover" />
                 ) : (
-                  <Store size={32} className="text-purple-400" />
+                  <Store size={24} className="text-purple-400" />
                 )}
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-800">{merchant.shopName}</h2>
-                <p className="text-sm text-gray-500">⭐ {merchant.rating?.toFixed(1) || '5.0'} · {getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })} {merchant.totalSales || 0}</p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-gray-800 truncate">{merchant.shopName}</h2>
+                  {merchant.businessHours && (
+                    <span className="text-xs text-gray-500 flex-shrink-0">🕐 {merchant.businessHours}</span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">⭐ {merchant.rating?.toFixed(1) || '5.0'} · {getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })} {merchant.totalSales || 0}</p>
+                {merchant.description && (
+                  <p className="text-xs text-gray-600 line-clamp-1">{merchant.description}</p>
+                )}
               </div>
             </div>
-            <p className="text-gray-600">{merchant.description || getText({ zh: '暂无简介', en: 'No description', ko: '설명 없음', vi: 'Chưa có mô tả' })}</p>
+            
+            {/* 店铺公告 */}
+            {merchant.announcement && (
+              <div className="bg-yellow-50 border-l-2 border-yellow-400 px-2 py-1.5 mt-1.5">
+                <p className="text-xs text-yellow-800">📢 {merchant.announcement}</p>
+              </div>
+            )}
           </div>
         </div>
 
         {/* 商品列表 */}
-        <div className="flex-1 p-4">
-          <h3 className="text-white font-bold mb-3">{getText({ zh: '店铺商品', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</h3>
+        <div className="flex-1 px-4 pb-4">
+          <h3 className="text-white font-bold mb-2">{getText({ zh: '店铺商品', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</h3>
           {products.length === 0 ? (
             <div className="text-center py-8 text-white/60">
               {getText({ zh: '暂无商品', en: 'No products', ko: '상품 없음', vi: 'Chưa có sản phẩm' })}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
               {products.map((product) => (
-                <button
+                <div
                   key={product.id}
                   onClick={() => navigate('/detail', { state: { item: product } })}
-                  className="bg-white rounded-xl overflow-hidden hover:shadow-lg transition-shadow"
+                  className="group relative overflow-hidden rounded-xl p-2 transition-all duration-300 cursor-pointer bg-white border border-purple-100 shadow-sm hover:shadow-lg hover:border-purple-300"
                 >
-                  <div className="aspect-square bg-gray-100 flex items-center justify-center">
-                    {product.images?.[0] ? (
-                      <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">{product.icon || '📦'}</span>
-                    )}
+                  {/* 标签 */}
+                  {product.originalPrice && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl-lg rounded-tr-lg z-10">
+                      {getText({ zh: '特价', en: 'Sale', ko: '세일', vi: 'Giảm giá' })}
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 relative">
+                    <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg shadow-inner overflow-hidden">
+                      {product.images && product.images.length > 0 ? (
+                        <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain bg-white" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl">
+                          {product.icon || '📦'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-col pr-16">
+                      <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
+                        {product.title}
+                      </h3>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-red-600 font-bold text-base leading-none">{product.price}π</span>
+                        <div className="flex gap-2">
+                          <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}</span>
+                            <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.stock || 0}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '已售', en: 'Sold', ko: '판매', vi: 'Đã bán' })}</span>
+                            <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.sales || 0}</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '收藏', en: 'Favs', ko: '즐겨찾기', vi: 'Yêu thích' })}</span>
+                            <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.favorites || 0}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-3">
-                    <h4 className="font-bold text-gray-800 text-sm truncate">{product.title}</h4>
-                    <p className="text-red-600 font-bold">{product.price}π</p>
-                    <p className="text-xs text-gray-500">{getText({ zh: '已售', en: 'Sold', ko: '판매', vi: 'Đã bán' })} {product.sales || 0}</p>
-                  </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
