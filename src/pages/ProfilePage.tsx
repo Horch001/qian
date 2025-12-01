@@ -583,34 +583,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       localStorage.setItem('customUsername', username);
     }
     
-    // 同步钱包地址到后端
-    if (walletAddress && walletAddress.trim() !== '' && !isWalletBound) {
-      // 只有当钱包地址不为空且未绑定时才尝试绑定
-      if (walletAddress.length !== 56) {
-        alert(getText({ 
-          zh: 'Pi钱包地址必须是56位', 
-          en: 'Pi wallet address must be 56 characters',
-          ko: 'Pi 지갑 주소는 56자여야 합니다',
-          vi: 'Địa chỉ ví Pi phải có 56 ký tự'
-        }));
-        return;
-      }
-      
-      try {
-        await userApi.bindWallet(walletAddress);
-        setIsWalletBound(true); // 绑定成功后标记为已绑定
-        localStorage.setItem('walletAddress', walletAddress);
-      } catch (error: any) {
-        console.error('绑定钱包错误:', error);
-        alert(getText({ 
-          zh: '保存钱包地址失败，请重试', 
-          en: 'Failed to save wallet address, please try again',
-          ko: '지갑 주소 저장 실패, 다시 시도하세요',
-          vi: 'Lưu địa chỉ ví thất bại, vui lòng thử lại'
-        }));
-        return; // 保存失败时阻止继续
-      }
-    }
+    // 钱包地址只能通过充值自动绑定，保存设置时不处理钱包地址
     
     // 保存地址信息到 localStorage
     localStorage.setItem('shippingAddress', fullAddress);
@@ -1583,15 +1556,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     </div>
                   </div>
                 ) : (
-                  // 未绑定，显示可编辑输入框
-                  <input
-                    type="text"
-                    value={walletAddress}
-                    onChange={(e) => handleWalletChange(e.target.value)}
-                    placeholder={getText({ zh: '请输入56位Pi钱包地址或充值自动绑定', en: 'Enter 56-char address or auto-bind via deposit', ko: '56자 주소 입력 또는 충전으로 자동 연결', vi: 'Nhập 56 ký tự hoặc tự động liên kết qua nạp tiền' })}
-                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 uppercase placeholder:text-xs text-sm"
-                    maxLength={56}
-                  />
+                  // 未绑定，显示只读提示
+                  <div className="w-full px-2 py-1.5 bg-white/50 text-gray-500 rounded-lg text-sm text-center">
+                    {getText({ zh: '请先充值，系统将自动绑定您的钱包地址', en: 'Please deposit first to auto-bind your wallet', ko: '먼저 충전하여 지갑을 자동으로 연결하세요', vi: 'Vui lòng nạp tiền trước để tự động liên kết ví' })}
+                  </div>
                 )}
                 {!isWalletBound && walletAddress && walletAddress.length < 56 && (
                   <p className="text-white/70 text-xs mt-1">
