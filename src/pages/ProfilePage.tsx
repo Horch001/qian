@@ -612,27 +612,51 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     setShowSettings(false);
   };
 
-  const handleWithdraw = () => {
-    if (!walletAddress) {
-      // 根据用户类型给出不同的提示
-      if (isMerchant) {
-        alert(getText({ 
-          zh: '钱包地址未绑定。请先进行一笔任意金额的充值（如0.01π），系统将自动绑定您的钱包地址。', 
-          en: 'Wallet not bound. Please make a deposit of any amount (e.g. 0.01π) to auto-bind your wallet.',
-          ko: '지갑이 연결되지 않았습니다. 임의 금액(예: 0.01π)을 입금하여 지갑을 자동으로 연결하세요.',
-          vi: 'Ví chưa được liên kết. Vui lòng nạp bất kỳ số tiền nào (ví dụ: 0.01π) để tự động liên kết ví.'
-        }));
-      } else {
-        alert(getText({ 
-          zh: '钱包地址未绑定。请先充值，系统将自动绑定您的钱包地址。', 
-          en: 'Wallet not bound. Please deposit first to auto-bind your wallet.',
-          ko: '지갑이 연결되지 않았습니다. 먼저 충전하여 지갑을 자동으로 연결하세요.',
-          vi: 'Ví chưa được liên kết. Vui lòng nạp tiền trước để tự động liên kết ví.'
-        }));
+  const handleWithdraw = async () => {
+    // 先从后端获取最新钱包信息
+    try {
+      const latestWallet = await userApi.getWallet() as { piAddress?: string; isLocked?: boolean } | null;
+      
+      if (!latestWallet || !latestWallet.piAddress || latestWallet.piAddress.trim() === '') {
+        // 钱包未绑定
+        if (isMerchant) {
+          alert(getText({ 
+            zh: '钱包地址未绑定。请先进行一笔任意金额的充值（如0.01π），系统将自动绑定您的钱包地址。', 
+            en: 'Wallet not bound. Please make a deposit of any amount (e.g. 0.01π) to auto-bind your wallet.',
+            ko: '지갑이 연결되지 않았습니다. 임의 금액(예: 0.01π)을 입금하여 지갑을 자동으로 연결하세요.',
+            vi: 'Ví chưa được liên kết. Vui lòng nạp bất kỳ số tiền nào (ví dụ: 0.01π) để tự động liên kết ví.'
+          }));
+        } else {
+          alert(getText({ 
+            zh: '钱包地址未绑定。请先充值，系统将自动绑定您的钱包地址。', 
+            en: 'Wallet not bound. Please deposit first to auto-bind your wallet.',
+            ko: '지갑이 연결되지 않았습니다. 먼저 충전하여 지갑을 자동으로 연결하세요.',
+            vi: 'Ví chưa được liên kết. Vui lòng nạp tiền trước để tự động liên kết ví.'
+          }));
+        }
+        // 同步更新state
+        setWalletAddress('');
+        setIsWalletBound(false);
+        localStorage.removeItem('walletAddress');
+        return;
       }
-      return;
+      
+      // 同步更新state为最新钱包地址
+      setWalletAddress(latestWallet.piAddress);
+      setIsWalletBound(true);
+      localStorage.setItem('walletAddress', latestWallet.piAddress);
+      
+      // 打开提现弹窗
+      setShowWithdrawModal(true);
+    } catch (error) {
+      console.error('获取钱包信息失败:', error);
+      alert(getText({ 
+        zh: '获取钱包信息失败，请重试', 
+        en: 'Failed to get wallet info, please try again',
+        ko: '지갑 정보 가져오기 실패, 다시 시도하세요',
+        vi: 'Lấy thông tin ví thất bại, vui lòng thử lại'
+      }));
     }
-    setShowWithdrawModal(true);
   };
 
   const handleConfirmWithdraw = async () => {
