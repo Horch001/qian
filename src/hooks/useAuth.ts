@@ -39,6 +39,9 @@ export function useAuth() {
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     try {
+      // 登录前清除所有旧数据
+      localStorage.clear();
+      
       const response = await authApi.login({ email, password });
       localStorage.setItem('authToken', response.token);
       setUser(response.user);
@@ -53,6 +56,9 @@ export function useAuth() {
   const register = useCallback(async (email: string, password: string, username?: string) => {
     setError(null);
     try {
+      // 注册前清除所有旧数据
+      localStorage.clear();
+      
       const response = await authApi.register({ email, password, username });
       localStorage.setItem('authToken', response.token);
       setUser(response.user);
@@ -67,6 +73,9 @@ export function useAuth() {
   const piLogin = useCallback(async (piUid: string, accessToken: string, username?: string) => {
     setError(null);
     try {
+      // Pi登录前清除所有旧数据
+      localStorage.clear();
+      
       const response = await authApi.piLogin({ piUid, accessToken, username });
       localStorage.setItem('authToken', response.token);
       setUser(response.user);

@@ -80,12 +80,55 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       const amount = rechargeAmount;
       setShowRechargeModal(false);
       setRechargeAmount('');
-      showToast(
-        'success',
-        getText({ zh: '充值成功', en: 'Recharge Successful', ko: '충전 성공', vi: 'Nạp tiền thành công' }),
-        getText({ zh: '已到账', en: 'Added to balance', ko: '잔액에 추가됨', vi: 'Đã thêm vào số dư' }),
-        `${amount}π`
-      );
+      
+      // 获取最新钱包信息，检查是否是首次绑定
+      userApi.getWallet().then((wallet: any) => {
+        if (wallet && wallet.piAddress) {
+          // 显示充值成功弹窗，包含钱包地址信息
+          const successModal = document.createElement('div');
+          successModal.className = 'fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-start justify-center p-4 pt-32';
+          successModal.innerHTML = `
+            <div class="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-[scale-in_0.3s_ease-out] relative">
+              <button class="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none" onclick="this.closest('.fixed').remove()">×</button>
+              <div class="flex flex-col items-center text-center space-y-4">
+                <div class="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white">${getText({ zh: '充值成功！', en: 'Recharge Successful!', ko: '충전 성공!', vi: 'Nạp tiền thành công!' })}</h3>
+                <div class="space-y-3 text-white/90 w-full">
+                  <p class="text-lg"><span class="text-white/70">${getText({ zh: '充值金额', en: 'Amount', ko: '금액', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
+                  <div class="text-sm">
+                    <p class="text-white/70 mb-2">${getText({ zh: '已自动绑定钱包地址', en: 'Wallet address auto-bound', ko: '지갑 주소 자동 연결됨', vi: 'Địa chỉ ví đã tự động liên kết' })}</p>
+                    <p class="font-mono text-xs break-keep whitespace-nowrap overflow-x-auto" title="${wallet.piAddress}">${wallet.piAddress}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(successModal);
+          successModal.addEventListener('click', (e) => {
+            if (e.target === successModal) successModal.remove();
+          });
+        } else {
+          // 没有钱包信息，显示简单提示
+          showToast(
+            'success',
+            getText({ zh: '充值成功', en: 'Recharge Successful', ko: '충전 성공', vi: 'Nạp tiền thành công' }),
+            getText({ zh: '已到账', en: 'Added to balance', ko: '잔액에 추가됨', vi: 'Đã thêm vào số dư' }),
+            `${amount}π`
+          );
+        }
+      }).catch(() => {
+        // 获取钱包信息失败，显示简单提示
+        showToast(
+          'success',
+          getText({ zh: '充值成功', en: 'Recharge Successful', ko: '충전 성공', vi: 'Nạp tiền thành công' }),
+          getText({ zh: '已到账', en: 'Added to balance', ko: '잔액에 추가됨', vi: 'Đã thêm vào số dư' }),
+          `${amount}π`
+        );
+      });
     },
     onError: (error) => {
       showToast(
@@ -742,6 +785,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             <h3 class="text-2xl font-bold text-white">${getText({ zh: '提现申请已提交！', en: 'Withdrawal Submitted!', ko: '출금 신청 완료!', vi: 'Đã gửi yêu cầu rút tiền!' })}</h3>
             <div class="space-y-3 text-white/90 w-full">
               <p class="text-lg"><span class="text-white/70">${getText({ zh: '提现金额', en: 'Amount', ko: '금额', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
+              <p class="text-lg"><span class="text-white/70">${getText({ zh: '到账金额', en: 'Received', ko: '수령 금액', vi: 'Số tiền nhận' })}：</span><span class="font-bold">${(amount * 0.97).toFixed(2)}π</span></p>
               <div class="text-sm">
                 <p class="text-white/70 mb-1">${getText({ zh: '钱包地址', en: 'Wallet', ko: '지갑', vi: 'Ví' })}</p>
                 <p class="font-mono text-sm break-all" title="${latestWallet.piAddress}">${formatWalletAddressShort(latestWallet.piAddress)}</p>
@@ -1569,13 +1613,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 {isWalletBound ? (
                   // 已绑定钱包地址，显示为只读，带悬浮提示
                   <div 
-                    className="w-full px-2 py-1.5 bg-white/50 text-gray-600 rounded-lg text-sm font-mono cursor-not-allowed relative group"
-                    title={getText({ zh: '钱包地址已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Wallet address is auto-bound to payment wallet, cannot be changed except in special cases', ko: '지갑 주소가 결제 지갑에 자동으로 연결되었으며 특별한 경우를 제외하고는 변경할 수 없습니다', vi: 'Địa chỉ ví được tự động liên kết với ví thanh toán, không thể thay đổi trừ trường hợp đặc biệt' })}
+                    className="w-full px-2 py-1.5 bg-white/50 text-yellow-600 rounded-lg text-sm font-mono cursor-not-allowed relative group"
+                    title={getText({ zh: '已自动绑定付款钱包地址，非特殊情况不支持变更', en: 'Auto-bound to payment wallet, changes not supported except in special cases', ko: '결제 지갑에 자동 연결됨, 특별한 경우를 제외하고 변경 불가', vi: 'Tự động liên kết ví thanh toán, không hỗ trợ thay đổi trừ trường hợp đặc biệt' })}
                   >
                     {formatWalletAddressLarge(walletAddress)}
                     {/* 悬浮提示 */}
                     <div className="absolute left-0 -top-16 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                      {getText({ zh: '已自动绑定付款钱包地址，非特殊情况不能修改', en: 'Auto-bound to payment wallet, cannot be changed', ko: '결제 지갑에 자동 연결됨, 변경 불가', vi: 'Tự động liên kết ví thanh toán, không thể thay đổi' })}
+                      {getText({ zh: '已自动绑定付款钱包地址，非特殊情况不支持变更', en: 'Auto-bound to payment wallet, changes not supported', ko: '결제 지갑에 자동 연결됨, 변경 불가', vi: 'Tự động liên kết ví thanh toán, không hỗ trợ thay đổi' })}
                       <div className="absolute left-4 -bottom-1 w-2 h-2 bg-gray-800 transform rotate-45"></div>
                     </div>
                   </div>
@@ -1786,7 +1830,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <div className="flex justify-center pt-2">
                 <button
                   onClick={handleConfirmWithdraw}
-                  className="py-1 px-1 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                  className="py-3 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
                 >
                   {getText({ zh: '确认提现', en: 'Confirm', ko: '确认', vi: 'Xác nhận' })}
                 </button>
@@ -1828,7 +1872,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 <div className="text-white/80 text-xs leading-relaxed flex-1 space-y-1">
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
-                    <span>{getText({ zh: '点击确认后将调用官方API接口唤起pi钱包', en: 'After confirmation, the official API will open Pi wallet', ko: '확인 후 공식 API가 Pi 지갑을 엽니다', vi: 'Sau khi xác nhận, API chính thức sẽ mở ví Pi' })}</span>
+                    <span>{getText({ zh: '点击确认后将调用官方API接口唤醒pi钱包', en: 'After confirmation, the official API will wake up Pi wallet', ko: '확인 후 공식 API가 Pi 지갑을 깨웁니다', vi: 'Sau khi xác nhận, API chính thức sẽ đánh thức ví Pi' })}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
