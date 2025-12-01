@@ -316,11 +316,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             setIsWalletBound(true); // 标记为已绑定
             localStorage.setItem('walletAddress', wallet.piAddress);
           } else {
-            // 如果钱包地址为空（管理员解绑后），清空本地缓存
+            // 如果钱包地址为空（管理员解绑后），清空本地缓存和state
             setWalletAddress('');
             setIsWalletBound(false); // 标记为未绑定
             localStorage.removeItem('walletAddress');
           }
+        } else {
+          // 如果钱包不存在，也清空本地缓存
+          setWalletAddress('');
+          setIsWalletBound(false);
+          localStorage.removeItem('walletAddress');
         }
       } finally {
         setIsLoading(false);
@@ -689,13 +694,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     }
     
     try {
-      // 先确保钱包地址已同步到后端
-      if (walletAddress) {
-        try {
-          await userApi.bindWallet(walletAddress);
-        } catch (bindError: any) {
-          throw bindError;
-        }
+      // 重新从后端获取最新的钱包信息，确保使用最新的钱包地址
+      const latestWallet = await userApi.getWallet();
+      
+      // 检查后端钱包地址是否存在且不为空
+      if (!latestWallet || !latestWallet.piAddress || latestWallet.piAddress.trim() === '') {
+        alert(getText({ 
+          zh: '钱包地址未绑定。请先充值，系统将自动绑定您的钱包地址。', 
+          en: 'Wallet not bound. Please deposit first to auto-bind your wallet.',
+          ko: '지갑이 연결되지 않았습니다. 먼저 충전하여 지갑을 자동으로 연결하세요.',
+          vi: 'Ví chưa được liên kết. Vui lòng nạp tiền trước để tự động liên kết ví.'
+        }));
+        return;
       }
       
       // 调用后端API提交提现申请
@@ -737,7 +747,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <p class="text-lg"><span class="text-white/70">${getText({ zh: '提现金额', en: 'Amount', ko: '금额', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
               <div class="text-sm">
                 <p class="text-white/70 mb-1">${getText({ zh: '钱包地址', en: 'Wallet', ko: '지갑', vi: 'Ví' })}</p>
-                <p class="font-mono text-sm break-all" title="${walletAddress}">${formatWalletAddressShort(walletAddress)}</p>
+                <p class="font-mono text-sm break-all" title="${latestWallet.piAddress}">${formatWalletAddressShort(latestWallet.piAddress)}</p>
               </div>
               <p class="text-xs text-white/60 mt-2">${getText({ zh: '请在余额明细中查看处理状态', en: 'Check balance history for status', ko: '잔액 내역에서 처리 상태 확인', vi: 'Kiểm tra lịch sử số dư để xem trạng thái' })}</p>
             </div>
