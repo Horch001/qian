@@ -583,6 +583,12 @@ export const merchantApi = {
   // 获取商家商品列表
   getMerchantProducts: (id: string, page = 1, limit = 20) =>
     request<ProductListResponse>(`/merchants/${id}/products?page=${page}&limit=${limit}`),
+
+  // 获取商家订单列表
+  getMyOrders: (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    return request<any[]>(`/merchants/my/orders${query}`);
+  },
 };
 
 // ==================== 统计 API ====================

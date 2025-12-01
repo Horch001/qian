@@ -417,11 +417,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       return;
     }
 
-    // 获取商家用户ID
-    const merchantUserId = item.merchantId || item.merchant?.userId || item.merchant?.id;
+    // 获取商家用户ID - 需要从商品的merchant对象中获取userId
+    let merchantUserId = item.merchant?.userId;
+    
+    // 如果没有merchant.userId，尝试通过merchantId查询
+    if (!merchantUserId && item.merchantId) {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_URL}/api/v1/merchants/${item.merchantId}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const merchantData = await response.json();
+          merchantUserId = merchantData.user?.id || merchantData.userId;
+        }
+      } catch (error) {
+        console.error('Failed to fetch merchant:', error);
+      }
+    }
     
     if (!merchantUserId) {
-      // 如果没有商家ID，跳转到官方客服页面
+      // 如果没有商家用户ID，跳转到官方客服页面
       navigate('/customer-service');
       return;
     }

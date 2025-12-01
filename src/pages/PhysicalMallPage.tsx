@@ -38,6 +38,35 @@ export const PhysicalMallPage: React.FC = () => {
     };
 
     fetchProducts();
+
+    // 监听商品状态更新（WebSocket）
+    const handleProductUpdate = (updatedProduct: any) => {
+      setProducts(prevProducts => {
+        // 如果商品已下架，从列表中移除
+        if (updatedProduct.status === 'INACTIVE' || updatedProduct.status === 'DELETED') {
+          return prevProducts.filter(p => p.id !== updatedProduct.id);
+        }
+        // 如果商品重新上架，添加到列表（如果不存在）
+        if (updatedProduct.status === 'ACTIVE') {
+          const exists = prevProducts.some(p => p.id === updatedProduct.id);
+          if (!exists && updatedProduct.category?.type === 'PHYSICAL') {
+            return [updatedProduct, ...prevProducts];
+          }
+          // 更新现有商品
+          return prevProducts.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+        }
+        return prevProducts;
+      });
+    };
+
+    // 监听全局商品更新事件
+    window.addEventListener('product:updated', ((e: CustomEvent) => {
+      handleProductUpdate(e.detail);
+    }) as EventListener);
+
+    return () => {
+      window.removeEventListener('product:updated', handleProductUpdate as any);
+    };
   }, [sortBy]);
 
   const goToDetail = (product: Product) => {

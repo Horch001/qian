@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Store, Plus, Package, BarChart3, Upload, ChevronRight, Loader2, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ArrowLeft, Store, Plus, Package, BarChart3, Upload, ChevronRight, Loader2, CheckCircle, Clock, XCircle, Edit3 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
 
@@ -147,7 +147,14 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                 {/* 展开的操作菜单 */}
                 {selectedShop === shop.id && shop.status === 'APPROVED' && (
                   <div className="border-t border-gray-100 p-3 bg-gray-50">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
+                      <button
+                        onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'info' } })}
+                        className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                      >
+                        <Edit3 className="w-5 h-5 text-green-500" />
+                        <span className="text-xs text-gray-700 font-medium">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Chỉnh sửa' })}</span>
+                      </button>
                       <button
                         onClick={() => navigate('/upload-product', { state: { merchantId: shop.id, shopName: shop.shopName } })}
                         className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
@@ -156,7 +163,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                         <span className="text-xs text-gray-700 font-medium">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải lên' })}</span>
                       </button>
                       <button
-                        onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id } })}
+                        onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'products' } })}
                         className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Package className="w-5 h-5 text-yellow-500" />

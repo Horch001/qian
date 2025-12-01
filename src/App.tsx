@@ -136,6 +136,10 @@ export const App: React.FC = () => {
       eventsSocketService.on('favorite:updated', (data) => {
         window.dispatchEvent(new CustomEvent('favoriteUpdated', { detail: data }));
       });
+
+      eventsSocketService.on('product:updated', (product) => {
+        window.dispatchEvent(new CustomEvent('product:updated', { detail: product }));
+      });
     }
 
     return () => {
@@ -308,6 +312,18 @@ export const App: React.FC = () => {
   // Checkout page
   if (location.pathname === '/checkout') {
     return <CheckoutPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Merchant detail page
+  if (location.pathname.startsWith('/merchant/')) {
+    const MerchantDetailPage = React.lazy(() => 
+      import('./pages/MerchantDetailPage').then(m => ({ default: m.MerchantDetailPage }))
+    );
+    return (
+      <React.Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div>}>
+        <MerchantDetailPage language={language} translations={TRANSLATIONS} />
+      </React.Suspense>
+    );
   }
 
   // Detail pages layout
