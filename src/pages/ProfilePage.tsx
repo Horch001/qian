@@ -1109,7 +1109,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <ShoppingBag className="w-5 h-5 text-white" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '全部', en: 'All', ko: '전체', vi: 'Tất cả' })}</span>
-                    {ordersList.length > 0 && <span className="absolute -top-1 -right-1 bg-gray-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{ordersList.length}</span>}
                   </button>
                   <button 
                     onClick={() => setSelectedOrderTab('unpaid')}

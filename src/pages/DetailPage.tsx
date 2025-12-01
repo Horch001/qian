@@ -410,51 +410,48 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   };
 
   const handleOpenChat = async () => {
+    // 检查用户是否登录
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      alert(language === 'zh' ? '请先登录' : 'Please login first');
+      return;
+    }
+
+    // 获取商家用户ID
+    const merchantUserId = item.merchantId || item.merchant?.userId || item.merchant?.id;
+    
+    if (!merchantUserId) {
+      // 如果没有商家ID，跳转到官方客服页面
+      navigate('/customer-service');
+      return;
+    }
+
     setShowMerchantChat(true);
     setChatLoading(true);
     
     try {
-      // 获取商家用户ID
-      const merchantUserId = item.merchantId || item.merchant?.userId || item.merchant?.id;
-      
-      // 检查用户是否登录
-      const token = localStorage.getItem('authToken');
-      if (!token) {
-        alert(language === 'zh' ? '请先登录' : 'Please login first');
-        setChatLoading(false);
-        setShowMerchantChat(false);
-        return;
-      }
+      // 创建或获取聊天室
+      const room = await chatApi.getOrCreateRoom(merchantUserId);
+      setChatRoomId(room.id);
 
-      if (merchantUserId) {
-        // 创建或获取聊天室
-        const room = await chatApi.getOrCreateRoom(merchantUserId);
-        setChatRoomId(room.id);
+      // 获取历史消息
+      const messages = await chatApi.getMessages(room.id);
+      setChatMessages(messages);
 
-        // 获取历史消息
-        const messages = await chatApi.getMessages(room.id);
-        setChatMessages(messages);
+      // 连接 Socket
+      socketService.connect(token);
+      socketService.joinRoom(room.id);
 
-        // 连接 Socket
-        socketService.connect(token);
-        socketService.joinRoom(room.id);
-
-        socketService.onNewMessage((message: ChatMessage) => {
-          setChatMessages(prev => [...prev, message]);
-          scrollToBottom();
-        });
-
+      socketService.onNewMessage((message: ChatMessage) => {
+        setChatMessages(prev => [...prev, message]);
         scrollToBottom();
-      } else {
-        // 如果没有商家ID，跳转到客服页面
-        setShowMerchantChat(false);
-        navigate('/customer-service');
-      }
+      });
+
+      scrollToBottom();
     } catch (error) {
       console.error('Failed to open chat:', error);
-      // 出错时跳转到客服页面
+      alert(language === 'zh' ? '无法连接商家，请稍后重试' : 'Cannot connect to merchant');
       setShowMerchantChat(false);
-      navigate('/customer-service');
     } finally {
       setChatLoading(false);
     }
@@ -572,7 +569,17 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 </div>
               </div>
             </div>
-            <button className="px-3 py-1.5 border border-purple-600 text-purple-600 text-xs font-bold rounded-lg hover:bg-purple-50 transition-colors">
+            <button 
+              onClick={() => {
+                const merchantId = item.merchantId || item.merchant?.id;
+                if (merchantId) {
+                  navigate(`/merchant/${merchantId}`);
+                } else {
+                  alert(language === 'zh' ? '店铺信息不存在' : 'Shop not found');
+                }
+              }}
+              className="px-3 py-1.5 border border-purple-600 text-purple-600 text-xs font-bold rounded-lg hover:bg-purple-50 transition-colors"
+            >
               {language === 'zh' ? '进店' : 'Visit'}
             </button>
           </div>

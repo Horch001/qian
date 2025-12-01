@@ -372,8 +372,13 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                             if (confirm(getText({ zh: '确定要下架此商品吗？', en: 'Deactivate this product?', ko: '이 상품을 비활성화하시겠습니까?', vi: 'Ẩn sản phẩm này?' }))) {
                               try {
                                 await merchantApi.deactivateProduct(product.id);
+                                // 立即更新本地状态
+                                setProducts(prevProducts => 
+                                  prevProducts.map(p => 
+                                    p.id === product.id ? { ...p, status: 'INACTIVE' } : p
+                                  )
+                                );
                                 alert(getText({ zh: '下架成功', en: 'Deactivated', ko: '비활성화됨', vi: 'Đã ẩn' }));
-                                fetchMerchantData();
                               } catch (error: any) {
                                 alert(error.message || getText({ zh: '下架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
                               }
@@ -381,15 +386,20 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                           }}
                           className="flex-1 py-2 bg-yellow-500 text-white rounded-lg text-sm font-bold hover:bg-yellow-600 active:scale-95 transition-all"
                         >
-                          {getText({ zh: '下架', en: 'Deactivate', ko: '비활성화', vi: 'Ẩn' })}
+                          {getText({ zh: '下架', en: 'Deactivate', ko: '비활성化', vi: 'Ẩn' })}
                         </button>
                       ) : product.status === 'INACTIVE' ? (
                         <button
                           onClick={async () => {
                             try {
                               await merchantApi.activateProduct(product.id);
+                              // 立即更新本地状态
+                              setProducts(prevProducts => 
+                                prevProducts.map(p => 
+                                  p.id === product.id ? { ...p, status: 'ACTIVE' } : p
+                                )
+                              );
                               alert(getText({ zh: '上架成功', en: 'Activated', ko: '활성화됨', vi: 'Đã hiển thị' }));
-                              fetchMerchantData();
                             } catch (error: any) {
                               alert(error.message || getText({ zh: '上架失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
                             }
@@ -431,7 +441,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                 <p className="text-gray-500 text-sm">{getText({ zh: '商品数', en: 'Products', ko: '상품 수', vi: 'Sản phẩm' })}</p>
               </div>
               <div className="bg-white rounded-xl p-4 text-center">
-                <p className="text-3xl font-bold text-purple-600">{merchant.totalSales || 0}</p>
+                <p className="text-3xl font-bold text-purple-600">{products.reduce((sum, p) => sum + (p.sales || 0), 0)}</p>
                 <p className="text-gray-500 text-sm">{getText({ zh: '总销量', en: 'Total Sales', ko: '총 판매', vi: 'Tổng bán' })}</p>
               </div>
               <div className="bg-white rounded-xl p-4 text-center">
