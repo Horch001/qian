@@ -15,6 +15,10 @@ export default defineConfig({
     // 代码分割优化
     rollupOptions: {
       output: {
+        // 添加时间戳到文件名，强制浏览器重新加载
+        entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
+        assetFileNames: `assets/[name]-[hash]-${Date.now()}.[ext]`,
         manualChunks: {
           // 将 React 相关库单独打包
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
