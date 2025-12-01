@@ -400,6 +400,10 @@ export const favoriteApi = {
   // 取消收藏
   removeFavorite: (productId: string) =>
     request(`/favorites/${productId}`, { method: 'DELETE' }),
+
+  // 检查是否已收藏
+  checkFavorite: (productId: string) =>
+    request<{ isFavorite: boolean }>(`/favorites/${productId}/check`),
 };
 
 // ==================== Pi 支付 API ====================

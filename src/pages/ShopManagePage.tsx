@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Store, Upload, Package, BarChart3, Edit2, Save, Plus, Image } from 'lucide-react';
+import { ArrowLeft, Store, Upload, Package, BarChart3, Edit2, Save, Plus, Image, ShoppingBag } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi } from '../services/api';
 
@@ -16,8 +16,9 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
   const location = useLocation();
   const [merchant, setMerchant] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'info' | 'products' | 'stats'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'products' | 'orders' | 'stats'>('info');
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     shopName: '',
@@ -38,6 +39,10 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       setActiveTab('stats');
     } else if (stateData?.tab === 'products') {
       setActiveTab('products');
+    } else if (stateData?.tab === 'orders') {
+      setActiveTab('orders');
+    } else if (stateData?.tab === 'info') {
+      setActiveTab('info');
     }
     fetchMerchantData();
   }, [stateData?.merchantId, stateData?.tab]);
@@ -217,6 +222,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
         {[
           { key: 'info', label: { zh: '店铺装修', en: 'Shop Info', ko: '상점 정보', vi: 'Thông tin' }, icon: Edit2 },
           { key: 'products', label: { zh: '我的商品', en: 'Products', ko: '상품', vi: 'Sản phẩm' }, icon: Package },
+          { key: 'orders', label: { zh: '订单管理', en: 'Orders', ko: '주문', vi: 'Đơn hàng' }, icon: ShoppingBag },
           { key: 'stats', label: { zh: '数据统计', en: 'Stats', ko: '통계', vi: 'Thống kê' }, icon: BarChart3 },
         ].map((tab) => (
           <button
@@ -425,6 +431,60 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       >
                         {getText({ zh: '删除', en: 'Delete', ko: '삭제', vi: 'Xóa' })}
                       </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'orders' && (
+          <div className="space-y-4">
+            <button
+              onClick={async () => {
+                try {
+                  const ordersData = await merchantApi.getMyOrders();
+                  setOrders(ordersData || []);
+                } catch (error: any) {
+                  alert(error.message || getText({ zh: '加载订单失败', en: 'Failed to load orders', ko: '주문 로드 실패', vi: 'Tải đơn hàng thất bại' }));
+                }
+              }}
+              className="w-full py-3 bg-white rounded-xl text-purple-600 font-bold"
+            >
+              {getText({ zh: '刷新订单', en: 'Refresh Orders', ko: '주문 새로고침', vi: 'Làm mới đơn hàng' })}
+            </button>
+
+            {orders.length === 0 ? (
+              <div className="text-center py-8 text-white/60">
+                {getText({ zh: '暂无订单', en: 'No orders yet', ko: '주문 없음', vi: 'Chưa có đơn hàng' })}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orders.map((order) => (
+                  <div key={order.id} className="bg-white rounded-xl p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <p className="text-sm text-gray-500">{getText({ zh: '订单号', en: 'Order No', ko: '주문 번호', vi: 'Mã đơn' })}: {order.orderNo}</p>
+                        <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleString()}</p>
+                      </div>
+                      <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded">{order.orderStatus}</span>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <p><span className="text-gray-500">{getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}:</span> {order.user?.username || '-'}</p>
+                      <p><span className="text-gray-500">{getText({ zh: '金额', en: 'Amount', ko: '금액', vi: 'Số tiền' })}:</span> <span className="text-red-600 font-bold">{order.totalAmount}π</span></p>
+                      {order.address && (
+                        <>
+                          <p><span className="text-gray-500">{getText({ zh: '收件人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}:</span> {order.address.receiverName} {order.address.receiverPhone}</p>
+                          <p><span className="text-gray-500">{getText({ zh: '地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })}:</span> {order.address.province} {order.address.city} {order.address.district} {order.address.detail}</p>
+                        </>
+                      )}
+                      <div className="pt-2 border-t">
+                        <p className="text-gray-500 mb-1">{getText({ zh: '商品', en: 'Items', ko: '상품', vi: 'Sản phẩm' })}:</p>
+                        {order.items?.map((item: any, idx: number) => (
+                          <p key={idx} className="text-xs">• {item.product?.title || '商品'} x{item.quantity}</p>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ))}

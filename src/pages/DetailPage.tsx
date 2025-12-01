@@ -137,9 +137,20 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   ];
 
   useEffect(() => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    const isFav = favorites.some((f: any) => f.id === item.id);
-    setIsFavorite(isFav);
+    // 从后端检查收藏状态
+    const checkFavoriteStatus = async () => {
+      const token = localStorage.getItem('authToken');
+      if (token && item.id) {
+        try {
+          const result = await favoriteApi.checkFavorite(item.id);
+          setIsFavorite(result.isFavorite);
+        } catch (error) {
+          console.error('检查收藏状态失败:', error);
+        }
+      }
+    };
+    
+    checkFavoriteStatus();
     setFavoriteCount(item.favorites || 0);
     if (!selectedSpec) setSelectedSpec(specs[0][language]);
   }, [item.id]);
@@ -150,6 +161,10 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       alert(language === 'zh' ? '请先登录' : 'Please login first');
       return;
     }
+
+    // 防止重复点击
+    if (addingToCart) return;
+    setAddingToCart(true);
 
     // 乐观更新 - 立即更新UI
     const wasIsFavorite = isFavorite;
@@ -162,19 +177,20 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       if (wasIsFavorite) {
         // 取消收藏 - 调用后端API
         await favoriteApi.removeFavorite(item.id);
+        console.log('取消收藏成功');
       } else {
         // 添加收藏 - 调用后端API
         await favoriteApi.addFavorite(item.id);
+        console.log('添加收藏成功');
       }
-      // 显示成功提示
-      // 使用简单的方式显示成功反馈
-      console.log(language === 'zh' ? '操作成功' : 'Success');
     } catch (error: any) {
       // 回滚UI状态
       setIsFavorite(wasIsFavorite);
       setFavoriteCount(prevCount);
       console.error('收藏操作失败:', error);
       alert(error.message || (language === 'zh' ? '操作失败' : 'Operation failed'));
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -482,22 +498,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   };
 
   const handleSendMessage = async () => {
-    if (!chatMessage.trim()) return;
+    const trimmedMessage = chatMessage.trim();
+    if (!trimmedMessage) return;
     
-    if (chatRoomId) {
-      // 使用真实聊天
-      try {
-        await socketService.sendMessage(chatRoomId, chatMessage.trim(), 'TEXT');
-        setChatMessage('');
-        scrollToBottom();
-      } catch (error) {
-        console.error('发送消息失败:', error);
-        alert(language === 'zh' ? '发送失败，请重试' : 'Send failed, please retry');
-      }
-    } else {
-      // 没有聊天室，提示用户
-      alert(language === 'zh' ? '请先联系客服' : 'Please contact customer service');
-      navigate('/customer-service');
+    if (!chatRoomId) {
+      alert(language === 'zh' ? '聊天室未连接' : 'Chat room not connected');
+      return;
+    }
+    
+    try {
+      // 清空输入框（乐观更新）
+      setChatMessage('');
+      
+      // 发送消息
+      await socketService.sendMessage(chatRoomId, trimmedMessage, 'TEXT');
+      
+      scrollToBottom();
+    } catch (error) {
+      console.error('发送消息失败:', error);
+      // 恢复消息内容
+      setChatMessage(trimmedMessage);
+      alert(language === 'zh' ? '发送失败，请重试' : 'Send failed, please retry');
     }
   };
 
