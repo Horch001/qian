@@ -695,7 +695,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     
     try {
       // 重新从后端获取最新的钱包信息，确保使用最新的钱包地址
-      const latestWallet = await userApi.getWallet();
+      const latestWallet = await userApi.getWallet() as { piAddress?: string; isLocked?: boolean } | null;
       
       // 检查后端钱包地址是否存在且不为空
       if (!latestWallet || !latestWallet.piAddress || latestWallet.piAddress.trim() === '') {
