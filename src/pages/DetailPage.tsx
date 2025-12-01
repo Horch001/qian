@@ -446,6 +446,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         if (response.ok) {
           const merchantData = await response.json();
           merchantUserId = merchantData.user?.id || merchantData.userId;
+          console.log('获取到商家用户ID:', merchantUserId);
         }
       } catch (error) {
         console.error('Failed to fetch merchant:', error);
@@ -453,8 +454,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     }
     
     if (!merchantUserId) {
-      // 如果没有商家用户ID，跳转到官方客服页面
-      navigate('/customer-service');
+      console.error('无法获取商家用户ID，商品数据:', item);
+      alert(language === 'zh' ? '该商品暂无客服，请联系平台客服' : 'No merchant service available');
       return;
     }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Store, Plus, Package, BarChart3, Upload, ChevronRight, Loader2, CheckCircle, Clock, XCircle, Edit3 } from 'lucide-react';
+import { ArrowLeft, Store, Plus, Package, BarChart3, Upload, ChevronRight, Loader2, CheckCircle, Clock, XCircle, Edit3, ShoppingBag } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
 
@@ -147,34 +147,41 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                 {/* 展开的操作菜单 */}
                 {selectedShop === shop.id && shop.status === 'APPROVED' && (
                   <div className="border-t border-gray-100 p-3 bg-gray-50">
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-5 gap-2">
                       <button
                         onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'info' } })}
-                        className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Edit3 className="w-5 h-5 text-green-500" />
-                        <span className="text-xs text-gray-700 font-medium">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Chỉnh sửa' })}</span>
+                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Sửa' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/upload-product', { state: { merchantId: shop.id, shopName: shop.shopName } })}
-                        className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Upload className="w-5 h-5 text-blue-500" />
-                        <span className="text-xs text-gray-700 font-medium">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải lên' })}</span>
+                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'products' } })}
-                        className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Package className="w-5 h-5 text-yellow-500" />
-                        <span className="text-xs text-gray-700 font-medium">{getText({ zh: '我的商品', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</span>
+                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '我的商品', en: 'Products', ko: '상품', vi: 'Hàng' })}</span>
+                      </button>
+                      <button
+                        onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'orders' } })}
+                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                      >
+                        <ShoppingBag className="w-5 h-5 text-red-500" />
+                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '订单管理', en: 'Orders', ko: '주문', vi: 'Đơn' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/shop-manage', { state: { merchantId: shop.id, tab: 'stats' } })}
-                        className="flex flex-col items-center gap-1 py-3 px-2 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <span className="text-xs text-gray-700 font-medium">{getText({ zh: '店铺数据', en: 'Stats', ko: '통계', vi: 'Thống kê' })}</span>
+                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '店铺数据', en: 'Stats', ko: '통계', vi: 'Số' })}</span>
                       </button>
                     </div>
                   </div>
