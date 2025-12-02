@@ -284,8 +284,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         }));
         setFavoritesList(formattedFavorites);
         setFavoritesCount(formattedFavorites.length);
-        // 缓存到本地
-        localStorage.setItem('cachedFavorites', JSON.stringify(formattedFavorites));
+        
+        // 缓存到本地（不包含图片数据，避免超出存储限制）
+        try {
+          const cacheData = formattedFavorites.map(fav => ({
+            ...fav,
+            images: [] // 不缓存图片，减少存储空间
+          }));
+          localStorage.setItem('cachedFavorites', JSON.stringify(cacheData));
+        } catch (cacheError) {
+          console.warn('缓存收藏列表失败（存储空间不足），跳过缓存:', cacheError);
+          // 清理旧缓存
+          localStorage.removeItem('cachedFavorites');
+        }
       } catch (error) {
         console.error('加载收藏失败:', error);
         // 如果没有缓存数据，才清空
@@ -395,8 +406,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       }));
       setFavoritesList(formattedFavorites);
       setFavoritesCount(formattedFavorites.length);
-      // 更新本地缓存
-      localStorage.setItem('cachedFavorites', JSON.stringify(formattedFavorites));
+      
+      // 更新本地缓存（不包含图片）
+      try {
+        const cacheData = formattedFavorites.map(fav => ({
+          ...fav,
+          images: []
+        }));
+        localStorage.setItem('cachedFavorites', JSON.stringify(cacheData));
+      } catch (cacheError) {
+        console.warn('缓存收藏列表失败，跳过缓存');
+        localStorage.removeItem('cachedFavorites');
+      }
     } catch (error) {
       console.error('刷新收藏失败:', error);
     }
