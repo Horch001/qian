@@ -45,6 +45,8 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
       console.log('开始获取店铺列表...');
       const data = await merchantApi.getMyAllMerchants();
       console.log('获取到的店铺数据:', data);
+      console.log('店铺数量:', data?.length || 0);
+      console.log('API URL:', import.meta.env.VITE_API_URL);
       setShops(data || []);
       setLoading(false); // 先显示店铺列表
       
@@ -128,6 +130,12 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
           <div className="text-center py-12">
             <Store size={64} className="text-white/30 mx-auto mb-4" />
             <p className="text-white/70">{getText({ zh: '您还没有店铺', en: 'You don\'t have any shops yet', ko: '아직 상점이 없습니다', vi: 'Bạn chưa có cửa hàng nào' })}</p>
+            {/* 调试信息 */}
+            <div className="mt-4 bg-white/10 p-3 rounded text-white/60 text-xs text-left">
+              <p>调试信息：</p>
+              <p>API地址: {import.meta.env.VITE_API_URL}</p>
+              <p>请检查浏览器控制台或截图此信息</p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

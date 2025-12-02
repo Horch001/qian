@@ -681,6 +681,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     }
     
     setShippingAddress(fullAddress);
+    
+    // 显示保存成功提示
+    alert(getText({ 
+      zh: '✅ 保存成功！', 
+      en: '✅ Saved successfully!', 
+      ko: '✅ 저장되었습니다!', 
+      vi: '✅ Đã lưu thành công!' 
+    }));
+    
     setShowSettings(false);
   };
 
