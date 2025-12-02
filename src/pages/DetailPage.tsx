@@ -29,6 +29,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [userBalance, setUserBalance] = useState(0);
   const [merchantUsername, setMerchantUsername] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [viewerImage, setViewerImage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 获取用户余额 - 优先从本地缓存获取，异步更新
@@ -467,9 +470,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       return;
     }
 
-    // 获取商家用户ID和用户名 - 需要从商品的merchant对象中获取userId
+    // 获取商家用户ID和店铺名 - 需要从商品的merchant对象中获取userId
     let merchantUserId = item.merchant?.userId;
-    let tempMerchantUsername = item.merchant?.user?.username || item.shop?.[language] || '商家';
+    let tempMerchantShopName = item.merchant?.shopName || item.shop?.[language] || '商家';
     
     // 如果没有merchant.userId，尝试通过merchantId查询
     if (!merchantUserId && item.merchantId) {
@@ -481,15 +484,15 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         if (response.ok) {
           const merchantData = await response.json();
           merchantUserId = merchantData.user?.id || merchantData.userId;
-          tempMerchantUsername = merchantData.user?.username || merchantData.shopName || '商家';
-          console.log('获取到商家用户ID:', merchantUserId, '用户名:', tempMerchantUsername);
+          tempMerchantShopName = merchantData.shopName || '商家';
+          console.log('获取到商家用户ID:', merchantUserId, '店铺名:', tempMerchantShopName);
         }
       } catch (error) {
         console.error('Failed to fetch merchant:', error);
       }
     }
     
-    setMerchantUsername(tempMerchantUsername);
+    setMerchantUsername(tempMerchantShopName);
     
     if (!merchantUserId) {
       console.error('无法获取商家用户ID，商品数据:', item);
@@ -515,10 +518,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
 
       socketService.onNewMessage((message: ChatMessage) => {
         setChatMessages(prev => [...prev, message]);
-        // 更新商家用户名
-        if (message.senderId !== currentUserId && message.sender?.username) {
-          setMerchantUsername(message.sender.username);
-        }
+        // 不需要从消息中更新店铺名，保持使用商家的店铺名
         scrollToBottom();
       });
 
@@ -596,34 +596,54 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-20">
-        {/* 主图展示 */}
-        <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-64 flex items-center justify-center overflow-hidden">
+        {/* 主图展示 - 可点击放大 */}
+        <div 
+          className="bg-gradient-to-br from-purple-100 to-pink-100 h-80 flex items-center justify-center overflow-hidden cursor-pointer"
+          onClick={() => {
+            const allImages = item.images || [];
+            if (allImages.length > 0) {
+              setViewerImage(allImages[currentImageIndex]);
+              setShowImageViewer(true);
+            }
+          }}
+        >
           {item.images && item.images.length > 0 ? (
-            <img src={item.images[0]} alt={item.title?.[language] || '商品'} className="w-full h-full object-contain" />
+            <img 
+              src={item.images[currentImageIndex]} 
+              alt={item.title?.[language] || '商品'} 
+              className="w-full h-full object-contain" 
+            />
           ) : (
             <span className="text-7xl">{item.icon || '📦'}</span>
           )}
         </div>
         
-        {/* 副图展示 */}
+        {/* 副图展示 - 点击切换主图 */}
         {item.images && item.images.length > 1 && (
           <div className="bg-white p-3 border-b">
-            <div className="flex gap-2 overflow-x-auto">
-              {item.images.slice(1).map((img: string, idx: number) => (
-                <div key={idx} className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-gray-200">
-                  <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-contain bg-white" />
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+              {item.images.map((img: string, idx: number) => (
+                <div 
+                  key={idx} 
+                  className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                    currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
+                  }`}
+                  onClick={() => setCurrentImageIndex(idx)}
+                >
+                  <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="bg-white p-4 space-y-3">
-          <div className="flex items-start justify-between">
-            <h2 className="text-lg font-bold text-gray-800 flex-1">{item.title?.[language] || item.name?.[language] || item.resource?.[language] || '商品'}</h2>
-            <span className="text-xl font-bold text-red-600">{item.price}π</span>
+        {/* 价格和标题 */}
+        <div className="bg-white p-4">
+          <div className="mb-2">
+            <span className="text-2xl font-bold text-red-600">{item.price}π</span>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-600">
+          <h2 className="text-base font-bold text-gray-800 leading-relaxed">{item.title?.[language] || item.name?.[language] || item.resource?.[language] || '商品'}</h2>
+          <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
             <div className="flex items-center gap-1">
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
               <span className="font-bold">{item.rating || 4.8}</span>
@@ -638,11 +658,15 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         <div className="bg-white mt-2 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <Store className="w-5 h-5 text-purple-600" />
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
+                {item.merchant?.logo ? (
+                  <img src={item.merchant.logo} alt="店铺Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Store className="w-5 h-5 text-purple-600" />
+                )}
               </div>
               <div>
-                <p className="font-bold text-gray-800 text-sm">{item.shop?.[language] || '商家'}</p>
+                <p className="font-bold text-gray-800 text-sm">{item.shop?.[language] || item.merchant?.shopName || '商家'}</p>
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <Award className="w-3 h-3 text-purple-600" />
                   <span>{language === 'zh' ? '认证商家' : 'Verified'}</span>
@@ -696,12 +720,18 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             {item.description || (language === 'zh' ? '商家暂未填写商品描述' : 'No description available')}
           </div>
           
-          {/* 详情图展示 */}
+          {/* 详情图展示 - 可点击放大，不显示标题 */}
           {item.detailImages && item.detailImages.length > 0 && (
             <div className="space-y-2 mt-4">
-              <h4 className="font-bold text-gray-800 text-sm mb-2">{language === 'zh' ? '详情图' : 'Detail Images'}</h4>
               {item.detailImages.map((img: string, idx: number) => (
-                <div key={idx} className="w-full rounded-lg overflow-hidden bg-gray-50">
+                <div 
+                  key={idx} 
+                  className="w-full rounded-lg overflow-hidden bg-gray-50 cursor-pointer"
+                  onClick={() => {
+                    setViewerImage(img);
+                    setShowImageViewer(true);
+                  }}
+                >
                   <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
                 </div>
               ))}
@@ -915,6 +945,29 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 placeholder={language === 'zh' ? '输入消息...' : 'Type message...'} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500" />
               <button onClick={handleSendMessage} className="px-4 py-2 bg-purple-600 text-white rounded-lg"><Send className="w-5 h-5" /></button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 图片查看器 - 全屏显示 */}
+      {showImageViewer && (
+        <div 
+          className="fixed inset-0 bg-black z-[60] flex items-center justify-center"
+          onClick={() => setShowImageViewer(false)}
+        >
+          <button 
+            onClick={() => setShowImageViewer(false)}
+            className="absolute top-4 right-4 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors z-10"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
+          <div className="w-full h-full flex items-center justify-center p-4">
+            <img 
+              src={viewerImage} 
+              alt="查看大图" 
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}

@@ -122,7 +122,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         merchantId: selectedMerchantId,
         title: formData.title,
         description: formData.description || undefined,
-        price: parseFloat(formData.price),
+        price: formData.price, // 直接使用字符串，避免浮点数精度问题
         stock: parseInt(formData.stock),
         images: allImages,
         detailImages: formData.detailImages,

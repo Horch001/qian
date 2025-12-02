@@ -75,6 +75,25 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     fetchMerchantData();
   }, [stateData?.merchantId, stateData?.tab, stateData?.autoEdit, location.pathname]);
 
+  // 当切换到订单标签时，自动加载所有订单
+  useEffect(() => {
+    if (activeTab === 'orders' && merchant) {
+      const loadOrders = async () => {
+        try {
+          const ordersData = await merchantApi.getMyOrders();
+          // 筛选当前店铺的订单
+          const currentMerchantOrders = (ordersData || []).filter((o: any) => 
+            o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+          );
+          setOrders(currentMerchantOrders);
+        } catch (error: any) {
+          console.error('加载订单失败:', error);
+        }
+      };
+      loadOrders();
+    }
+  }, [activeTab, merchant]);
+
   const fetchMerchantData = async () => {
     try {
       // 添加超时控制

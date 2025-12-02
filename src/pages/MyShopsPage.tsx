@@ -140,7 +140,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
           </div>
         ) : (
           <div className="space-y-3">
-            {shops.map((shop) => (
+            {shops.filter(shop => shop.status !== 'SUSPENDED').map((shop) => (
               <div key={shop.id} className="bg-white rounded-xl overflow-hidden shadow-lg relative">
                 {/* 左上角45度斜放板块标签 - 融入卡片 */}
                 <div className="absolute top-0 left-0 w-20 h-20 overflow-hidden">
@@ -177,13 +177,11 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                       <span className={`px-2 py-0.5 rounded-full font-medium ${
                         shop.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
                         shop.status === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :
-                        shop.status === 'SUSPENDED' ? 'bg-gray-100 text-gray-600' :
                         (shopStats[shop.id]?.productCount || 0) > 0 ? 'bg-blue-100 text-blue-600' :
                         'bg-green-100 text-green-600'
                       }`}>
                         {shop.status === 'REJECTED' ? getText({ zh: '已拒绝', en: 'Rejected', ko: '거부됨', vi: 'Bị từ chối' }) :
                          shop.status === 'PENDING' ? getText({ zh: '审核中', en: 'Pending', ko: '대기 중', vi: 'Đang chờ' }) :
-                         shop.status === 'SUSPENDED' ? getText({ zh: '已封禁', en: 'Banned', ko: '차단됨', vi: 'Bị cấm' }) :
                          (shopStats[shop.id]?.productCount || 0) > 0 ? getText({ zh: '营业中', en: 'Open', ko: '영업 중', vi: 'Đang mở' }) :
                          getText({ zh: '已通过', en: 'Approved', ko: '승인됨', vi: 'Đã duyệt' })}
                       </span>

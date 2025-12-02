@@ -516,7 +516,7 @@ export interface ProductUpload {
   merchantId?: string; // 店铺ID（多店铺时指定）
   title: string;
   description?: string;
-  price: number;
+  price: number | string; // 支持字符串避免浮点数精度问题
   stock: number;
   image?: string;
   images?: string[];
