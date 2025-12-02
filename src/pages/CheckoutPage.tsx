@@ -206,25 +206,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
         user.balance = newBalance.toFixed(8);
         localStorage.setItem('user', JSON.stringify(user));
         
-        // 3. 立即更新本地订单缓存
-        const cachedOrders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
-        const newOrder = {
-          id: order.id,
-          orderNo: order.orderNo || `ORD${Date.now()}`,
-          item: items[0]?.product ? {
-            id: items[0].product.id,
-            title: { zh: items[0].product.title, en: items[0].product.titleEn || items[0].product.title },
-            icon: items[0].product.icon || '📦',
-            images: items[0].product.images || [],
-          } : { title: { zh: '商品' }, icon: '📦' },
-          quantity: items.reduce((sum, i) => sum + i.quantity, 0),
-          totalPrice: totalPrice,
-          paymentMethod: 'BALANCE',
-          status: 'paid',
-          createdAt: new Date().toISOString(),
-        };
-        cachedOrders.unshift(newOrder);
-        localStorage.setItem('cachedOrders', JSON.stringify(cachedOrders));
+        // 不再缓存订单到localStorage，避免存储空间超限
         
         // 4. 异步调用后端完成支付（不阻塞UI）
         orderApi.payWithBalance(order.id).then(async () => {
@@ -257,10 +239,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           const userData = JSON.parse(localStorage.getItem('user') || '{}');
           userData.balance = userBalance.toFixed(8);
           localStorage.setItem('user', JSON.stringify(userData));
-          // 移除订单缓存
-          const orders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
-          const filtered = orders.filter((o: any) => o.id !== order.id);
-          localStorage.setItem('cachedOrders', JSON.stringify(filtered));
           // 显示错误
           alert(payError.message || getText({ zh: '支付失败，请重试', en: 'Payment failed, please retry', ko: '결제 실패, 다시 시도해주세요', vi: 'Thanh toán thất bại, vui lòng thử lại' }));
         });

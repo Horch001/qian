@@ -28,6 +28,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [chatLoading, setChatLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [userBalance, setUserBalance] = useState(0);
+  const [merchantUsername, setMerchantUsername] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 获取用户余额 - 优先从本地缓存获取，异步更新
@@ -350,25 +351,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         user.balance = newBalance.toFixed(8);
         localStorage.setItem('user', JSON.stringify(user));
         
-        // 3. 立即更新本地订单缓存
-        const cachedOrders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
-        const newOrder = {
-          id: order.id,
-          orderNo: order.orderNo,
-          item: {
-            id: item.id,
-            title: { zh: item.title?.[language] || item.title, en: item.title?.en || item.title },
-            icon: item.icon || '📦',
-            images: item.images || [],
-          },
-          quantity: quantity,
-          totalPrice: totalPrice,
-          paymentMethod: 'BALANCE',
-          status: 'paid',
-          createdAt: new Date().toISOString(),
-        };
-        cachedOrders.unshift(newOrder);
-        localStorage.setItem('cachedOrders', JSON.stringify(cachedOrders));
+        // 不再缓存订单到localStorage，避免存储空间超限
         
         // 4. 异步调用后端完成支付（不阻塞UI）
         orderApi.payWithBalance(order.id).then(async () => {
@@ -393,10 +376,6 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           const userData = JSON.parse(localStorage.getItem('user') || '{}');
           userData.balance = userBalance.toFixed(8);
           localStorage.setItem('user', JSON.stringify(userData));
-          // 移除订单缓存
-          const orders = JSON.parse(localStorage.getItem('cachedOrders') || '[]');
-          const filtered = orders.filter((o: any) => o.id !== order.id);
-          localStorage.setItem('cachedOrders', JSON.stringify(filtered));
           // 显示错误
           alert(errorMsg || (language === 'zh' ? '支付失败，请重试' : 'Payment failed, please retry'));
         });
@@ -488,8 +467,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       return;
     }
 
-    // 获取商家用户ID - 需要从商品的merchant对象中获取userId
+    // 获取商家用户ID和用户名 - 需要从商品的merchant对象中获取userId
     let merchantUserId = item.merchant?.userId;
+    let tempMerchantUsername = item.merchant?.user?.username || item.shop?.[language] || '商家';
     
     // 如果没有merchant.userId，尝试通过merchantId查询
     if (!merchantUserId && item.merchantId) {
@@ -501,12 +481,15 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         if (response.ok) {
           const merchantData = await response.json();
           merchantUserId = merchantData.user?.id || merchantData.userId;
-          console.log('获取到商家用户ID:', merchantUserId);
+          tempMerchantUsername = merchantData.user?.username || merchantData.shopName || '商家';
+          console.log('获取到商家用户ID:', merchantUserId, '用户名:', tempMerchantUsername);
         }
       } catch (error) {
         console.error('Failed to fetch merchant:', error);
       }
     }
+    
+    setMerchantUsername(tempMerchantUsername);
     
     if (!merchantUserId) {
       console.error('无法获取商家用户ID，商品数据:', item);
@@ -532,6 +515,10 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
 
       socketService.onNewMessage((message: ChatMessage) => {
         setChatMessages(prev => [...prev, message]);
+        // 更新商家用户名
+        if (message.senderId !== currentUserId && message.sender?.username) {
+          setMerchantUsername(message.sender.username);
+        }
         scrollToBottom();
       });
 
@@ -894,7 +881,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                   <Store className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
-                  <p className="font-bold text-gray-800">{item.shop?.[language] || '商家'}</p>
+                  <p className="font-bold text-gray-800">{merchantUsername || item.shop?.[language] || '商家'}</p>
                   <p className="text-xs text-green-500">{language === 'zh' ? '在线' : 'Online'}</p>
                 </div>
               </div>

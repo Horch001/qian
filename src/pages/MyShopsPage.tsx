@@ -98,7 +98,8 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
       alert(getText({ zh: '店铺已删除', en: 'Shop deleted', ko: '상점이 삭제되었습니다', vi: 'Đã xóa cửa hàng' }));
       fetchShops(); // 刷新列表
     } catch (error: any) {
-      alert(error.response?.data?.message || getText({ zh: '删除失败', en: 'Delete failed', ko: '삭제 실패', vi: 'Xóa thất bại' }));
+      const errorMsg = error.response?.data?.message || error.message || getText({ zh: '删除失败', en: 'Delete failed', ko: '삭제 실패', vi: 'Xóa thất bại' });
+      alert(errorMsg);
     } finally {
       setDeletingShop(null);
     }

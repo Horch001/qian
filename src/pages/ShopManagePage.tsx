@@ -541,7 +541,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       alert(error.message || getText({ zh: '加载订单失败', en: 'Failed to load orders', ko: '주문 로드 실패', vi: 'Tải đơn hàng thất bại' }));
                     }
                   }}
-                  className="px-3 py-1.5 bg-white rounded-lg text-xs font-medium whitespace-nowrap hover:bg-purple-50 active:scale-95 transition-all flex-shrink-0"
+                  className="px-2.5 py-1.5 bg-white rounded-lg text-[11px] font-medium whitespace-nowrap hover:bg-purple-50 active:scale-95 transition-all flex-shrink-0"
                 >
                   {status === 'ALL' ? getText({ zh: '全部', en: 'All', ko: '전체', vi: 'Tất cả' }) :
                    status === 'PENDING' ? getText({ zh: '待付款', en: 'Pending', ko: '대기', vi: 'Chờ' }) :
@@ -598,22 +598,22 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
             {/* 核心数据 */}
             <div className="bg-white rounded-xl p-4">
               <h3 className="font-bold text-gray-800 mb-3">{getText({ zh: '核心数据', en: 'Key Metrics', ko: '핵심 데이터', vi: 'Dữ liệu chính' })}</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">{products.length}</p>
-                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '商品数', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</p>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '商品数', en: 'Products', ko: '상품', vi: 'Sản phẩm' })}</span>
+                  <span className="font-bold text-purple-600">{products.length}</span>
                 </div>
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{products.reduce((sum, p) => sum + (p.sales || 0), 0)}</p>
-                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '总销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '总销量', en: 'Sales', ko: '판매', vi: 'Đã bán' })}</span>
+                  <span className="font-bold text-blue-600">{products.reduce((sum, p) => sum + (p.sales || 0), 0)}</span>
                 </div>
-                <div className="text-center p-3 bg-yellow-50 rounded-lg">
-                  <p className="text-2xl font-bold text-yellow-600">⭐ {merchant.rating?.toFixed(1) || '5.0'}</p>
-                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '店铺评分', en: 'Rating', ko: '평점', vi: 'Đánh giá' })}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '店铺评分', en: 'Rating', ko: '평점', vi: 'Đánh giá' })}</span>
+                  <span className="font-bold text-yellow-600">⭐ {merchant.rating?.toFixed(1) || '5.0'}</span>
                 </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">{merchant.deposit || '0'}π</p>
-                  <p className="text-gray-600 text-xs mt-1">{getText({ zh: '保证金', en: 'Deposit', ko: '보증금', vi: 'Cọc' })}</p>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{getText({ zh: '保证金', en: 'Deposit', ko: '보증금', vi: 'Cọc' })}</span>
+                  <span className="font-bold text-green-600">{merchant.deposit || '0'}π</span>
                 </div>
               </div>
             </div>

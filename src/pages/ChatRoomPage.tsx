@@ -24,7 +24,8 @@ export default function ChatRoomPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   
   // 从跳转传递的目标名称和模拟标志
-  const targetName = location.state?.targetName || '客服';
+  const [targetName, setTargetName] = useState(location.state?.targetName || '客服');
+  const [currentUserName, setCurrentUserName] = useState('我');
   const isMock = location.state?.isMock || roomId?.startsWith('mock-');
 
   const getCurrentUserId = () => {
@@ -33,6 +34,19 @@ export default function ChatRoomPage() {
   };
 
   const currentUserId = getCurrentUserId();
+
+  // 获取当前用户的用户名
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setCurrentUserName(userData.username || '我');
+      } catch (e) {
+        console.error('解析用户数据失败:', e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isMock) {
@@ -50,6 +64,10 @@ export default function ChatRoomPage() {
 
       socketService.onNewMessage((message: ChatMessage) => {
         setMessages((prev) => [...prev, message]);
+        // 更新对方用户名
+        if (message.senderId !== currentUserId && message.sender?.username) {
+          setTargetName(message.sender.username);
+        }
         scrollToBottom();
       });
 
@@ -78,6 +96,13 @@ export default function ChatRoomPage() {
     try {
       const data = await chatApi.getMessages(roomId);
       setMessages(data);
+      // 从消息中获取对方的用户名
+      if (data.length > 0) {
+        const otherUserMessage = data.find((msg: ChatMessage) => msg.senderId !== currentUserId);
+        if (otherUserMessage && otherUserMessage.sender?.username) {
+          setTargetName(otherUserMessage.sender.username);
+        }
+      }
       await chatApi.markAsRead(roomId);
       scrollToBottom();
     } catch (error) {

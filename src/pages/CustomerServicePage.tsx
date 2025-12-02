@@ -24,7 +24,21 @@ export const CustomerServicePage: React.FC<CustomerServicePageProps> = ({ langua
   const [chatId, setChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('我');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 获取当前用户的用户名
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      try {
+        const userData = JSON.parse(user);
+        setCurrentUserName(userData.username || '我');
+      } catch (e) {
+        console.error('解析用户数据失败:', e);
+      }
+    }
+  }, []);
 
   // 常见问题
   const faqs = [
@@ -126,7 +140,7 @@ export const CustomerServicePage: React.FC<CustomerServicePageProps> = ({ langua
           </button>
           <h1 className="text-sm font-bold text-purple-600 flex items-center gap-2">
             <Headphones className="w-4 h-4" />
-            {language === 'zh' ? '在线客服' : 'Customer Service'}
+            {language === 'zh' ? '官方客服' : 'Official Support'}
           </h1>
           <div className="w-9"></div>
         </div>

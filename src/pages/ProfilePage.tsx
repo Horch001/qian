@@ -254,16 +254,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       }
     }
 
-    const cachedOrders = localStorage.getItem('cachedOrders');
-    if (cachedOrders && currentUserId === cachedUserId) {
-      try {
-        const parsed = JSON.parse(cachedOrders);
-        setOrdersList(parsed);
-        setOrdersCount(parsed.length);
-      } catch (e) {
-        // 忽略解析错误
-      }
-    }
+    // 不再从localStorage读取缓存的订单，直接从后端加载
 
     // 从后端加载收藏（异步更新）
     const loadFavorites = async () => {
@@ -312,6 +303,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     const loadOrders = async () => {
       try {
         const orders = await orderApi.getOrders();
+        console.log('成功获取订单:', orders.length, '个');
+        
         // 转换订单格式以兼容现有UI
         const formattedOrders = orders.map((order: any) => ({
           id: order.id,
@@ -320,7 +313,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             id: order.items[0].product.id,
             title: { zh: order.items[0].product.title, en: order.items[0].product.titleEn || order.items[0].product.title },
             icon: order.items[0].product.icon || '📦',
-            images: order.items[0].product.images,
+            // 只保存第一张图片，减少存储空间
+            images: order.items[0].product.images?.slice(0, 1) || [],
           } : { title: { zh: '商品' }, icon: '📦' },
           quantity: order.items?.[0]?.quantity || 1,
           totalPrice: parseFloat(order.totalAmount),
@@ -328,18 +322,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           status: order.orderStatus?.toLowerCase() || 'pending',
           createdAt: order.createdAt,
         }));
+        
         setOrdersList(formattedOrders);
         setOrdersCount(formattedOrders.length);
-        // 缓存到本地
-        localStorage.setItem('cachedOrders', JSON.stringify(formattedOrders));
+        
+        // 不再缓存订单到localStorage，避免存储空间超限
+        // 订单数据直接从后端获取
       } catch (error) {
         console.error('加载订单失败:', error);
-        // 如果没有缓存数据，才使用localStorage的旧数据
-        if (!cachedOrders) {
-          const localOrders = JSON.parse(localStorage.getItem('orders') || '[]');
-          setOrdersList(localOrders);
-          setOrdersCount(localOrders.length);
-        }
+        // 加载失败时显示空列表
+        setOrdersList([]);
+        setOrdersCount(0);
       }
     };
     loadOrders();
@@ -444,8 +437,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       }));
       setOrdersList(formattedOrders);
       setOrdersCount(formattedOrders.length);
-      // 更新本地缓存
-      localStorage.setItem('cachedOrders', JSON.stringify(formattedOrders));
+      // 不再缓存订单到localStorage
     } catch (error) {
       console.error('刷新订单失败:', error);
     }

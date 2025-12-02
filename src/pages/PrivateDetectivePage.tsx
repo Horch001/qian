@@ -33,7 +33,7 @@ export const PrivateDetectivePage: React.FC = () => {
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
-        localStorage.setItem(cacheKey, JSON.stringify(response.items));
+        // 不再缓存商品列表到localStorage，避免存储空间超限
       } catch (err: any) {
         console.error('获取服务失败:', err);
         if (!cached) setError(err.message || '获取服务失败');
