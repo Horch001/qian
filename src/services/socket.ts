@@ -1,6 +1,14 @@
 import { io, Socket } from 'socket.io-client';
 
-const SOCKET_URL = 'http://localhost:3000/chat';
+// 根据环境自动选择 WebSocket 地址
+const getSocketUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  // 移除末尾的斜杠
+  const baseUrl = apiUrl.replace(/\/$/, '');
+  return `${baseUrl}/chat`;
+};
+
+const SOCKET_URL = getSocketUrl();
 
 class SocketService {
   private socket: Socket | null = null;
@@ -10,9 +18,14 @@ class SocketService {
       return this.socket;
     }
 
+    console.log('Connecting to WebSocket:', SOCKET_URL);
+
     this.socket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
     });
 
     this.socket.on('connect', () => {
