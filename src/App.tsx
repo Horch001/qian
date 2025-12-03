@@ -41,6 +41,11 @@ import { NotificationDetailPage } from './pages/NotificationDetailPage';
 import { SearchResultPage } from './pages/SearchResultPage';
 import { MyShopsPage } from './pages/MyShopsPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { ReviewPage } from './pages/ReviewPage';
+import { LogisticsPage } from './pages/LogisticsPage';
+import { MerchantReviewPage } from './pages/MerchantReviewPage';
+import { AfterSalePage } from './pages/AfterSalePage';
+import { SettlementPage } from './pages/SettlementPage';
 import eventsSocketService from './services/eventsSocket';
 import './index.css';
 
@@ -304,6 +309,31 @@ export const App: React.FC = () => {
   // Checkout page
   if (location.pathname === '/checkout') {
     return <CheckoutPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Review page
+  if (location.pathname === '/review') {
+    return <ReviewPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Logistics page
+  if (location.pathname === '/logistics') {
+    return <LogisticsPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Merchant review page
+  if (location.pathname === '/merchant-review') {
+    return <MerchantReviewPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // After sale page
+  if (location.pathname === '/after-sale') {
+    return <AfterSalePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Settlement page
+  if (location.pathname === '/settlement') {
+    return <SettlementPage language={language} translations={TRANSLATIONS} />;
   }
 
   // Detail pages layout

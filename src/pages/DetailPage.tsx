@@ -4,6 +4,7 @@ import { ArrowLeft, Star, Heart, Share2, ShoppingCart, MessageCircle, Clock, Shi
 import { Language, Translations } from '../types';
 import { chatApi, ChatMessage, orderApi, authApi, userApi, favoriteApi } from '../services/api';
 import socketService from '../services/socket';
+import { ProductReviews } from '../components/ProductReviews';
 
 interface DetailPageProps {
   language: Language;
@@ -32,6 +33,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [viewerImage, setViewerImage] = useState('');
+  const [reviewCount, setReviewCount] = useState(0);
+  const [showReviews, setShowReviews] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 获取用户余额 - 优先从本地缓存获取，异步更新
@@ -652,7 +655,26 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             <span>{language === 'zh' ? '已售' : 'Sold'} {item.sales || 0}</span>
             <span>|</span>
             <span>{language === 'zh' ? '收藏' : 'Favs'} {favoriteCount}</span>
+            <span>|</span>
+            <button 
+              onClick={() => setShowReviews(!showReviews)}
+              className="hover:text-purple-600 transition-colors"
+            >
+              {language === 'zh' ? '评价' : 'Reviews'} {reviewCount}
+            </button>
           </div>
+          
+          {/* 用户评价列表 - 展开时显示在统计信息下方 */}
+          {showReviews && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <ProductReviews 
+                productId={item.id} 
+                language={language} 
+                onReviewCountChange={setReviewCount}
+                isExpanded={showReviews}
+              />
+            </div>
+          )}
         </div>
 
         <div className="bg-white mt-2 p-4">

@@ -29,8 +29,70 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
   });
   const [saving, setSaving] = useState(false);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showShipModal, setShowShipModal] = useState(false);
+  const [shipData, setShipData] = useState({
+    company: 'SF',
+    companyName: '顺丰速运',
+    trackingNo: ''
+  });
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
+
+  // 物流公司选项
+  const logisticsCompanies = [
+    { code: 'SF', name: '顺丰速运' },
+    { code: 'YTO', name: '圆通速递' },
+    { code: 'ZTO', name: '中通快递' },
+    { code: 'STO', name: '申通快递' },
+    { code: 'YUNDA', name: '韵达速递' },
+    { code: 'JD', name: '京东物流' },
+    { code: 'EMS', name: '中国邮政' },
+  ];
+
+  // 发货处理
+  const handleShipOrder = async () => {
+    if (!shipData.trackingNo.trim()) {
+      alert(getText({ zh: '请输入运单号', en: 'Please enter tracking number', ko: '운송장 번호를 입력하세요', vi: 'Vui lòng nhập mã vận đơn' }));
+      return;
+    }
+
+    if (!selectedOrder) {
+      alert(getText({ zh: '请选择订单', en: 'Please select order', ko: '주문을 선택하세요', vi: 'Vui lòng chọn đơn hàng' }));
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/v1/orders/${selectedOrder.id}/ship`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(shipData),
+      });
+
+      if (response.ok) {
+        alert(getText({ zh: '发货成功！', en: 'Shipped successfully!', ko: '발송 완료!', vi: 'Gửi hàng thành công!' }));
+        setShowShipModal(false);
+        setShipData({ company: 'SF', companyName: '顺丰速运', trackingNo: '' });
+        setSelectedOrder(null);
+        // 刷新订单列表
+        const ordersData = await merchantApi.getMyOrders();
+        const currentMerchantOrders = (ordersData || []).filter((o: any) => 
+          o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+        );
+        setOrders(currentMerchantOrders);
+      } else {
+        const error = await response.json();
+        throw new Error(error.message);
+      }
+    } catch (error: any) {
+      console.error('发货失败:', error);
+      alert(error.message || getText({ zh: '发货失败', en: 'Ship failed', ko: '발송 실패', vi: 'Gửi hàng thất bại' }));
+    }
+  };
 
   // 根据路由路径获取页面标题
   const getPageTitle = () => {
@@ -604,6 +666,21 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                           <p key={idx} className="text-xs">• {item.product?.title || '商品'} x{item.quantity}</p>
                         ))}
                       </div>
+                      
+                      {/* 订单操作按钮 */}
+                      {order.orderStatus === 'PAID' && (
+                        <div className="mt-3 pt-3 border-t">
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(order);
+                              setShowShipModal(true);
+                            }}
+                            className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold rounded-lg hover:opacity-90"
+                          >
+                            {getText({ zh: '立即发货', en: 'Ship Now', ko: '배송하기', vi: 'Gửi hàng' })}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -699,6 +776,86 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                 <Plus size={20} />
                 {getText({ zh: '上传新商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })}
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* 发货弹窗 */}
+        {showShipModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-md">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800">
+                  {getText({ zh: '发货', en: 'Ship Order', ko: '발송', vi: 'Gửi hàng' })}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {getText({ zh: '订单号', en: 'Order No', ko: '주문 번호', vi: 'Mã đơn' })}: {selectedOrder.orderNo}
+                </p>
+              </div>
+              <div className="p-4 space-y-4">
+                {/* 物流公司选择 */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    {getText({ zh: '物流公司', en: 'Courier', ko: '택배사', vi: 'Công ty vận chuyển' })}
+                  </label>
+                  <select
+                    value={shipData.company}
+                    onChange={(e) => {
+                      const selected = logisticsCompanies.find(c => c.code === e.target.value);
+                      setShipData({
+                        ...shipData,
+                        company: e.target.value,
+                        companyName: selected?.name || ''
+                      });
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  >
+                    {logisticsCompanies.map(company => (
+                      <option key={company.code} value={company.code}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 运单号输入 */}
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    {getText({ zh: '运单号', en: 'Tracking Number', ko: '운송장 번호', vi: 'Mã vận đơn' })}
+                  </label>
+                  <input
+                    type="text"
+                    value={shipData.trackingNo}
+                    onChange={(e) => setShipData({ ...shipData, trackingNo: e.target.value })}
+                    placeholder={getText({ 
+                      zh: '请输入运单号', 
+                      en: 'Enter tracking number', 
+                      ko: '운송장 번호 입력', 
+                      vi: 'Nhập mã vận đơn' 
+                    })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowShipModal(false);
+                    setShipData({ company: 'SF', companyName: '顺丰速运', trackingNo: '' });
+                    setSelectedOrder(null);
+                  }}
+                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+                </button>
+                <button
+                  onClick={handleShipOrder}
+                  disabled={!shipData.trackingNo.trim()}
+                  className="flex-1 py-2 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {getText({ zh: '确认发货', en: 'Confirm Ship', ko: '발송 확인', vi: 'Xác nhận gửi' })}
+                </button>
+              </div>
             </div>
           </div>
         )}

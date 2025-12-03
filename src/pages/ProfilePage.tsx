@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone } from 'lucide-react';
+import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone, Lock } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
 import { usePiPayment } from '../hooks/usePiPayment';
@@ -940,49 +940,100 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       });
       
       if (confirm(confirmMsg)) {
+        const reason = prompt(getText({
+          zh: '请输入退货原因：',
+          en: 'Please enter return reason:',
+          ko: '반품 사유를 입력하세요:',
+          vi: 'Nhập lý do trả hàng:'
+        }));
+        
+        if (!reason || !reason.trim()) {
+          alert(getText({ zh: '请输入退货原因', en: 'Please enter reason', ko: '사유를 입력하세요', vi: 'Vui lòng nhập lý do' }));
+          return;
+        }
+        
         try {
-          await orderApi.refundReturnOrder(order.id);
-          // 更新订单列表状态
-          setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'refunding' } : o));
-          alert(getText({ zh: '退货申请已提交，请尽快将商品寄回商家', en: 'Return request submitted. Please ship the item back soon.', ko: '반품 신청이 완료되었습니다. 상품을 빨리 반송해주세요.', vi: 'Yêu cầu trả hàng đã gửi. Vui lòng gửi trả hàng sớm.' }));
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+          const token = localStorage.getItem('authToken');
+          
+          const response = await fetch(`${API_URL}/api/v1/after-sales`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              orderId: order.id,
+              type: 'RETURN_REFUND',
+              reason: reason.trim(),
+              amount: parseFloat(order.totalPrice),
+            }),
+          });
+          
+          if (response.ok) {
+            alert(getText({ 
+              zh: '退货申请已提交，等待商家审核', 
+              en: 'Return request submitted, waiting for merchant review', 
+              ko: '반품 신청이 제출되었습니다. 판매자 검토 대기 중', 
+              vi: 'Yêu cầu trả hàng đã gửi, chờ người bán xem xét' 
+            }));
+            // 刷新订单列表
+            refreshOrders();
+          } else {
+            const error = await response.json();
+            throw new Error(error.message);
+          }
         } catch (error: any) {
-          alert(error.message || getText({ zh: '退货申请失败', en: 'Return request failed', ko: '반품 신청 실패', vi: 'Yêu cầu trả hàng thất bại' }));
+          alert(error.message || getText({ zh: '申请失败', en: 'Request failed', ko: '신청 실패', vi: 'Yêu cầu thất bại' }));
         }
       }
     } else {
-      // 未收货 - 直接退款
-      const confirmMsg = getText({
-        zh: `确认申请退款？\n\n退款金额：${order.totalPrice}π\n\n退款将立即返还到您的账户余额`,
-        en: `Confirm refund?\n\nRefund: ${order.totalPrice}π\n\nRefund will be returned to your balance immediately`,
-        ko: `환불을 신청하시겠습니까?\n\n환불: ${order.totalPrice}π\n\n즉시 잔액으로 환불됩니다`,
-        vi: `Xác nhận hoàn tiền?\n\nHoàn tiền: ${order.totalPrice}π\n\nHoàn tiền ngay vào số dư của bạn`
-      });
+      // 未收货 - 申请售后（仅退款）
+      const reason = prompt(getText({
+        zh: '请输入退款原因：',
+        en: 'Please enter refund reason:',
+        ko: '환불 사유를 입력하세요:',
+        vi: 'Nhập lý do hoàn tiền:'
+      }));
       
-      if (confirm(confirmMsg)) {
-        try {
-          const result = await orderApi.refundOrder(order.id);
-          const refundAmount = result.refundAmount || order.totalPrice;
-          
-          // 从后端重新获取用户信息以更新余额
-          const userData = await authApi.getCurrentUser();
-          if (userData) {
-            const updatedUser = { ...userInfo, balance: userData.balance };
-            setUserInfo(updatedUser);
-            // 更新localStorage
-            if (localStorage.getItem('piUserInfo')) {
-              localStorage.setItem('piUserInfo', JSON.stringify(updatedUser));
-            } else {
-              localStorage.setItem('userInfo', JSON.stringify(updatedUser));
-            }
-          }
-          
-          // 更新订单列表状态
-          setOrdersList(prev => prev.map(o => o.id === order.id ? { ...o, status: 'refunded' } : o));
-          
-          alert(getText({ zh: `退款成功！${refundAmount}π 已返还到您的账户余额`, en: `Refund successful! ${refundAmount}π returned to your balance`, ko: `환불 완료! ${refundAmount}π가 잔액으로 반환되었습니다`, vi: `Hoàn tiền thành công! ${refundAmount}π đã trả về số dư của bạn` }));
-        } catch (error: any) {
-          alert(error.message || getText({ zh: '退款失败', en: 'Refund failed', ko: '환불 실패', vi: 'Hoàn tiền thất bại' }));
+      if (!reason || !reason.trim()) {
+        alert(getText({ zh: '请输入退款原因', en: 'Please enter reason', ko: '사유를 입력하세요', vi: 'Vui lòng nhập lý do' }));
+        return;
+      }
+      
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(`${API_URL}/api/v1/after-sales`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            type: 'REFUND_ONLY',
+            reason: reason.trim(),
+            amount: parseFloat(order.totalPrice),
+          }),
+        });
+        
+        if (response.ok) {
+          alert(getText({ 
+            zh: '退款申请已提交，等待商家审核', 
+            en: 'Refund request submitted, waiting for merchant review', 
+            ko: '환불 신청이 제출되었습니다. 판매자 검토 대기 중', 
+            vi: 'Yêu cầu hoàn tiền đã gửi, chờ người bán xem xét' 
+          }));
+          // 刷新订单列表
+          refreshOrders();
+        } else {
+          const error = await response.json();
+          throw new Error(error.message);
         }
+      } catch (error: any) {
+        alert(error.message || getText({ zh: '申请失败', en: 'Request failed', ko: '신청 실패', vi: 'Yêu cầu thất bại' }));
       }
     }
   };
@@ -1295,9 +1346,52 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
                                   {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
                                 </button>
-                                <button className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600">
-                                  {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
-                                </button>
+                                {/* 查看物流按钮 - 已发货和已完成订单可查看 */}
+                                {(order.status === 'shipped' || order.status === 'completed') && (
+                                  <button 
+                                    onClick={() => {
+                                      navigate('/logistics', { 
+                                        state: { orderId: order.id } 
+                                      });
+                                    }}
+                                    className="flex-1 py-1.5 bg-purple-500 text-white text-[10px] font-bold rounded-lg hover:bg-purple-600"
+                                  >
+                                    {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
+                                  </button>
+                                )}
+                                {/* 评价商品按钮 */}
+                                {order.status === 'completed' && !order.reviewed && (
+                                  <button 
+                                    onClick={() => {
+                                      navigate('/review', { 
+                                        state: { 
+                                          order: order,
+                                          item: order.items[0]
+                                        } 
+                                      });
+                                    }}
+                                    className="flex-1 py-1.5 bg-yellow-500 text-white text-[10px] font-bold rounded-lg hover:bg-yellow-600"
+                                  >
+                                    {getText({ zh: '评价商品', en: 'Review', ko: '상품 리뷰', vi: 'Đánh giá SP' })}
+                                  </button>
+                                )}
+                                {/* 评价商家按钮 */}
+                                {order.status === 'completed' && !order.merchantReviewed && (
+                                  <button 
+                                    onClick={() => {
+                                      navigate('/merchant-review', { 
+                                        state: { 
+                                          order: order,
+                                          merchantId: order.items[0]?.product?.merchantId,
+                                          merchantName: order.items[0]?.product?.merchant?.shopName
+                                        } 
+                                      });
+                                    }}
+                                    className="flex-1 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-lg hover:bg-green-600"
+                                  >
+                                    {getText({ zh: '评价商家', en: 'Review Shop', ko: '판매자 리뷰', vi: 'Đánh giá shop' })}
+                                  </button>
+                                )}
                               </div>
                             )}
                             {/* 退款/退货按钮 */}
@@ -1470,6 +1564,24 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   <PlusCircle className="w-5 h-5 text-green-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '我要入驻', en: 'Join', ko: '입점하기', vi: 'Đăng ký' })}</span>
                 </button>
+                <button 
+                  onClick={() => navigate('/after-sale')}
+                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span className="text-sm text-white font-bold">{getText({ zh: '售后管理', en: 'After Sales', ko: '애프터 서비스', vi: 'Dịch vụ' })}</span>
+                </button>
+                <button 
+                  onClick={() => navigate('/settlement')}
+                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span className="text-sm text-white font-bold">{getText({ zh: '结算中心', en: 'Settlement', ko: '정산', vi: 'Thanh toán' })}</span>
+                </button>
               </div>
             )}
           </div>
@@ -1562,6 +1674,57 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* 登录密码设置 */}
+              <div className="flex items-center gap-3">
+                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
+                  <Lock className="w-5 h-5" />
+                  {getText({ zh: '登录密码', en: 'Password', ko: '비밀번호', vi: 'Mật khẩu' })}
+                </label>
+                <button
+                  onClick={async () => {
+                    const newPassword = prompt(getText({ 
+                      zh: '请输入新密码（至少6位）：', 
+                      en: 'Enter new password (min 6 chars):', 
+                      ko: '새 비밀번호 입력 (최소 6자):', 
+                      vi: 'Nhập mật khẩu mới (tối thiểu 6 ký tự):' 
+                    }));
+                    
+                    if (!newPassword) return;
+                    
+                    if (newPassword.length < 6) {
+                      alert(getText({ zh: '密码长度至少6位', en: 'Min 6 characters', ko: '최소 6자', vi: 'Tối thiểu 6 ký tự' }));
+                      return;
+                    }
+                    
+                    try {
+                      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                      const token = localStorage.getItem('authToken');
+                      
+                      const response = await fetch(`${API_URL}/api/v1/auth/set-password`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ password: newPassword }),
+                      });
+                      
+                      if (response.ok) {
+                        alert(getText({ zh: '密码设置成功！可用于桌面端登录', en: 'Password set successfully!', ko: '비밀번호 설정 완료!', vi: 'Đặt mật khẩu thành công!' }));
+                      } else {
+                        const error = await response.json();
+                        alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                      }
+                    } catch (error: any) {
+                      alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                    }
+                  }}
+                  className="flex-1 px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg hover:bg-white text-sm font-medium"
+                >
+                  {getText({ zh: '设置/修改密码', en: 'Set Password', ko: '비밀번호 설정', vi: 'Đặt mật khẩu' })}
+                </button>
               </div>
               
               {/* 收件人信息 */}

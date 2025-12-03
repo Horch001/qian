@@ -929,3 +929,164 @@ export const escrowApi = {
   completeTrade: (id: string) =>
     request(`/escrow/${id}/complete`, { method: 'POST' }),
 };
+
+// ==================== 售后管理 API ====================
+
+export interface AfterSale {
+  id: string;
+  orderNo: string;
+  orderId: string;
+  userId: string;
+  merchantId: string;
+  type: 'REFUND_ONLY' | 'RETURN_REFUND' | 'EXCHANGE';
+  reason: string;
+  description?: string;
+  images?: string[];
+  amount: string;
+  status: string;
+  merchantReply?: string;
+  returnLogistics?: {
+    company: string;
+    trackingNo: string;
+  };
+  createdAt: string;
+  user?: {
+    id: string;
+    username: string;
+  };
+  order?: {
+    orderNo: string;
+  };
+}
+
+export const afterSaleApi = {
+  // 买家申请售后
+  createAfterSale: (data: {
+    orderId: string;
+    type: 'REFUND_ONLY' | 'RETURN_REFUND' | 'EXCHANGE';
+    reason: string;
+    description?: string;
+    images?: string[];
+    amount: number;
+  }) =>
+    request<AfterSale>('/after-sales', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取我的售后申请（买家）
+  getMyAfterSales: () => request<AfterSale[]>('/after-sales/my'),
+
+  // 获取商家的售后申请
+  getMerchantAfterSales: (merchantId?: string) => {
+    const query = merchantId ? `?merchantId=${merchantId}` : '';
+    return request<AfterSale[]>(`/after-sales/merchant${query}`);
+  },
+
+  // 获取售后详情
+  getAfterSale: (id: string) => request<AfterSale>(`/after-sales/${id}`),
+
+  // 商家回复售后
+  merchantReply: (id: string, data: { agreed: boolean; reply?: string }) =>
+    request(`/after-sales/${id}/merchant-reply`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 买家填写退货物流
+  buyerReturn: (id: string, data: { returnCompany: string; returnTrackingNo: string }) =>
+    request(`/after-sales/${id}/buyer-return`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 商家确认收货
+  merchantConfirm: (id: string) =>
+    request(`/after-sales/${id}/merchant-confirm`, { method: 'POST' }),
+
+  // 取消售后申请
+  cancelAfterSale: (id: string) =>
+    request(`/after-sales/${id}/cancel`, { method: 'PUT' }),
+};
+
+// ==================== 商家结算 API ====================
+
+export interface MerchantAccount {
+  id: string;
+  merchantId: string;
+  availableBalance: string;
+  frozenBalance: string;
+  totalIncome: string;
+  totalWithdrawn: string;
+}
+
+export interface Settlement {
+  id: string;
+  merchantId: string;
+  orderId: string;
+  orderNo: string;
+  amount: string;
+  platformFee: string;
+  actualAmount: string;
+  status: string;
+  createdAt: string;
+  settledAt?: string;
+  order?: {
+    orderNo: string;
+  };
+}
+
+export interface MerchantWithdrawal {
+  id: string;
+  merchantId: string;
+  amount: string;
+  fee: string;
+  actualAmount: string;
+  status: string;
+  piAddress?: string;
+  txId?: string;
+  rejectReason?: string;
+  createdAt: string;
+  processedAt?: string;
+}
+
+export const settlementApi = {
+  // 获取商家账户信息
+  getAccount: () => request<MerchantAccount>('/settlement/account'),
+
+  // 获取结算统计
+  getStats: () =>
+    request<{
+      pendingCount: number;
+      pendingAmount: string;
+      monthlyIncome: string;
+      monthlyFee: string;
+      monthlyOrders: number;
+      recentSettlements: Settlement[];
+      recentWithdrawals: MerchantWithdrawal[];
+      pendingWithdrawals: number;
+      approvedWithdrawals: number;
+      rejectedWithdrawals: number;
+    }>('/settlement/stats'),
+
+  // 申请提现
+  createWithdrawal: (data: { amount: number; piAddress: string }) =>
+    request<MerchantWithdrawal>('/settlement/withdrawal', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取提现列表（管理员）
+  getWithdrawals: (page = 1, limit = 20, status?: string) => {
+    const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) query.append('status', status);
+    return request<{ items: MerchantWithdrawal[]; total: number }>(`/settlement/withdrawals?${query}`);
+  },
+
+  // 处理提现（管理员）
+  processWithdrawal: (id: string, data: { approved: boolean; txId?: string; rejectReason?: string }) =>
+    request(`/settlement/withdrawals/${id}/process`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+};
