@@ -86,6 +86,21 @@ class SocketService {
     this.socket?.on('userTyping', callback);
   }
 
+  // 监听收藏更新
+  onFavoriteUpdate(callback: (data: { productId: string; isFavorited: boolean }) => void) {
+    this.socket?.on('favorite:updated', callback);
+  }
+
+  // 监听商品更新（销量、库存、收藏数）
+  onProductUpdate(callback: (product: { id: string; sales: number; stock: number; favorites: number }) => void) {
+    this.socket?.on('product:updated', callback);
+  }
+
+  // 监听商家更新（总销量、评分）
+  onMerchantUpdate(callback: (merchant: { id: string; totalSales: number; rating: number }) => void) {
+    this.socket?.on('merchant:updated', callback);
+  }
+
   // 移除监听
   offNewMessage() {
     this.socket?.off('newMessage');
@@ -93,6 +108,18 @@ class SocketService {
 
   offUserTyping() {
     this.socket?.off('userTyping');
+  }
+
+  offFavoriteUpdate() {
+    this.socket?.off('favorite:updated');
+  }
+
+  offProductUpdate() {
+    this.socket?.off('product:updated');
+  }
+
+  offMerchantUpdate() {
+    this.socket?.off('merchant:updated');
   }
 }
 
