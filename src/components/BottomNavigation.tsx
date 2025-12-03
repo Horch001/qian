@@ -113,48 +113,23 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
     setIsLoggingIn(true);
     setLoginError(null);
 
-    // 环境检测
-    const isProduction = import.meta.env.PROD;
-    
-    // 真正的 Pi Browser 检测：
-    // 1. UserAgent 包含 PiBrowser
-    // 2. 域名包含 minepi.com
-    // 注意：本地开发环境(localhost)强制使用测试账号，即使加载了Pi SDK
-    const userAgent = navigator.userAgent.toLowerCase();
+    // 检查是否是本地开发环境
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isRealPiBrowser = !isLocalhost && (
-      userAgent.includes('pibrowser') || 
-      window.location.hostname.includes('minepi.com')
-    );
     
-    console.log('Login attempt - isProduction:', isProduction, 'isRealPiBrowser:', isRealPiBrowser, 'isLocalhost:', isLocalhost);
+    console.log('Login attempt - isLocalhost:', isLocalhost, 'hasPiSDK:', !!window.Pi);
 
-    // 生产环境安全检查：必须在 Pi Browser 中打开
-    if (isProduction && !isRealPiBrowser) {
-      setLoginError(getText({ 
-        zh: '请在 Pi Browser 中打开此应用', 
-        en: 'Please open in Pi Browser', 
-        ko: 'Pi Browser에서 열어주세요', 
-        vi: 'Vui lòng mở trong Pi Browser' 
-      }, language));
-      setIsLoggingIn(false);
-      return;
-    }
-
-    // 开发环境下，如果不是真正的 Pi Browser，直接使用测试账号
-    if (!isProduction && !isRealPiBrowser) {
+    // 本地开发环境，使用测试账号
+    if (isLocalhost) {
       console.log('Development mode: using test account');
       try {
-        // 使用固定的测试账号ID，方便开发调试
         const testPiUid = 'dev_test_user_001';
         const data = await authApi.piLogin({
           piUid: testPiUid,
           accessToken: 'dev_test_token',
-          username: 'DevTestUser', // 使用英文用户名避免编码问题
+          username: 'DevTestUser',
         });
         localStorage.setItem('authToken', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        // 确保用户名有值，如果后端返回的用户名为空或乱码，使用默认值
         const displayUsername = data.user.username && /^[\w\u4e00-\u9fa5]+$/.test(data.user.username) 
           ? data.user.username 
           : 'DevTestUser';
@@ -171,7 +146,6 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
         console.log('Test account login successful:', testUserInfo);
       } catch (error: any) {
         console.error('Backend login failed, using local test account:', error);
-        // 如果后端不可用，使用本地测试账号
         const testUserInfo = {
           id: 'local_dev_test_' + Date.now(),
           username: 'LocalTestUser',
@@ -190,78 +164,59 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ language, tr
       return;
     }
     
-    // 如果在真正的 Pi Browser 中，等待 SDK 加载
-    if (isRealPiBrowser) {
-      const sdkReady = await waitForPiSDK(3000);
-      if (!sdkReady) {
-        setLoginError('Pi SDK 加载超时，请刷新页面重试');
-        setIsLoggingIn(false);
-        return;
-      }
+    // 生产环境：等待 Pi SDK 加载
+    console.log('Production mode: waiting for Pi SDK...');
+    const sdkReady = await waitForPiSDK(8000); // 增加等待时间到8秒
+    
+    if (!sdkReady) {
+      setLoginError(getText({ 
+        zh: 'Pi SDK 加载失败，请刷新页面重试', 
+        en: 'Pi SDK failed to load, please refresh', 
+        ko: 'Pi SDK 로드 실패, 새로고침하세요', 
+        vi: 'Pi SDK tải thất bại, vui lòng làm mới' 
+      }, language));
+      setIsLoggingIn(false);
+      return;
     }
 
-    // 使用 Pi SDK 登录（仅在真正的 Pi Browser 中）
-    if (isRealPiBrowser && window.Pi && typeof window.Pi.authenticate === 'function') {
-      try {
-        const scopes = ['username', 'payments'];
-        const authResult = await window.Pi.authenticate(scopes, async (payment: any) => {
-          // 处理未完成的支付
-          // 注意：这个回调在登录时被调用，此时可能还没有 authToken
-          // 所以我们只记录日志，不调用后端 API
-          console.log('Found incomplete payment during login:', payment.identifier);
-          // 返回 void，让 Pi SDK 知道我们已经处理了这个支付
-          // 实际的支付完成会在用户下次发起支付时通过 usePiPayment hook 处理
+    // SDK 加载成功，开始登录
+    console.log('Pi SDK loaded successfully, starting authentication...');
+    try {
+      const scopes = ['username', 'payments'];
+      const authResult = await window.Pi.authenticate(scopes, async (payment: any) => {
+        console.log('Found incomplete payment during login:', payment.identifier);
+      });
+
+      if (authResult && authResult.user) {
+        // 调用后端 API 完成登录
+        const data = await authApi.piLogin({
+          piUid: authResult.user.uid,
+          accessToken: authResult.accessToken,
+          username: authResult.user.username,
         });
-
-        if (authResult && authResult.user) {
-          // 调用后端 API 完成登录（必须成功才能进行支付）
-          const data = await authApi.piLogin({
-            piUid: authResult.user.uid,
-            accessToken: authResult.accessToken,
-            username: authResult.user.username,
-          });
-          localStorage.setItem('authToken', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          const userInfo = { ...data.user, isPiUser: true, balance: data.user.balance || '0.00' };
-          localStorage.setItem('userInfo', JSON.stringify(userInfo));
-          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
-          onLoginSuccess?.(userInfo);
-        } else {
-          throw new Error('认证失败：未获取到用户信息');
-        }
-        setIsLoggingIn(false);
-        return;
-      } catch (err: any) {
-        setLoginError(err.message || 'Pi 登录失败');
-        setIsLoggingIn(false);
-        return;
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        const userInfo = { ...data.user, isPiUser: true, balance: data.user.balance || '0.00' };
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+        localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
+        onLoginSuccess?.(userInfo);
+        console.log('Pi login successful:', userInfo);
+      } else {
+        throw new Error(getText({ 
+          zh: '认证失败：未获取到用户信息', 
+          en: 'Authentication failed: No user info', 
+          ko: '인증 실패: 사용자 정보 없음', 
+          vi: 'Xác thực thất bại: Không có thông tin người dùng' 
+        }, language));
       }
-    }
-
-    // 最后的清理工作，如果前面的逻辑都没有触发（理论上不应该发生）
-    if (!isRealPiBrowser && !isProduction) {
-        // 确保开发环境（非生产且非Pi浏览器）可以登录测试账号
-        // 这是双重保险，防止前面的 if (!isProduction && !isRealPiBrowser) 没有捕获到
-        console.warn('Fallback: executing mock login for dev environment');
-        try {
-          const testPiUid = 'dev_fallback_' + Date.now();
-          const data = await authApi.piLogin({
-            piUid: testPiUid,
-            accessToken: 'dev_fallback_token',
-            username: 'DevFallbackUser',
-          });
-          localStorage.setItem('authToken', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          const userInfo = { ...data.user, isTestAccount: true, balance: '0.00' };
-          localStorage.setItem('userInfo', JSON.stringify(userInfo));
-          localStorage.setItem('piUserInfo', JSON.stringify(userInfo));
-          onLoginSuccess?.(userInfo);
-          setIsTestAccount(true);
-        } catch (e) {
-          console.error('Fallback mock login failed', e);
-        }
-    } else if (isRealPiBrowser && (!window.Pi || typeof window.Pi.authenticate !== 'function')) {
-        setLoginError('Pi SDK 初始化失败，请刷新页面');
+    } catch (err: any) {
+      console.error('Pi authentication error:', err);
+      setLoginError(err.message || getText({ 
+        zh: 'Pi 登录失败', 
+        en: 'Pi login failed', 
+        ko: 'Pi 로그인 실패', 
+        vi: 'Đăng nhập Pi thất bại' 
+      }, language));
     }
     
     setIsLoggingIn(false);
