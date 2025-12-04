@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Store, Upload, Package, BarChart3, Edit2, Save, Plus, Image, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi } from '../services/api';
+import { eventsSocketService } from '../services/eventsSocket';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -159,6 +160,43 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       loadOrders();
     }
   }, [activeTab, merchant]);
+
+  // 🔥 监听实时订单更新（商家端）
+  useEffect(() => {
+    if (!merchant) return;
+
+    const handleOrderUpdate = (updatedOrder: any) => {
+      console.log('[ShopManagePage] 收到订单更新:', updatedOrder);
+      
+      // 检查订单是否属于当前店铺
+      const belongsToCurrentShop = updatedOrder.items?.some((item: any) => 
+        item.product?.merchantId === merchant.id
+      );
+
+      if (!belongsToCurrentShop) return;
+
+      // 🔥 立即更新订单列表
+      setOrders(prev => {
+        const existingIndex = prev.findIndex(o => o.id === updatedOrder.id);
+        
+        if (existingIndex >= 0) {
+          // 更新现有订单
+          const newList = [...prev];
+          newList[existingIndex] = updatedOrder;
+          return newList;
+        } else {
+          // 新订单，添加到列表开头
+          return [updatedOrder, ...prev];
+        }
+      });
+    };
+
+    eventsSocketService.on('order:updated', handleOrderUpdate);
+
+    return () => {
+      eventsSocketService.off('order:updated', handleOrderUpdate);
+    };
+  }, [merchant]);
 
   const fetchMerchantData = async () => {
     try {

@@ -18,6 +18,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [userInfo, setUserInfo] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [isEditingSettings, setIsEditingSettings] = useState(false); // 是否处于编辑模式
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false); // 是否有未保存的更改
   const [shippingAddress, setShippingAddress] = useState('');
   const [walletAddress, setWalletAddress] = useState('');
   const [isWalletBound, setIsWalletBound] = useState(false); // 钱包是否已绑定（从后端加载）
@@ -219,7 +221,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (savedUsernameLastModified) setUsernameLastModified(savedUsernameLastModified);
     
     const savedIsMerchant = localStorage.getItem('isMerchant');
-    if (savedIsMerchant === 'true') setIsMerchant(true);
+    if (savedIsMerchant === 'true') {
+      setIsMerchant(true);
+      console.log('[ProfilePage] 从localStorage加载商家身份: true');
+    } else {
+      console.log('[ProfilePage] 从localStorage加载商家身份: false');
+    }
     
     const savedReceiverName = localStorage.getItem('receiverName');
     const savedReceiverPhone = localStorage.getItem('receiverPhone');
@@ -368,6 +375,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           if (userData.username) {
             setUsername(userData.username);
           }
+          // 🔥 从后端获取商家身份
+          console.log('[ProfilePage] 后端返回用户角色:', userData.role);
+          if (userData.role === 'MERCHANT') {
+            setIsMerchant(true);
+            localStorage.setItem('isMerchant', 'true');
+            console.log('[ProfilePage] 设置商家身份: true');
+          } else {
+            setIsMerchant(false);
+            localStorage.setItem('isMerchant', 'false');
+            console.log('[ProfilePage] 设置商家身份: false');
+          }
         }
 
         // 加载默认收货地址
@@ -487,10 +505,45 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       refreshFavorites();
     };
 
-    // 监听订单更新
-    const handleOrderUpdate = () => {
-      console.log('[ProfilePage] Order updated via WebSocket');
-      refreshOrders();
+    // 监听订单更新 - 优化版：直接更新订单列表
+    const handleOrderUpdate = (updatedOrder: any) => {
+      console.log('[ProfilePage] Order updated via WebSocket:', updatedOrder);
+      
+      if (!updatedOrder || !updatedOrder.id) {
+        // 如果没有订单数据，则刷新整个列表
+        refreshOrders();
+        return;
+      }
+
+      // 🔥 直接更新订单列表，无需重新请求API
+      setOrdersList(prev => {
+        const existingIndex = prev.findIndex(o => o.id === updatedOrder.id);
+        
+        if (existingIndex >= 0) {
+          // 更新现有订单
+          const newList = [...prev];
+          newList[existingIndex] = {
+            ...newList[existingIndex],
+            ...updatedOrder,
+            status: updatedOrder.orderStatus || updatedOrder.status,
+            paymentStatus: updatedOrder.paymentStatus,
+          };
+          return newList;
+        } else {
+          // 新订单，添加到列表开头
+          const formattedOrder = {
+            id: updatedOrder.id,
+            orderNo: updatedOrder.orderNo,
+            totalAmount: updatedOrder.totalAmount,
+            status: updatedOrder.orderStatus || updatedOrder.status,
+            paymentStatus: updatedOrder.paymentStatus,
+            createdAt: updatedOrder.createdAt,
+            paidAt: updatedOrder.paidAt,
+            items: updatedOrder.items || [],
+          };
+          return [formattedOrder, ...prev];
+        }
+      });
     };
 
     // 监听购物车更新
@@ -1154,6 +1207,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               selectedDistrict,
               detailAddress
             });
+            setIsEditingSettings(false); // 打开时默认为只读模式
             setShowSettings(true);
           }}
           className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-md border border-white/30"
@@ -1704,20 +1758,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       {/* 设置弹窗 */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => {
-          // 恢复原始值
-          setEmail(originalSettings.email);
-          setUsername(originalSettings.username);
-          setWalletAddress(originalSettings.walletAddress);
-          setReceiverName(originalSettings.receiverName);
-          setReceiverPhone(originalSettings.receiverPhone);
-          setSelectedProvince(originalSettings.selectedProvince);
-          setSelectedCity(originalSettings.selectedCity);
-          setSelectedDistrict(originalSettings.selectedDistrict);
-          setDetailAddress(originalSettings.detailAddress);
-          setShowSettings(false);
-        }}>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => {
+          // 检查是否有未保存的更改
+          const hasChanges = 
+            email !== originalSettings.email ||
+            username !== originalSettings.username ||
+            receiverName !== originalSettings.receiverName ||
+            receiverPhone !== originalSettings.receiverPhone ||
+            selectedProvince !== originalSettings.selectedProvince ||
+            selectedCity !== originalSettings.selectedCity ||
+            selectedDistrict !== originalSettings.selectedDistrict ||
+            detailAddress !== originalSettings.detailAddress;
+
+          if (hasChanges && isEditingSettings) {
+            if (confirm(getText({ zh: '有未保存的更改，是否保存？', en: 'Save changes?', ko: '변경 사항을 저장하시겠습니까?', vi: 'Lưu thay đổi?' }))) {
+              handleSaveSettings();
+            } else {
               // 恢复原始值
               setEmail(originalSettings.email);
               setUsername(originalSettings.username);
@@ -1728,7 +1783,48 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               setSelectedCity(originalSettings.selectedCity);
               setSelectedDistrict(originalSettings.selectedDistrict);
               setDetailAddress(originalSettings.detailAddress);
+              setIsEditingSettings(false);
               setShowSettings(false);
+            }
+          } else {
+            setIsEditingSettings(false);
+            setShowSettings(false);
+          }
+        }}>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => {
+              // 检查是否有未保存的更改
+              const hasChanges = 
+                email !== originalSettings.email ||
+                username !== originalSettings.username ||
+                receiverName !== originalSettings.receiverName ||
+                receiverPhone !== originalSettings.receiverPhone ||
+                selectedProvince !== originalSettings.selectedProvince ||
+                selectedCity !== originalSettings.selectedCity ||
+                selectedDistrict !== originalSettings.selectedDistrict ||
+                detailAddress !== originalSettings.detailAddress;
+
+              if (hasChanges && isEditingSettings) {
+                if (confirm(getText({ zh: '有未保存的更改，是否保存？', en: 'Save changes?', ko: '변경 사항을 저장하시겠습니까?', vi: 'Lưu thay đổi?' }))) {
+                  handleSaveSettings();
+                } else {
+                  // 恢复原始值
+                  setEmail(originalSettings.email);
+                  setUsername(originalSettings.username);
+                  setWalletAddress(originalSettings.walletAddress);
+                  setReceiverName(originalSettings.receiverName);
+                  setReceiverPhone(originalSettings.receiverPhone);
+                  setSelectedProvince(originalSettings.selectedProvince);
+                  setSelectedCity(originalSettings.selectedCity);
+                  setSelectedDistrict(originalSettings.selectedDistrict);
+                  setDetailAddress(originalSettings.detailAddress);
+                  setIsEditingSettings(false);
+                  setShowSettings(false);
+                }
+              } else {
+                setIsEditingSettings(false);
+                setShowSettings(false);
+              }
             }} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
             <div className="flex items-center justify-center mb-6">
               <h2 className="text-2xl font-bold text-white">
@@ -1752,6 +1848,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     }}
                     placeholder={getText({ zh: '请输入用户名', en: 'Enter username', ko: '사용자 이름 입력', vi: 'Nhập tên' })}
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    readOnly={!isEditingSettings}
                   />
                 </div>
               </div>
@@ -1769,6 +1866,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     onChange={(e) => handleEmailChange(e.target.value)}
                     placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email', ko: '이메일 입력', vi: 'Nhập email' })}
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    readOnly={!isEditingSettings}
                   />
 
                   {emailError && (
@@ -1779,7 +1877,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </div>
               </div>
 
-              {/* 登录密码设置 */}
+              {/* 登录密码设置 - 商家专用 */}
               <div className="flex items-center gap-3">
                 <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
                   <Lock className="w-5 h-5" />
@@ -1787,6 +1885,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </label>
                 <button
                   onClick={async () => {
+                    if (!isMerchant) {
+                      alert(getText({ zh: '此功能仅限商家使用', en: 'Merchant only', ko: '판매자 전용', vi: 'Chỉ dành cho người bán' }));
+                      return;
+                    }
                     const newPassword = prompt(getText({ 
                       zh: '请输入新密码（至少6位）：', 
                       en: 'Enter new password (min 6 chars):', 
@@ -1824,9 +1926,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
                     }
                   }}
-                  className="flex-1 px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg hover:bg-white text-sm font-medium"
+                  disabled={!isMerchant}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-sm font-normal text-left ${
+                    isMerchant 
+                      ? 'bg-white/90 text-gray-800 hover:bg-white cursor-pointer' 
+                      : 'bg-white/90 text-gray-400/60 cursor-not-allowed'
+                  }`}
                 >
-                  {getText({ zh: '设置/修改密码', en: 'Set Password', ko: '비밀번호 설정', vi: 'Đặt mật khẩu' })}
+                  {getText({ zh: '商家专用', en: 'Merchant Only', ko: '판매자 전용', vi: 'Dành cho người bán' })}
                 </button>
               </div>
               
@@ -1843,6 +1950,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     onChange={(e) => handleReceiverNameChange(e.target.value)}
                     placeholder={getText({ zh: '请输入收件人姓名', en: 'Enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Nhập tên người nhận' })}
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    readOnly={!isEditingSettings}
                   />
 
                   {receiverNameError && (
@@ -1866,6 +1974,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     onChange={(e) => handleReceiverPhoneChange(e.target.value)}
                     placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone number', ko: '전화번호를 입력하세요', vi: 'Nhập số điện thoại' })}
                     className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    readOnly={!isEditingSettings}
                   />
 
                   {receiverPhoneError && (
@@ -1884,10 +1993,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 </label>
                 <button
                   onClick={() => {
-                    setShowAddressModal(true);
-                    setAddressStep('province');
+                    if (isEditingSettings) {
+                      setShowAddressModal(true);
+                      setAddressStep('province');
+                    }
                   }}
-                  className="flex-1 px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-left text-sm"
+                  disabled={!isEditingSettings}
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-left text-sm ${
+                    isEditingSettings 
+                      ? 'bg-white/90 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer' 
+                      : 'bg-white/50 text-gray-600 cursor-not-allowed'
+                  }`}
                 >
                   {selectedProvince && selectedCity ? 
                     `${selectedProvince} ${selectedCity} ${selectedDistrict || ''}`.trim() : 
@@ -1910,6 +2026,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       onChange={(e) => handleDetailAddressChange(e.target.value)}
                       placeholder={getText({ zh: '请输入详细地址（街道、门牌号等）', en: 'Enter detailed address', ko: '상세 주소를 입력하세요', vi: 'Nhập địa chỉ chi tiết' })}
                       className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                      readOnly={!isEditingSettings}
                     />
                     {detailAddressError && (
                       <div className="absolute left-0 -top-8 bg-red-500 text-white text-xs px-2 py-1 rounded shadow-lg whitespace-nowrap z-10">
@@ -1958,13 +2075,45 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
               
               {/* 按钮 */}
-              <div className="flex justify-center pt-4">
-                <button
-                  onClick={handleSaveSettings}
-                  className="py-1.5 px-4 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
-                >
-                  {getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
-                </button>
+              <div className="flex justify-center gap-3 pt-4">
+                {!isEditingSettings ? (
+                  <button
+                    onClick={() => setIsEditingSettings(true)}
+                    className="py-1.5 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
+                  >
+                    {getText({ zh: '修改', en: 'Edit', ko: '수정', vi: 'Sửa' })}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        // 恢复原始值
+                        setEmail(originalSettings.email);
+                        setUsername(originalSettings.username);
+                        setWalletAddress(originalSettings.walletAddress);
+                        setReceiverName(originalSettings.receiverName);
+                        setReceiverPhone(originalSettings.receiverPhone);
+                        setSelectedProvince(originalSettings.selectedProvince);
+                        setSelectedCity(originalSettings.selectedCity);
+                        setSelectedDistrict(originalSettings.selectedDistrict);
+                        setDetailAddress(originalSettings.detailAddress);
+                        setIsEditingSettings(false);
+                      }}
+                      className="py-1.5 px-6 bg-white/30 text-white rounded-lg font-bold hover:bg-white/40 transition-all active:scale-95 text-sm"
+                    >
+                      {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleSaveSettings();
+                        setIsEditingSettings(false);
+                      }}
+                      className="py-1.5 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
+                    >
+                      {getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
