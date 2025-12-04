@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, Info } from 'lucide-react';
 import { Language, Translations } from '../types';
+import { escrowApi } from '../services/api';
 
 interface EscrowCreatePageProps {
   language: Language;
@@ -18,7 +19,7 @@ export const EscrowCreatePage: React.FC<EscrowCreatePageProps> = ({ language, tr
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       alert(getText({ zh: '请输入交易标题', en: 'Please enter trade title', ko: '거래 제목을 입력하세요', vi: 'Vui lòng nhập tiêu đề' }));
       return;
@@ -31,29 +32,20 @@ export const EscrowCreatePage: React.FC<EscrowCreatePageProps> = ({ language, tr
       alert(getText({ zh: '请输入有效的交易金额', en: 'Please enter valid amount', ko: '유효한 금액을 입력하세요', vi: 'Vui lòng nhập số tiền hợp lệ' }));
       return;
     }
-    if (!sellerUsername.trim()) {
-      alert(getText({ zh: '请输入卖家用户名', en: 'Please enter seller username', ko: '판매자 사용자 이름을 입력하세요', vi: 'Vui lòng nhập tên người bán' }));
-      return;
+
+    try {
+      // 调用后端接口创建担保交易
+      await escrowApi.createTrade({
+        title,
+        description,
+        amount: parseFloat(amount),
+      });
+
+      alert(getText({ zh: '担保交易创建成功！', en: 'Escrow trade created!', ko: '에스크로 거래가 생성되었습니다!', vi: 'Đã tạo giao dịch ký quỹ!' }));
+      navigate('/escrow-trade');
+    } catch (error: any) {
+      alert(error.message || getText({ zh: '创建失败，请重试', en: 'Failed to create', ko: '생성 실패', vi: 'Tạo thất bại' }));
     }
-
-    // 保存交易到localStorage
-    const trades = JSON.parse(localStorage.getItem('escrowTrades') || '[]');
-    const newTrade = {
-      id: Date.now().toString(),
-      title,
-      description,
-      amount: parseFloat(amount),
-      platformFee: Math.round(parseFloat(amount) * 0.03),
-      deadline: `${deadline}天`,
-      seller: sellerUsername,
-      status: 'awaiting',
-      createdAt: new Date().toISOString(),
-    };
-    trades.push(newTrade);
-    localStorage.setItem('escrowTrades', JSON.stringify(trades));
-
-    alert(getText({ zh: '担保交易创建成功！', en: 'Escrow trade created!', ko: '에스크로 거래가 생성되었습니다!', vi: 'Đã tạo giao dịch ký quỹ!' }));
-    navigate('/escrow-trade');
   };
 
   return (

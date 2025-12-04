@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import { Language, Translations } from '../types';
@@ -14,7 +14,7 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
   const navigate = useNavigate();
   const [afterSales, setAfterSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'REJECTED'>('PENDING');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'COMPLETED' | 'REJECTED'>('ALL');
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -55,11 +55,10 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
         
         if (response.ok) {
           const data = await response.json();
-          // 给每个售后订单附加店铺名称和logo
+          // 给每个售后订单附加店铺名称
           const dataWithShop = (data || []).map((item: any) => ({
             ...item,
             shopName: merchant.shopName,
-            shopLogo: merchant.logo,
           }));
           allAfterSales.push(...dataWithShop);
         }
@@ -236,15 +235,10 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
 
                 return (
                   <div key={item.id} className="bg-white rounded-lg p-3">
-                    {/* 头部：店铺logo + 店铺名 + 状态 + 展开按钮 */}
+                    {/* 头部：店铺名 + 状态 + 展开按钮 */}
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2 flex-1">
-                        {item.shopLogo ? (
-                          <img src={item.shopLogo} alt={item.shopName} className="w-5 h-5 rounded object-cover" />
-                        ) : (
-                          <span className="text-base">📦</span>
-                        )}
-                        <span className="text-xs font-bold text-purple-600">{item.shopName}</span>
+                        <span className="text-xs font-bold text-purple-600">📦 {item.shopName}</span>
                         <span className="text-xs text-gray-500">·</span>
                         <span className="text-xs text-gray-600">{getTypeText(item.type)}</span>
                       </div>
@@ -263,23 +257,18 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
                       </div>
                     </div>
 
-                    {/* 商品简要信息 - 始终显示 */}
-                    {!isExpanded && item.order?.items && item.order.items.length > 0 && (
-                      <div className="flex justify-between items-center text-xs text-gray-600 ml-7">
-                        <span className="truncate flex-1">
-                          {item.order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })}
-                        </span>
-                        <span className="font-bold text-red-600 ml-2">
-                          {Number(item.order.items[0].price).toFixed(2)}π
-                        </span>
-                      </div>
-                    )}
+                    {/* 简要信息 - 始终显示 */}
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-gray-500 truncate flex-1">{item.orderNo}</span>
+                      <span className="font-bold text-red-600 ml-2">{item.amount}π</span>
+                    </div>
 
                     {/* 详细信息 - 展开时显示 */}
                     {isExpanded && (
-                      <div className="border-t">
+                      <div className="mt-2 pt-2 border-t">
+                        {/* 商品信息 */}
                         {item.order?.items && item.order.items.length > 0 ? (
-                    <div className="flex gap-2 border-b py-1">
+                    <div className="flex gap-2 mb-2">
                       {item.order.items[0].product?.images?.[0] && (
                         <img 
                           src={item.order.items[0].product.images[0]} 
@@ -289,86 +278,65 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">
-                          {item.order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })}
+                          {item.order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상品', vi: 'Sản phẩm' })}
                         </p>
-                        <p className="text-xs text-red-500 font-bold">
+                        <p className="text-xs text-gray-500">
                           {Number(item.order.items[0].price).toFixed(2)}π × {item.order.items[0].quantity}
                           {item.order.items.length > 1 && ` 等${item.order.items.length}件`}
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-600 mt-1">
                           {getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}: {item.buyerName || getText({ zh: '未知', en: 'Unknown', ko: '알 수 없음', vi: 'Không rõ' })}
                         </p>
-                        {item.order?.address && (
-                          <>
-                            <p className="text-xs text-gray-500">
-                              {getText({ zh: '收货人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}: {item.order.address.receiverName} {item.order.address.receiverPhone}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
-                              {getText({ zh: '地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })}: {item.order.address.province} {item.order.address.city} {item.order.address.district} {item.order.address.detail}
-                            </p>
-                          </>
-                        )}
                       </div>
                     </div>
                   ) : (
-                    <div className="border-b py-1 pl-[4.5rem]">
+                    <div className="mb-2 pb-2 border-b">
                       <p className="text-xs text-gray-500">{getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}: {item.buyerName || getText({ zh: '未知', en: 'Unknown', ko: '알 수 없음', vi: 'Không rõ' })}</p>
                       <p className="text-xs text-gray-400">{getText({ zh: '商品信息已删除', en: 'Product deleted', ko: '상품 삭제됨', vi: 'Sản phẩm đã xóa' })}</p>
                     </div>
                   )}
-                  {!item.order?.address && item.order?.items && item.order.items.length > 0 && (
-                    <div className="border-b py-1 pl-[4.5rem]">
-                      <p className="text-xs text-orange-500">{getText({ zh: '⚠️ 无地址信息', en: '⚠️ No address', ko: '⚠️ 주소 없음', vi: '⚠️ Không có địa chỉ' })}</p>
-                    </div>
-                  )}
-                  <div className="border-b py-1 pl-[4.5rem]">
-                    <p className="text-xs text-gray-500">
-                      <span className="text-gray-500">{getText({ zh: '退款理由', en: 'Refund Reason', ko: '환불 이유', vi: 'Lý do hoàn tiền' })}:</span>
-                      <span className="text-gray-700"> {item.reason}</span>
-                      {item.description && <span className="text-gray-600"> {item.description}</span>}
-                    </p>
-                  </div>
-                  {item.merchantReply && (
-                    <div className="border-b py-1 pl-[4.5rem]">
+
+                  {/* 收货地址 */}
+                  {item.order?.address && (
+                    <div className="mb-2 pb-2 border-b">
                       <p className="text-xs text-gray-500">
-                        <span className="text-gray-500">{getText({ zh: '商家回复', en: 'Merchant Reply', ko: '판매자 답변', vi: 'Phản hồi người bán' })}:</span>
-                        <span className="text-gray-700"> {item.merchantReply}</span>
+                        {getText({ zh: '收货人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}: {item.order.address.receiverName} {item.order.address.receiverPhone}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {item.order.address.province} {item.order.address.city} {item.order.address.district} {item.order.address.detail}
                       </p>
                     </div>
                   )}
+
+                        {/* 申请理由 */}
+                  <div className="mb-2">
+                    <p className="text-xs text-gray-500">{getText({ zh: '理由', en: 'Reason', ko: '이유', vi: 'Lý do' })}:</p>
+                    <p className="text-xs text-gray-700 line-clamp-2">{item.reason}</p>
+                    {item.description && (
+                      <p className="text-xs text-gray-600 mt-1 line-clamp-1">{item.description}</p>
+                    )}
+                  </div>
+
+                  {/* 商家回复 */}
+                  {item.merchantReply && (
+                    <div className="mb-2 p-2 bg-gray-50 rounded">
+                      <p className="text-xs text-gray-500">{getText({ zh: '回复', en: 'Reply', ko: '답변', vi: 'Phản hồi' })}:</p>
+                      <p className="text-xs text-gray-700">{item.merchantReply}</p>
+                    </div>
+                  )}
+
+                  {/* 退货物流 */}
                   {item.returnCompany && item.returnTrackingNo && (
-                    <div className="border-b py-1 pl-[4.5rem]">
+                    <div className="mb-2 p-2 bg-blue-50 rounded">
                       <p className="text-xs text-gray-700">
                         {item.returnCompany} - {item.returnTrackingNo}
                       </p>
                     </div>
                   )}
 
-                        <div className="border-b py-1 pl-[4.5rem]">
-                          <p className="text-xs text-gray-500">
-                            {getText({ zh: '下单时间', en: 'Order Time', ko: '주문 시간', vi: 'Thời gian đặt' })}: {item.order?.createdAt ? new Date(item.order.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-'}
-                          </p>
-                        </div>
-                        <div className="border-b py-1 pl-[4.5rem]">
-                          <p className="text-xs text-gray-500">
-                            {getText({ zh: '申请时间', en: 'Apply Time', ko: '신청 시간', vi: 'Thời gian yêu cầu' })}: {new Date(item.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                        {item.merchantRepliedAt && (
-                          <div className="border-b py-1 pl-[4.5rem]">
-                            <p className="text-xs text-gray-500">
-                              {getText({ zh: '处理时间', en: 'Process Time', ko: '처리 시간', vi: 'Thời gian xử lý' })}: {new Date(item.merchantRepliedAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                        )}
-                        <div className="border-b py-1 pl-[4.5rem]">
-                          <p className="text-xs text-gray-500">
-                            {getText({ zh: '订单号', en: 'Order', ko: '주문번호', vi: 'Đơn hàng' })}: {item.orderNo}
-                          </p>
-                        </div>
-
+                        {/* 操作按钮 */}
                         {item.status === 'PENDING' && (
-                          <div className="flex gap-2 py-1">
+                          <div className="flex gap-2 mt-3">
                             <button
                               onClick={() => handleReply(item.id, false)}
                               className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600"
@@ -384,21 +352,16 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
                           </div>
                         )}
 
-                        {item.status === 'BUYER_SHIPPING' && (
-                          <div className="py-1">
-                            <button
-                              onClick={() => handleConfirmReturn(item.id)}
-                              className="w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700"
-                            >
-                              {getText({ zh: '确认收货', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  {item.status === 'BUYER_SHIPPING' && (
+                    <button
+                      onClick={() => handleConfirmReturn(item.id)}
+                      className="w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-bold hover:bg-purple-700"
+                    >
+                      {getText({ zh: '确认收货', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

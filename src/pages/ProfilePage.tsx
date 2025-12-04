@@ -303,7 +303,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     const loadOrders = async () => {
       try {
         const orders = await orderApi.getOrders();
-        console.log('成功获取订单:', orders.length, '个');
         
         // 转换订单格式以兼容现有UI
         const formattedOrders = orders.map((order: any) => ({
@@ -321,6 +320,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           paymentMethod: order.paymentMethod,
           status: order.orderStatus?.toLowerCase() || 'pending',
           createdAt: order.createdAt,
+          // 保留售后状态标记
+          hasActiveAfterSale: order.hasActiveAfterSale || false,
+          afterSale: order.afterSale || null,
         }));
         
         setOrdersList(formattedOrders);
@@ -340,8 +342,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     // 从后端获取最新用户信息和钱包信息
     const loadBackendData = async () => {
       try {
-        // 并行加载用户信息和钱包信息
-        const [userData, wallet] = await Promise.all([
+        // 并行加载用户信息、钱包信息和收货地址
+        const [userData, wallet, addresses] = await Promise.all([
           authApi.getCurrentUser().catch(err => {
             console.error('获取用户信息失败:', err);
             return null;
@@ -349,11 +351,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           userApi.getWallet().catch(err => {
             console.error('获取钱包信息失败:', err);
             return null;
-          }) as Promise<{ piAddress?: string; isLocked?: boolean } | null>
+          }) as Promise<{ piAddress?: string; isLocked?: boolean } | null>,
+          userApi.getAddresses().catch(err => {
+            console.error('获取收货地址失败:', err);
+            return [];
+          })
         ]);
 
         if (userData) {
           setUserInfo((prev: any) => ({ ...prev, balance: userData.balance }));
+          // 如果后端有邮箱数据，更新到前端状态
+          if (userData.email) {
+            setEmail(userData.email);
+          }
+          // 如果后端有用户名数据，更新到前端状态
+          if (userData.username) {
+            setUsername(userData.username);
+          }
+        }
+
+        // 加载默认收货地址
+        if (addresses && addresses.length > 0) {
+          const defaultAddress = addresses.find((addr: any) => addr.isDefault) || addresses[0];
+          if (defaultAddress) {
+            setReceiverName(defaultAddress.receiverName || '');
+            setReceiverPhone(defaultAddress.receiverPhone || '');
+            setSelectedProvince(defaultAddress.province || '');
+            setSelectedCity(defaultAddress.city || '');
+            setSelectedDistrict(defaultAddress.district || '');
+            setDetailAddress(defaultAddress.detail || '');
+          }
         }
 
         if (wallet) {
@@ -434,6 +461,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         paymentMethod: order.paymentMethod,
         status: order.orderStatus?.toLowerCase() || 'pending',
         createdAt: order.createdAt,
+        // 保留售后状态标记
+        hasActiveAfterSale: order.hasActiveAfterSale || false,
+        afterSale: order.afterSale || null,
       }));
       setOrdersList(formattedOrders);
       setOrdersCount(formattedOrders.length);
@@ -634,7 +664,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     // 组合完整地址
     const fullAddress = `${selectedProvince} ${selectedCity} ${selectedDistrict} ${detailAddress}`.trim();
     
-    // 保存用户名（移除修改限制）
+    // 保存用户名和邮箱到后端数据库
+    try {
+      const profileData: { username?: string; email?: string } = {};
+      if (username.trim()) {
+        profileData.username = username;
+      }
+      if (email.trim()) {
+        profileData.email = email;
+      }
+      
+      if (Object.keys(profileData).length > 0) {
+        await userApi.updateProfile(profileData);
+      }
+    } catch (error: any) {
+      alert(error.message || getText({ zh: '保存失败', en: 'Failed to save', ko: '저장 실패', vi: 'Lưu thất bại' }));
+      return;
+    }
+    
+    // 保存用户名到本地（兼容旧逻辑）
     if (username.trim()) {
       localStorage.setItem('customUsername', username);
     }
@@ -1218,7 +1266,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <DollarSign className="w-5 h-5 text-yellow-300" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '待付款', en: 'Unpaid', ko: '미결제', vi: 'Chờ TT' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'pending').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'pending' && !o.hasActiveAfterSale).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
                     onClick={() => setSelectedOrderTab('pending')}
@@ -1226,7 +1274,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <Package className="w-5 h-5 text-blue-300" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '待发货', en: 'To Ship', ko: '배송대기', vi: 'Chờ gửi' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'paid').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'paid' && !o.hasActiveAfterSale).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
                     onClick={() => setSelectedOrderTab('shipping')}
@@ -1234,7 +1282,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <Truck className="w-5 h-5 text-green-300" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '待收货', en: 'Shipping', ko: '배송중', vi: 'Đang gửi' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'shipped').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'shipped' && !o.hasActiveAfterSale).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
                     onClick={() => setSelectedOrderTab('review')}
@@ -1242,7 +1290,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <Star className="w-5 h-5 text-purple-300" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '待评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'completed' && !o.reviewed).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    {(() => { const c = ordersList.filter((o: any) => o.status === 'completed' && !o.reviewed && !o.hasActiveAfterSale).length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                   <button 
                     onClick={() => setSelectedOrderTab('aftersale')}
@@ -1250,18 +1298,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   >
                     <HeadphonesIcon className="w-5 h-5 text-orange-300" />
                     <span className="text-[9px] text-white font-medium">{getText({ zh: '售后', en: 'Service', ko: 'A/S', vi: 'Bảo hành' })}</span>
-                    {(() => { const c = ordersList.filter((o: any) => o.status === 'refunded' || o.status === 'refunding').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
+                    {(() => { const c = ordersList.filter((o: any) => o.hasActiveAfterSale || o.status === 'refunded' || o.status === 'refunding').length; return c > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{c}</span>; })()}
                   </button>
                 </div>
                 {/* 订单列表 */}
                 {(() => {
                   const filteredOrders = ordersList.filter((o: any) => {
                     switch (selectedOrderTab) {
-                      case 'unpaid': return o.status === 'pending';
-                      case 'pending': return o.status === 'paid';
-                      case 'shipping': return o.status === 'shipped';
-                      case 'review': return o.status === 'completed' && !o.reviewed;
-                      case 'aftersale': return o.status === 'refunded' || o.status === 'refunding';
+                      case 'unpaid': return o.status === 'pending' && !o.hasActiveAfterSale;
+                      case 'pending': return o.status === 'paid' && !o.hasActiveAfterSale;
+                      case 'shipping': return o.status === 'shipped' && !o.hasActiveAfterSale;
+                      case 'review': return o.status === 'completed' && !o.reviewed && !o.hasActiveAfterSale;
+                      case 'aftersale': return o.hasActiveAfterSale || o.status === 'refunded' || o.status === 'refunding';
                       default: return true;
                     }
                   });
@@ -1359,6 +1407,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
                                   </button>
                                 )}
+                                {/* 确认收货按钮 - 仅已发货订单显示 */}
+                                {order.status === 'shipped' && (
+                                  <button 
+                                    onClick={async () => {
+                                      if (!confirm(getText({ zh: '确认收货？', en: 'Confirm receipt?', ko: '수령 확인?', vi: 'Xác nhận nhận hàng?' }))) {
+                                        return;
+                                      }
+                                      try {
+                                        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                                        const token = localStorage.getItem('authToken');
+                                        const response = await fetch(`${API_URL}/api/v1/orders/${order.id}/confirm`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Authorization': `Bearer ${token}`,
+                                          },
+                                        });
+                                        if (response.ok) {
+                                          alert(getText({ zh: '确认收货成功！', en: 'Confirmed!', ko: '확인됨!', vi: 'Đã xác nhận!' }));
+                                          window.location.reload();
+                                        } else {
+                                          const error = await response.json();
+                                          alert(error.message || getText({ zh: '操作失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                                        }
+                                      } catch (error) {
+                                        alert(getText({ zh: '操作失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                                      }
+                                    }}
+                                    className="flex-1 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-lg hover:bg-green-600"
+                                  >
+                                    {getText({ zh: '确认收货', en: 'Confirm', ko: '수령 확인', vi: 'Xác nhận' })}
+                                  </button>
+                                )}
                                 {/* 评价商品按钮 */}
                                 {order.status === 'completed' && !order.reviewed && (
                                   <button 
@@ -1413,6 +1493,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 </div>
                               );
                             })()}
+                            {/* 删除订单按钮 - 仅已退款订单显示 */}
+                            {order.status === 'refunded' && (
+                              <div className="flex gap-2 mt-1">
+                                <button 
+                                  onClick={async () => {
+                                    if (!confirm(getText({ zh: '确认删除此订单？', en: 'Delete this order?', ko: '이 주문을 삭제하시겠습니까?', vi: 'Xóa đơn hàng này?' }))) {
+                                      return;
+                                    }
+                                    try {
+                                      await orderApi.deleteOrder(order.id);
+                                      setOrdersList(prev => prev.filter(o => o.id !== order.id));
+                                      setOrdersCount(prev => prev - 1);
+                                      alert(getText({ zh: '订单已删除', en: 'Order deleted', ko: '주문 삭제됨', vi: 'Đã xóa đơn hàng' }));
+                                    } catch (error: any) {
+                                      alert(error.message || getText({ zh: '删除失败', en: 'Delete failed', ko: '삭제 실패', vi: 'Xóa thất bại' }));
+                                    }
+                                  }}
+                                  className="flex-1 py-1.5 bg-gray-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-gray-600"
+                                >
+                                  {getText({ zh: '删除订单', en: 'Delete', ko: '삭제', vi: 'Xóa' })}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

@@ -133,7 +133,7 @@ export const userApi = {
   getProfile: () => request<{ id: string; username: string; email?: string; avatar?: string; balance: string; role: string }>('/users/profile'),
 
   // 更新个人资料
-  updateProfile: (data: { username?: string; avatar?: string }) =>
+  updateProfile: (data: { username?: string; avatar?: string; email?: string }) =>
     request('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -373,6 +373,10 @@ export const orderApi = {
   // 取消订单
   cancelOrder: (id: string) =>
     request(`/orders/${id}/cancel`, { method: 'PUT' }),
+
+  // 删除订单（仅已退款订单）
+  deleteOrder: (id: string) =>
+    request(`/orders/${id}/delete`, { method: 'PUT' }),
 
   // 确认收货
   confirmOrder: (id: string) =>

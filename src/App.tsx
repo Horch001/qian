@@ -63,23 +63,25 @@ const HomePage: React.FC<{
         <div className="absolute top-0 right-0 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-pink-400/10 rounded-full blur-3xl"></div>
       </div>
-      <div className="w-full max-w-md h-full flex flex-col relative shadow-2xl bg-transparent z-10">
+      <div className="w-full max-w-md h-screen flex flex-col relative shadow-2xl bg-transparent z-10">
         {/* Fixed Top Section */}
         <div className="flex-none z-20">
           <AnnouncementBar language={language} translations={TRANSLATIONS} />
           <Header language={language} translations={TRANSLATIONS} onLanguageChange={onLanguageChange} />
         </div>
 
-        {/* Scrollable Main Content */}
-        <main className="flex-1 overflow-y-auto px-4 pb-2">
-          <h2 className="text-sm font-bold text-white/95 mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] px-1 tracking-tight">
+        {/* Main Content - 自动填充剩余空间 */}
+        <main className="flex-1 flex flex-col px-4 py-2 min-h-0">
+          <h2 className="text-sm font-bold text-white/95 mb-1 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] px-1 tracking-tight flex-none">
             {TRANSLATIONS.allCategories[language]}
           </h2>
           
-          <div className="grid grid-cols-3 gap-2.5 pb-2">
-            {CATEGORIES.map((category) => (
-              <CategoryCard key={category.id} item={category} language={language} />
-            ))}
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-3 gap-2.5 pb-2">
+              {CATEGORIES.map((category) => (
+                <CategoryCard key={category.id} item={category} language={language} />
+              ))}
+            </div>
           </div>
         </main>
 

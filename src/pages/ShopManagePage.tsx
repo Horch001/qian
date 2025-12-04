@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Store, Upload, Package, BarChart3, Edit2, Save, Plus, Image, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Store, Upload, Package, BarChart3, Edit2, Save, Plus, Image, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi } from '../services/api';
 
@@ -29,6 +29,8 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
   });
   const [saving, setSaving] = useState(false);
   const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>('PAID');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showShipModal, setShowShipModal] = useState(false);
   const [shipData, setShipData] = useState({
@@ -137,7 +139,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     fetchMerchantData();
   }, [stateData?.merchantId, stateData?.tab, stateData?.autoEdit, location.pathname]);
 
-  // 当切换到订单标签时，自动加载所有订单
+  // 当切换到订单标签时，自动加载待发货订单
   useEffect(() => {
     if (activeTab === 'orders' && merchant) {
       const loadOrders = async () => {
@@ -147,7 +149,9 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
           const currentMerchantOrders = (ordersData || []).filter((o: any) => 
             o.items?.some((item: any) => item.product?.merchantId === merchant.id)
           );
-          setOrders(currentMerchantOrders);
+          // 默认只显示待发货订单
+          const paidOrders = currentMerchantOrders.filter((o: any) => o.orderStatus === 'PAID');
+          setOrders(paidOrders);
         } catch (error: any) {
           console.error('加载订单失败:', error);
         }
@@ -607,6 +611,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                   key={status}
                   onClick={async () => {
                     try {
+                      setSelectedOrderStatus(status);
                       const ordersData = await merchantApi.getMyOrders();
                       // 筛选当前店铺的订单
                       const currentMerchantOrders = (ordersData || []).filter((o: any) => 
@@ -622,7 +627,9 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       alert(error.message || getText({ zh: '加载订单失败', en: 'Failed to load orders', ko: '주문 로드 실패', vi: 'Tải đơn hàng thất bại' }));
                     }
                   }}
-                  className="px-2.5 py-1.5 bg-white rounded-lg text-[11px] font-medium whitespace-nowrap hover:bg-purple-50 active:scale-95 transition-all flex-shrink-0"
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap hover:bg-purple-50 active:scale-95 transition-all flex-shrink-0 ${
+                    selectedOrderStatus === status ? 'bg-purple-600 text-white' : 'bg-white'
+                  }`}
                 >
                   {status === 'ALL' ? getText({ zh: '全部', en: 'All', ko: '전체', vi: 'Tất cả' }) :
                    status === 'PENDING' ? getText({ zh: '待付款', en: 'Pending', ko: '대기', vi: 'Chờ' }) :
@@ -640,36 +647,104 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
               </div>
             ) : (
               <div className="space-y-3">
-                {orders.map((order) => (
-                  <div key={order.id} className="bg-white rounded-xl p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="text-sm text-gray-500">{getText({ zh: '订单号', en: 'Order No', ko: '주문 번호', vi: 'Mã đơn' })}: {order.orderNo}</p>
-                        <p className="text-xs text-gray-400">{new Date(order.createdAt).toLocaleString()}</p>
+                {orders.map((order) => {
+                  const isExpanded = expandedOrders.has(order.id);
+                  const toggleExpand = () => {
+                    const newExpanded = new Set(expandedOrders);
+                    if (isExpanded) {
+                      newExpanded.delete(order.id);
+                    } else {
+                      newExpanded.add(order.id);
+                    }
+                    setExpandedOrders(newExpanded);
+                  };
+
+                  return (
+                  <div key={order.id} className="bg-white rounded-xl p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
+                          order.orderStatus === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :
+                          order.orderStatus === 'PAID' ? 'bg-green-100 text-green-600' :
+                          order.orderStatus === 'SHIPPED' ? 'bg-blue-100 text-blue-600' :
+                          order.orderStatus === 'COMPLETED' ? 'bg-purple-100 text-purple-600' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {order.orderStatus === 'PENDING' ? getText({ zh: '待付款', en: 'Pending', ko: '대기', vi: 'Chờ' }) :
+                           order.orderStatus === 'PAID' ? getText({ zh: '待发货', en: 'Paid', ko: '결제됨', vi: 'Đã trả' }) :
+                           order.orderStatus === 'SHIPPED' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' }) :
+                           order.orderStatus === 'COMPLETED' ? getText({ zh: '已完成', en: 'Done', ko: '완료', vi: 'Xong' }) :
+                           order.orderStatus === 'CANCELLED' ? getText({ zh: '已取消', en: 'Cancelled', ko: '취소', vi: 'Đã hủy' }) :
+                           order.orderStatus}
+                        </span>
                       </div>
-                      <span className="px-2 py-1 bg-green-100 text-green-600 text-xs rounded">{order.orderStatus}</span>
+                      <button onClick={toggleExpand} className="text-gray-500 hover:text-gray-700">
+                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </button>
                     </div>
-                    <div className="space-y-2 text-sm">
-                      <p><span className="text-gray-500">{getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}:</span> {order.user?.username || '-'}</p>
-                      <p><span className="text-gray-500">{getText({ zh: '金额', en: 'Amount', ko: '金额', vi: 'Số tiền' })}:</span> <span className="text-red-600 font-bold">{order.totalAmount}π</span></p>
-                      {order.address ? (
-                        <>
-                          <p><span className="text-gray-500">{getText({ zh: '收件人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}:</span> {order.address.receiverName} {order.address.receiverPhone}</p>
-                          <p><span className="text-gray-500">{getText({ zh: '地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })}:</span> {order.address.province} {order.address.city} {order.address.district} {order.address.detail}</p>
-                        </>
-                      ) : (
-                        <p className="text-xs text-orange-500">{getText({ zh: '⚠️ 旧订单无地址信息，请联系买家', en: '⚠️ No address, contact buyer', ko: '⚠️ 주소 없음, 구매자에게 연락', vi: '⚠️ Không có địa chỉ, liên hệ người mua' })}</p>
-                      )}
-                      <div className="pt-2 border-t">
-                        <p className="text-gray-500 mb-1">{getText({ zh: '商品', en: 'Items', ko: '상품', vi: 'Sản phẩm' })}:</p>
-                        {order.items?.map((item: any, idx: number) => (
-                          <p key={idx} className="text-xs">• {item.product?.title || '商品'} x{item.quantity}</p>
-                        ))}
+                    {!isExpanded && order.items && order.items.length > 0 && (
+                      <div className="flex justify-between items-center text-xs text-gray-600">
+                        <span className="truncate flex-1">
+                          {order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })} × {order.items[0].quantity}
+                          {order.items.length > 1 && ` 等${order.items.length}件`}
+                        </span>
+                        <span className="font-bold text-red-500 ml-2">
+                          {Number(order.items[0].price).toFixed(2)}π
+                        </span>
                       </div>
-                      
-                      {/* 订单操作按钮 */}
+                    )}
+                    {isExpanded && order.items && order.items.length > 0 && (
+                      <div className="flex gap-2 border-b py-1">
+                        {order.items[0].product?.images?.[0] && (
+                          <img 
+                            src={order.items[0].product.images[0]} 
+                            alt={order.items[0].product.title} 
+                            className="w-16 h-16 object-cover rounded" 
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })}
+                          </p>
+                          <p className="text-xs text-red-500 font-bold">
+                            {Number(order.items[0].price).toFixed(2)}π × {order.items[0].quantity}
+                            {order.items.length > 1 && ` 等${order.items.length}件`}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {getText({ zh: '买家', en: 'Buyer', ko: '구매자', vi: 'Người mua' })}: {order.user?.username || '-'}
+                          </p>
+                          {order.address && (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                {getText({ zh: '收货人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}: {order.address.receiverName} {order.address.receiverPhone}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {getText({ zh: '地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })}: {order.address.province} {order.address.city} {order.address.district} {order.address.detail}
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {isExpanded && !order.address && (
+                        <div className="border-b py-1 pl-[4.5rem]">
+                          <p className="text-xs text-orange-500">{getText({ zh: '⚠️ 旧订单无地址信息，请联系买家', en: '⚠️ No address, contact buyer', ko: '⚠️ 주소 없음, 구매자에게 연락', vi: '⚠️ Không có địa chỉ, liên hệ người mua' })}</p>
+                        </div>
+                    )}
+                    {isExpanded && (
+                      <>
+                    <div className="border-b py-1 pl-[4.5rem]">
+                      <p className="text-xs text-gray-400">
+                        {getText({ zh: '下单时间', en: 'Order Time', ko: '주문 시간', vi: 'Thời gian đặt' })}: {new Date(order.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <div className="border-b py-1 pl-[4.5rem]">
+                      <p className="text-xs text-gray-500">
+                        {getText({ zh: '订单号', en: 'Order', ko: '주문번호', vi: 'Đơn hàng' })}: {order.orderNo}
+                      </p>
+                    </div>
                       {order.orderStatus === 'PAID' && (
-                        <div className="mt-3 pt-3 border-t">
+                        <div className="py-1">
                           <button
                             onClick={() => {
                               setSelectedOrder(order);
@@ -681,9 +756,11 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                           </button>
                         </div>
                       )}
-                    </div>
+                      </>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
