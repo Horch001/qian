@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { chatApi, ChatMessage } from '../services/api';
 import socketService from '../services/socket';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Image, Video, ShoppingBag, Plus, X } from 'lucide-react';
 
 interface MockMessage {
   id: string;
@@ -25,7 +25,9 @@ export default function ChatRoomPage() {
   
   // 从跳转传递的目标名称和模拟标志
   const [targetName, setTargetName] = useState(location.state?.targetName || '客服');
+  const [targetAvatar, setTargetAvatar] = useState<string>('');
   const [currentUserName, setCurrentUserName] = useState('我');
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const isMock = location.state?.isMock || roomId?.startsWith('mock-');
 
   const getCurrentUserId = () => {
@@ -64,10 +66,6 @@ export default function ChatRoomPage() {
 
       socketService.onNewMessage((message: ChatMessage) => {
         setMessages((prev) => [...prev, message]);
-        // 更新对方用户名
-        if (message.senderId !== currentUserId && message.sender?.username) {
-          setTargetName(message.sender.username);
-        }
         scrollToBottom();
       });
 
@@ -77,6 +75,7 @@ export default function ChatRoomPage() {
       });
     }
 
+    loadRoomInfo();
     loadMessages();
 
     return () => {
@@ -88,6 +87,26 @@ export default function ChatRoomPage() {
     };
   }, [roomId, isMock]);
 
+  const loadRoomInfo = async () => {
+    if (!roomId || isMock) return;
+    try {
+      const room = await chatApi.getRoomById(roomId);
+      // 判断当前用户是普通用户还是商家
+      if (room.userId === currentUserId) {
+        // 当前用户是普通用户，显示商家店铺名和logo
+        const merchantInfo = room.merchantUser?.merchants?.[0];
+        setTargetName(merchantInfo?.shopName || room.merchantUser?.username || '商家');
+        setTargetAvatar(merchantInfo?.logo || room.merchantUser?.avatar || '');
+      } else {
+        // 当前用户是商家，显示普通用户名和头像
+        setTargetName(room.user?.username || '用户');
+        setTargetAvatar(room.user?.avatar || '');
+      }
+    } catch (error) {
+      console.error('Failed to load room info:', error);
+    }
+  };
+
   const loadMessages = async () => {
     if (!roomId || isMock) {
       setLoading(false);
@@ -96,13 +115,6 @@ export default function ChatRoomPage() {
     try {
       const data = await chatApi.getMessages(roomId);
       setMessages(data);
-      // 从消息中获取对方的用户名
-      if (data.length > 0) {
-        const otherUserMessage = data.find((msg: ChatMessage) => msg.senderId !== currentUserId);
-        if (otherUserMessage && otherUserMessage.sender?.username) {
-          setTargetName(otherUserMessage.sender.username);
-        }
-      }
       await chatApi.markAsRead(roomId);
       scrollToBottom();
     } catch (error) {
@@ -191,14 +203,26 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-100 flex flex-col">
-      {/* 头部 */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-pink-500 text-white p-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1 hover:bg-white/20 rounded-lg transition-colors">
+    <div className="fixed inset-0 bg-gray-100 flex justify-center">
+      <div className="w-full max-w-md flex flex-col bg-gray-100">
+        {/* 头部 */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-purple-600 to-pink-500 text-white px-3 py-2 flex items-center justify-center gap-2 rounded-b-2xl relative">
+        <button onClick={() => navigate(-1)} className="absolute left-3 p-1 hover:bg-white/20 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <div className="flex-1">
-          <h1 className="font-bold">{targetName || '聊天'}</h1>
+        <div className="flex items-center gap-2">
+          {targetAvatar ? (
+            <img 
+              src={targetAvatar} 
+              alt={targetName} 
+              className="w-10 h-10 rounded-full object-cover border-2 border-white/30"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-lg">
+              👤
+            </div>
+          )}
+          <h1 className="font-bold text-base">{targetName || '聊天'}</h1>
         </div>
       </div>
 
@@ -227,13 +251,16 @@ export default function ChatRoomPage() {
                   </div>
                 )}
                 <div
-                  className={`rounded-2xl px-4 py-2 ${
+                  className={`rounded-lg px-3 py-2 ${
                     isMe
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-tr-sm'
-                      : 'bg-white text-gray-800 rounded-tl-sm'
+                      ? 'bg-[#95EC69] text-gray-800'
+                      : 'bg-white text-gray-800'
                   }`}
+                  style={{
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}
                 >
-                  <p className="break-words">{msg.content}</p>
+                  <p className="break-words text-sm leading-relaxed">{msg.content}</p>
                 </div>
                 <div className={`text-xs text-gray-400 mt-1 ${isMe ? 'text-right' : 'text-left'}`}>
                   {formatTime(msg.createdAt)}
@@ -253,13 +280,16 @@ export default function ChatRoomPage() {
                 </div>
               )}
               <div
-                className={`rounded-2xl px-4 py-2 ${
+                className={`rounded-lg px-3 py-2 ${
                   msg.isMe
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-tr-sm'
-                    : 'bg-white text-gray-800 rounded-tl-sm'
+                    ? 'bg-[#95EC69] text-gray-800'
+                    : 'bg-white text-gray-800'
                 }`}
+                style={{
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                }}
               >
-                <p className="break-words">{msg.content}</p>
+                <p className="break-words text-sm leading-relaxed">{msg.content}</p>
               </div>
               <div className={`text-xs text-gray-400 mt-1 ${msg.isMe ? 'text-right' : 'text-left'}`}>
                 {msg.time}
@@ -281,24 +311,57 @@ export default function ChatRoomPage() {
       </div>
 
 
-      {/* 输入框 - 固定在底部 */}
-      <div className="flex-shrink-0 bg-white border-t p-3 flex items-center gap-2 safe-area-inset-bottom">
-        <input
-          ref={inputRef}
-          type="text"
-          value={inputText}
-          onChange={handleInputChange}
-          onKeyPress={handleKeyPress}
-          placeholder="输入消息..."
-          className="flex-1 bg-gray-100 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-purple-300 text-gray-800"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!inputText.trim()}
-          className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center justify-center disabled:opacity-50 active:scale-95 transition-transform"
-        >
-          <Send className="w-5 h-5" />
-        </button>
+        {/* 更多选项面板 */}
+        {showMoreOptions && (
+          <div className="flex-shrink-0 bg-white border-t border-gray-200 p-4">
+            <div className="grid grid-cols-4 gap-4">
+              <button className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <Image className="w-6 h-6 text-purple-600" />
+                </div>
+                <span className="text-xs text-gray-600">图片</span>
+              </button>
+              <button className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Video className="w-6 h-6 text-blue-600" />
+                </div>
+                <span className="text-xs text-gray-600">视频</span>
+              </button>
+              <button className="flex flex-col items-center gap-2 p-3 hover:bg-gray-50 rounded-lg transition-colors">
+                <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
+                  <ShoppingBag className="w-6 h-6 text-pink-600" />
+                </div>
+                <span className="text-xs text-gray-600">订单</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 输入框 - 固定在底部 */}
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 p-3 flex items-center gap-2">
+          <button
+            onClick={() => setShowMoreOptions(!showMoreOptions)}
+            className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
+          >
+            {showMoreOptions ? <X className="w-5 h-5 text-gray-600" /> : <Plus className="w-5 h-5 text-gray-600" />}
+          </button>
+          <input
+            ref={inputRef}
+            type="text"
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyPress={handleKeyPress}
+            placeholder="输入消息..."
+            className="flex-1 bg-gray-100 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-purple-300 text-gray-800"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!inputText.trim()}
+            className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center justify-center disabled:opacity-50 active:scale-95 transition-transform"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </div>
   );

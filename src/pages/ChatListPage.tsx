@@ -59,9 +59,10 @@ export default function ChatListPage() {
   const getOtherUser = (room: ChatRoom) => {
     const currentUserId = getCurrentUserId();
     if (room.userId === currentUserId) {
+      const merchantInfo = room.merchantUser.merchants?.[0];
       return {
-        name: room.merchantUser.merchant?.shopName || room.merchantUser.username || '商家',
-        avatar: room.merchantUser.merchant?.logo || room.merchantUser.avatar,
+        name: merchantInfo?.shopName || room.merchantUser.username || '商家',
+        avatar: merchantInfo?.logo || room.merchantUser.avatar,
       };
     }
     return {

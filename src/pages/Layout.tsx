@@ -28,6 +28,13 @@ export const Layout: React.FC<LayoutProps> = ({ language, translations }) => {
   const location = useLocation();
   
   const pageTitle = PAGE_TITLES[location.pathname]?.[language] || translations.platformTitle[language];
+  
+  // 聊天室页面不显示Layout的头部和边距
+  const isChatRoom = location.pathname.startsWith('/chat/');
+
+  if (isChatRoom) {
+    return <Outlet context={{ language, translations }} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">

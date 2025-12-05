@@ -129,10 +129,10 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
 
         // 添加商家聊天室
         chatRooms.forEach((room: any) => {
-          const merchantInfo = room.merchantUser?.merchant;
+          const merchantInfo = room.merchantUser?.merchants?.[0];
           convs.push({
             id: room.id,
-            name: merchantInfo?.shopName || room.merchantUser?.username || getText({ zh: '商家', en: 'Merchant', ko: '판매자', vi: 'Người bán' }),
+            name: merchantInfo?.shopName || room.merchantUser?.username || getText({ zh: '商家', en: 'Merchant', ko: '판매者', vi: 'Người bán' }),
             avatar: merchantInfo?.logo || '🏪',
             lastMessage: room.lastMessage || '',
             time: room.lastMessageAt ? formatTime(room.lastMessageAt, language) : '',
@@ -230,7 +230,7 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
             <p>{getText({ zh: '暂无消息', en: 'No messages', ko: '메시지 없음', vi: 'Không có tin nhắn' })}</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-300">
             {conversations.map((conv) => (
               <div 
                 key={conv.id}
@@ -244,14 +244,14 @@ export const MessagesPage: React.FC<MessagesPageProps> = ({ language }) => {
                     navigate('/notification-detail', { state: { type: conv.id, name: conv.name } });
                   }
                 }}
-                className={`flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors cursor-pointer ${conv.isPinned ? 'bg-purple-50' : 'bg-white'}`}
+                className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${conv.isPinned ? 'bg-purple-50' : 'bg-white'}`}
               >
                 <div className="relative">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-2xl overflow-hidden">
-                    {conv.avatar.startsWith('http') ? (
+                  <div className="w-11 h-11 bg-purple-100 rounded-full flex items-center justify-center text-xl overflow-hidden">
+                    {conv.avatar.startsWith('http') || conv.avatar.startsWith('/') || conv.avatar.startsWith('data:') ? (
                       <img src={conv.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      conv.avatar
+                      <span>{conv.avatar}</span>
                     )}
                   </div>
                   {conv.isOfficial && (

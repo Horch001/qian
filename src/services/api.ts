@@ -693,10 +693,10 @@ export interface ChatRoom {
     id: string;
     username: string;
     avatar?: string;
-    merchant?: {
+    merchants?: Array<{
       shopName: string;
       logo?: string;
-    };
+    }>;
   };
   messages?: ChatMessage[];
 }
@@ -719,6 +719,9 @@ export interface ChatMessage {
 export const chatApi = {
   // 获取聊天室列表
   getRooms: () => request<ChatRoom[]>('/chat/rooms'),
+
+  // 获取聊天室详情
+  getRoomById: (roomId: string) => request<ChatRoom>(`/chat/rooms/${roomId}`),
 
   // 创建或获取与商家的聊天室
   getOrCreateRoom: (merchantId: string) =>
