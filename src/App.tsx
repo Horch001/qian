@@ -17,7 +17,7 @@ import { CoursePagePage } from './pages/CoursePagePage';
 import { PrivateDetectivePage } from './pages/PrivateDetectivePage';
 import { PrivateTreeHolePage } from './pages/PrivateTreeHolePage';
 import { HouseLeasePage } from './pages/HouseLeasePage';
-import { VentureCapitalPage } from './pages/VentureCapitalPage';
+
 import { EscrowTradePage } from './pages/EscrowTradePage';
 import { FriendlyLinksPage } from './pages/FriendlyLinksPage';
 import { SeekResourcesPage } from './pages/SeekResourcesPage';
@@ -26,13 +26,13 @@ import { TreeHoleDetailPage } from './pages/TreeHoleDetailPage';
 import { ResourceDetailPage } from './pages/ResourceDetailPage';
 import { EscrowDetailPage } from './pages/EscrowDetailPage';
 import { LinkDetailPage } from './pages/LinkDetailPage';
-import { InvestDetailPage } from './pages/InvestDetailPage';
+
 import { MessagesPage } from './pages/MessagesPage';
 import { CartPage } from './pages/CartPage';
 import { CustomerServicePage } from './pages/CustomerServicePage';
 import { JoinStorePage } from './pages/JoinStorePage';
 import { EscrowCreatePage } from './pages/EscrowCreatePage';
-import { VentureCreatePage } from './pages/VentureCreatePage';
+
 import ChatListPage from './pages/ChatListPage';
 import ChatRoomPage from './pages/ChatRoomPage';
 import { ShopManagePage } from './pages/ShopManagePage';
@@ -247,9 +247,7 @@ export const App: React.FC = () => {
   if (location.pathname === '/link-detail') {
     return <LinkDetailPage language={language} translations={TRANSLATIONS} />;
   }
-  if (location.pathname === '/invest-detail') {
-    return <InvestDetailPage language={language} translations={TRANSLATIONS} />;
-  }
+
 
   // Messages page
   if (location.pathname === '/messages') {
@@ -276,10 +274,7 @@ export const App: React.FC = () => {
     return <EscrowCreatePage language={language} translations={TRANSLATIONS} />;
   }
 
-  // Venture create page
-  if (location.pathname === '/venture-create') {
-    return <VentureCreatePage language={language} translations={TRANSLATIONS} />;
-  }
+
 
   // Chat pages moved to Routes below
 
@@ -350,7 +345,7 @@ export const App: React.FC = () => {
         <Route path="/detective" element={<PrivateDetectivePage />} />
         <Route path="/tree-hole" element={<PrivateTreeHolePage />} />
         <Route path="/house-lease" element={<HouseLeasePage />} />
-        <Route path="/venture-capital" element={<VentureCapitalPage />} />
+        <Route path="/venture-capital" element={<div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex items-center justify-center p-4"><div className="text-center"><p className="text-xl text-purple-600 font-bold">拍卖功能开发中...</p></div></div>} />
         <Route path="/escrow-trade" element={<EscrowTradePage />} />
         <Route path="/friendly-links" element={<FriendlyLinksPage />} />
         <Route path="/seek-resources" element={<SeekResourcesPage />} />

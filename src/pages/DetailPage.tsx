@@ -585,7 +585,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       case 'house': return { text: { zh: '预约看房', en: 'Schedule Visit', ko: '방문 예약', vi: 'Đặt lịch xem' }, color: 'from-amber-600 to-orange-500' };
       case 'detective': return { text: { zh: '立即咨询', en: 'Consult Now', ko: '지금 상담', vi: 'Tư vấn ngay' }, color: 'from-slate-600 to-gray-500' };
       case 'resource': return { text: { zh: '我要同求', en: 'Join Request', ko: '참여하기', vi: 'Tham gia' }, color: 'from-orange-600 to-red-500' };
-      case 'invest': return { text: { zh: '立即投资', en: 'Invest Now', ko: '지금 투자', vi: 'Đầu tư ngay' }, color: 'from-purple-600 to-indigo-500' };
+
       default: return { text: { zh: '立即购买', en: 'Buy Now', ko: '지금 구매', vi: 'Mua ngay' }, color: 'from-red-600 to-red-500' };
     }
   };

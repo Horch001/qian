@@ -24,7 +24,7 @@ export const SeekResourcesPage: React.FC = () => {
         const data = await resourceApi.getResources({ sortBy, keyword: searchKeyword || undefined, limit: 50 });
         setRequests(data.items);
       } catch (error) {
-        console.error('加载求资源失败:', error);
+        console.error('加载悬赏任务失败:', error);
       } finally {
         setIsLoading(false);
       }
@@ -110,7 +110,7 @@ export const SeekResourcesPage: React.FC = () => {
           <p className="mt-2 text-gray-600 text-sm">{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
         </div>
       ) : sortedRequests.length === 0 ? (
-        <div className="text-center py-10 text-gray-500">{getText({ zh: '暂无求资源', en: 'No requests', ko: '요청 없음', vi: 'Không có yêu cầu' })}</div>
+        <div className="text-center py-10 text-gray-500">{getText({ zh: '暂无悬赏任务', en: 'No bounties', ko: '현상금 없음', vi: 'Không có truy nã' })}</div>
       ) : (
         <div className="space-y-2">
           {sortedRequests.map((request) => {

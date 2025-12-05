@@ -795,7 +795,7 @@ export const treeHoleApi = {
     request(`/tree-hole/${id}/like`, { method: 'POST' }),
 };
 
-// ==================== 求资源 API ====================
+// ==================== 悬赏大厅 API ====================
 
 export interface ResourceRequest {
   id: string;
@@ -816,7 +816,7 @@ export interface ResourceRequest {
 }
 
 export const resourceApi = {
-  // 获取求资源列表
+  // 获取悬赏任务列表
   getResources: (params?: { sortBy?: string; keyword?: string; page?: number; limit?: number }) => {
     const searchParams = new URLSearchParams();
     if (params) {
@@ -828,10 +828,10 @@ export const resourceApi = {
     return request<{ items: ResourceRequest[]; total: number }>(`/resources${query ? `?${query}` : ''}`);
   },
 
-  // 获取求资源详情
+  // 获取悬赏任务详情
   getResource: (id: string) => request<ResourceRequest>(`/resource/${id}`),
 
-  // 创建求资源
+  // 创建悬赏任务
   createResource: (data: {
     title: string;
     titleEn?: string;
