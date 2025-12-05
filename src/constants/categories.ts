@@ -35,15 +35,15 @@ export const CATEGORIES: CategoryItem[] = [
   },
   {
     id: '5',
-    title: { zh: '精品课程', en: 'Premium Courses', ko: '프리미엄 과정', vi: 'Khóa học cao cấp' },
+    title: { zh: '知识付费', en: 'Paid Courses', ko: '유료 강좌', vi: 'Khóa học trả phí' },
     description: { zh: '精选视频课程与训练营，系统提升技能。', en: 'Curated video courses and training camps to systematically improve skills.', ko: '엄선된 비디오 과정 및 훈련 캠프로 체계적으로 기술을 향상시킵니다.', vi: 'Các khóa học video được chọn lọc và trại huấn luyện để nâng cao kỹ năng một cách có hệ thống.' },
     icon: BookOpen,
     iconColor: 'text-yellow-400',
   },
   {
     id: '6',
-    title: { zh: '私家侦探', en: 'Private Detective', ko: '사설 탐정', vi: 'Thám tử tư' },
-    description: { zh: '提供线索收集、背景调查与取证服务。', en: 'Provide clue collection, background investigation, and evidence gathering services.', ko: '단서 수집, 신원 조사 및 증거 수집 서비스 제공.', vi: 'Cung cấp dịch vụ thu thập manh mối, điều tra nền tảng và thu thập bằng chứng.' },
+    title: { zh: '商业调查', en: 'Business Investigation', ko: '비즈니스 조사', vi: 'Điều tra kinh doanh' },
+    description: { zh: '提供背景调查、市场调研与尽职调查服务。', en: 'Provide background checks, market research, and due diligence services.', ko: '배경 조사, 시장 조사 및 실사 서비스 제공.', vi: 'Cung cấp dịch vụ kiểm tra lý lịch, nghiên cứu thị trường và thẩm định.' },
     icon: Eye,
     iconColor: 'text-yellow-400',
   },

@@ -16,7 +16,7 @@ const categoryNames: { [key: string]: { zh: string; en: string; ko: string; vi: 
   SERVICE: { zh: '上门服务', en: 'Home Service', ko: '방문 서비스', vi: 'Dịch vụ tận nhà' },
   OFFLINE_PLAY: { zh: '线下陪玩', en: 'Offline Play', ko: '오프라인 플레이', vi: 'Chơi offline' },
   COURSE: { zh: '知识付费', en: 'Paid Courses', ko: '유료 강좌', vi: 'Khóa học trả phí' },
-  DETECTIVE: { zh: '私人侦探', en: 'Private Detective', ko: '사립 탐정', vi: 'Thám tử tư' },
+  DETECTIVE: { zh: '商业调查', en: 'Business Investigation', ko: '비즈니스 조사', vi: 'Điều tra kinh doanh' },
   HOUSE_LEASE: { zh: '房屋租赁', en: 'House Lease', ko: '주택 임대', vi: 'Cho thuê nhà' },
 };
 

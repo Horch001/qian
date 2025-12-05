@@ -99,7 +99,7 @@ export const CoursePagePage: React.FC = () => {
     { icon: BookOpen, text: { zh: '实用课程', en: 'Practical Courses', ko: '실용 과정', vi: 'Khóa học thực tế' } },
     { icon: Video, text: { zh: '视频音频', en: 'Video & Audio', ko: '비디오 오디오', vi: 'Video & Audio' } },
     { icon: Sparkles, text: { zh: '应有尽有', en: 'Everything', ko: '모든 것', vi: 'Đầy đủ' } },
-    { icon: Star, text: { zh: '精品课程', en: 'Premium', ko: '프리미엄', vi: 'Cao cấp' } },
+    { icon: Star, text: { zh: '知识付费', en: 'Paid Courses', ko: '유료 강좌', vi: 'Khóa học trả phí' } },
   ];
 
   if (!loading && error && products.length === 0) {
