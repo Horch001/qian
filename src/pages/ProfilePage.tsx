@@ -2496,8 +2496,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     const getStatusText = (status: string) => {
                       const statusMap: any = {
                         'PENDING': { zh: '处理中', en: 'Processing', ko: '처리 중', vi: 'Đang xử lý', color: 'text-yellow-300' },
-                        'COMPLETED': { zh: '已完成', en: 'Completed', ko: '완료됨', vi: 'Đã hoàn thành', color: 'text-yellow-300' },
-                        'FAILED': { zh: '已拒绝', en: 'Rejected', ko: '거부됨', vi: 'Đã từ chối', color: 'text-yellow-300' },
+                        'PROCESSING': { zh: '处理中', en: 'Processing', ko: '처리 중', vi: 'Đang xử lý', color: 'text-yellow-300' },
+                        'COMPLETED': { zh: '已完成', en: 'Completed', ko: '완료됨', vi: 'Đã hoàn thành', color: 'text-green-400' },
+                        'FAILED': { zh: '已拒绝', en: 'Rejected', ko: '거부됨', vi: 'Đã từ chối', color: 'text-red-400' },
                       };
                       return statusMap[status] || { zh: status, en: status, ko: status, vi: status, color: 'text-white/60' };
                     };
