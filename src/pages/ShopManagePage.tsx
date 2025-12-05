@@ -82,9 +82,11 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
         setShipData({ company: 'SF', companyName: '顺丰速运', trackingNo: '' });
         setSelectedOrder(null);
         // 刷新订单列表
+        const allMerchants = await merchantApi.getMyAllMerchants();
+        const allMerchantIds = allMerchants.map((m: any) => m.id);
         const ordersData = await merchantApi.getMyOrders();
         const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-          o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
         );
         setOrders(currentMerchantOrders);
       } else {
@@ -145,10 +147,14 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     if (activeTab === 'orders' && merchant) {
       const loadOrders = async () => {
         try {
+          // 获取该商家的所有店铺ID
+          const allMerchants = await merchantApi.getMyAllMerchants();
+          const allMerchantIds = allMerchants.map((m: any) => m.id);
+          
           const ordersData = await merchantApi.getMyOrders();
-          // 筛选当前店铺的订单
+          // 筛选该商家所有店铺的订单
           const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-            o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+            o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
           );
           // 默认只显示待发货订单
           const paidOrders = currentMerchantOrders.filter((o: any) => o.orderStatus === 'PAID');
@@ -650,10 +656,13 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                   onClick={async () => {
                     try {
                       setSelectedOrderStatus(status);
+                      // 获取该商家的所有店铺ID
+                      const allMerchants = await merchantApi.getMyAllMerchants();
+                      const allMerchantIds = allMerchants.map((m: any) => m.id);
                       const ordersData = await merchantApi.getMyOrders();
-                      // 筛选当前店铺的订单
+                      // 筛选该商家所有店铺的订单
                       const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-                        o.items?.some((item: any) => item.product?.merchantId === merchant.id)
+                        o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
                       );
                       
                       if (status === 'ALL') {

@@ -232,8 +232,10 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   };
 
   const handleBuy = () => {
-    // 购买实物商品时检查收货信息是否完整
-    if (pageType === 'product') {
+    // 购买实物商品时检查收货信息是否完整（通过category.type判断）
+    const isPhysicalProduct = item.category?.type === 'PHYSICAL';
+    
+    if (isPhysicalProduct) {
       const receiverName = localStorage.getItem('receiverName');
       const receiverPhone = localStorage.getItem('receiverPhone');
       const addressProvince = localStorage.getItem('addressProvince');
@@ -323,6 +325,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         }
       }
       
+      // 判断是否为实物商品
+      const isPhysicalProduct = item.category?.type === 'PHYSICAL';
+      
       // 创建真实订单
       const order = await orderApi.createOrder({
         items: [{
@@ -331,11 +336,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           spec: selectedSpec,
         }],
         // 如果是实物商品且有地址ID，传递地址ID
-        ...(pageType === 'product' && addressId && {
+        ...(isPhysicalProduct && addressId && {
           addressId,
         }),
         // 如果没有地址ID，传递地址详细信息（兼容旧数据）
-        ...(pageType === 'product' && !addressId && receiverName && {
+        ...(isPhysicalProduct && !addressId && receiverName && {
           receiverName,
           receiverPhone,
           province: addressProvince,
@@ -874,6 +879,16 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
               <div className="flex justify-between text-sm"><span className="text-gray-500">{language === 'zh' ? '商品金额' : 'Subtotal'}</span><span>{item.price}π × {quantity}</span></div>
               <div className="flex justify-between text-base font-bold mt-2"><span>{language === 'zh' ? '合计' : 'Total'}</span><span className="text-red-600">{item.price * quantity}π</span></div>
             </div>
+            {item.category?.type !== 'PHYSICAL' && (
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-700">
+                  {language === 'zh' ? '💡 提示：此为虚拟商品/服务，不会向卖家传递您的收货地址信息' : 
+                   language === 'en' ? '💡 Note: This is a virtual product/service. Your shipping address will not be shared with the seller' : 
+                   language === 'ko' ? '💡 참고: 가상 상품/서비스이므로 판매자에게 배송 주소가 전달되지 않습니다' : 
+                   '💡 Lưu ý: Đây là sản phẩm/dịch vụ ảo, địa chỉ giao hàng của bạn sẽ không được chia sẻ với người bán'}
+                </p>
+              </div>
+            )}
             <button onClick={handleBuy} className={`w-full py-3 bg-gradient-to-r ${actionButton.color} text-white font-bold rounded-lg`}>
               {language === 'zh' ? '确认购买' : 'Confirm'}
             </button>

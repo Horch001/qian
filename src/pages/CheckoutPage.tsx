@@ -118,16 +118,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
 
   // 检查是否有实物商品需要地址（通过category.type判断）
   const hasPhysicalProduct = items.some(item => {
-    console.log('🔍 商品调试:', {
-      title: item.product.title,
-      category: item.product.category,
-      categoryType: item.product.category?.type,
-      isPhysical: item.product.category?.type === 'PHYSICAL'
-    });
     return item.product.category?.type === 'PHYSICAL';
   });
-  
-  console.log('📦 是否需要地址:', hasPhysicalProduct);
 
   const totalPrice = items.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
 
@@ -414,6 +406,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
               </div>
             ))}
           </div>
+          {!hasPhysicalProduct && (
+            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-xs text-blue-700">
+                {getText({ 
+                  zh: '💡 提示：此订单为虚拟商品/服务，不会向卖家传递您的收货地址信息', 
+                  en: '💡 Note: This is a virtual product/service order. Your shipping address will not be shared with the seller', 
+                  ko: '💡 참고: 가상 상품/서비스 주문이므로 판매자에게 배송 주소가 전달되지 않습니다', 
+                  vi: '💡 Lưu ý: Đây là đơn hàng sản phẩm/dịch vụ ảo, địa chỉ giao hàng của bạn sẽ không được chia sẻ với người bán' 
+                })}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 支付方式 */}
