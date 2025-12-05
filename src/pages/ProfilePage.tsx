@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone, Lock } from 'lucide-react';
+import { User, Settings, Heart, ShoppingBag, MapPin, Wallet as WalletIcon, Store, MessageCircle, Package, Truck, Star, DollarSign, HeadphonesIcon, ChevronDown, ChevronUp, Wallet, ArrowDownUp, Mail, Upload, BarChart3, PlusCircle, Edit3, Phone, Lock, Building2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { LOCATION_DATA } from '../constants/locations';
 import { usePiPayment } from '../hooks/usePiPayment';
@@ -34,6 +34,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showBalanceHistory, setShowBalanceHistory] = useState(false);
   const [balanceHistory, setBalanceHistory] = useState<any[]>([]);
   const [balanceHistoryPage, setBalanceHistoryPage] = useState(1);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [hasPassword, setHasPassword] = useState(false);
   
   // 自定义弹窗状态
   const [toast, setToast] = useState<{
@@ -375,6 +379,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           if (userData.username) {
             setUsername(userData.username);
           }
+          // 获取密码状态
+          setHasPassword(userData.hasPassword || false);
+          setPasswordEnabled(userData.passwordEnabled || false);
           // 🔥 从后端获取商家身份
           console.log('[ProfilePage] 后端返回用户角色:', userData.role);
           if (userData.role === 'MERCHANT') {
@@ -1594,20 +1601,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               <span className="ml-auto text-white/60">{showFavoritesDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
             
-            {/* 收藏分类和列表 */}
+            {/* 收藏列表 */}
             {showFavoritesDetails && (
               <div className="px-3 pb-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors relative">
-                    <ShoppingBag className="w-5 h-5 text-pink-300" />
-                    <span className="text-sm text-white font-bold">{getText({ zh: '收藏的商品', en: 'Products', ko: '제품', vi: 'Sản phẩm' })}</span>
-                    {favoritesCount > 0 && <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center">{favoritesCount}</span>}
-                  </button>
-                  <button className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
-                    <Store className="w-5 h-5 text-cyan-300" />
-                    <span className="text-sm text-white font-bold">{getText({ zh: '收藏的店铺', en: 'Stores', ko: '상점', vi: 'Cửa hàng' })}</span>
-                  </button>
-                </div>
                 {/* 收藏列表 */}
                 {favoritesList.length > 0 && (
                   <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
@@ -1699,44 +1695,47 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               onClick={() => setShowStoreDetails(!showStoreDetails)}
               className="w-full flex items-center gap-3 p-4 hover:bg-white/5 transition-colors"
             >
-              <Store className="w-5 h-5 text-white" />
+              <BarChart3 className="w-5 h-5 text-white" />
               <span className="font-bold text-white">{getText({ zh: '管理后台', en: 'Management', ko: '관리', vi: 'Quản lý' })}</span>
               <span className="ml-auto text-white/60">{showStoreDetails ? <ChevronUp size={20} /> : <ChevronDown size={20} />}</span>
             </button>
             
             {/* 管理后台功能按钮 */}
             {showStoreDetails && (
-              <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+              <div className="flex flex-col gap-2 px-3 pb-3">
                 <button 
                   onClick={() => navigate('/my-shops')}
-                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
-                  <Store className="w-5 h-5 text-cyan-300" />
+                  <Building2 className="w-5 h-5 text-cyan-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '我的店铺', en: 'My Shops', ko: '내 상점', vi: 'Cửa hàng' })}</span>
                 </button>
                 <button 
                   onClick={() => navigate('/join-store')}
-                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
                   <PlusCircle className="w-5 h-5 text-green-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '我要入驻', en: 'Join', ko: '입점하기', vi: 'Đăng ký' })}</span>
                 </button>
                 <button 
-                  onClick={() => navigate('/after-sale')}
-                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                  onClick={() => navigate('/shop-orders', { state: { merchantId: 'all' } })}
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
-                  <svg className="w-5 h-5 text-orange-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
+                  <ShoppingBag className="w-5 h-5 text-red-500" />
+                  <span className="text-sm text-white font-bold">{getText({ zh: '订单管理', en: 'Orders', ko: '주문', vi: 'Đơn' })}</span>
+                </button>
+                <button 
+                  onClick={() => navigate('/after-sale')}
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <HeadphonesIcon className="w-5 h-5 text-orange-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '售后管理', en: 'After Sales', ko: '애프터 서비스', vi: 'Dịch vụ' })}</span>
                 </button>
                 <button 
                   onClick={() => navigate('/settlement')}
-                  className="flex items-center justify-center gap-2 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 >
-                  <svg className="w-5 h-5 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+                  <DollarSign className="w-5 h-5 text-green-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '结算中心', en: 'Settlement', ko: '정산', vi: 'Thanh toán' })}</span>
                 </button>
               </div>
@@ -1757,7 +1756,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       
       {/* 设置弹窗 */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => {
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center md:p-4" onClick={() => {
           // 检查是否有未保存的更改
           const hasChanges = 
             email !== originalSettings.email ||
@@ -1791,7 +1790,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             setShowSettings(false);
           }
         }}>
-          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto relative" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-full md:max-w-md rounded-2xl max-h-[90vh] flex flex-col relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => {
               // 检查是否有未保存的更改
               const hasChanges = 
@@ -1825,18 +1824,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 setIsEditingSettings(false);
                 setShowSettings(false);
               }
-            }} className="absolute top-6 right-6 text-white/80 hover:text-white text-3xl leading-none">×</button>
-            <div className="flex items-center justify-center mb-6">
-              <h2 className="text-2xl font-bold text-white">
+            }} className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl leading-none">×</button>
+            <div className="flex items-center justify-center py-4 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">
                 {getText({ zh: '设置', en: 'Settings', ko: '설정', vi: 'Cài đặt' })}
               </h2>
             </div>
             
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {/* 用户名 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
-                  <Edit3 className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
+                  <Edit3 className="w-4 h-4" />
                   {getText({ zh: '用户名', en: 'Username', ko: '사용자 이름', vi: 'Tên người dùng' })}
                 </label>
                 <div className="flex-1 relative">
@@ -1847,15 +1846,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       setUsername(e.target.value);
                     }}
                     placeholder={getText({ zh: '请输入用户名', en: 'Enter username', ko: '사용자 이름 입력', vi: 'Nhập tên' })}
-                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm ${
+                      isEditingSettings ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-500'
+                    }`}
                     readOnly={!isEditingSettings}
                   />
                 </div>
               </div>
               
               {/* 邮箱设置 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
                   <Mail className="w-5 h-5" />
                   {getText({ zh: '邮箱设置', en: 'Email', ko: '이메일', vi: 'Email' })}
                 </label>
@@ -1865,7 +1866,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={email}
                     onChange={(e) => handleEmailChange(e.target.value)}
                     placeholder={getText({ zh: '请输入邮箱地址', en: 'Enter email', ko: '이메일 입력', vi: 'Nhập email' })}
-                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm ${
+                      isEditingSettings ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-500'
+                    }`}
                     readOnly={!isEditingSettings}
                   />
 
@@ -1878,69 +1881,88 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
 
               {/* 登录密码设置 - 商家专用 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
-                  <Lock className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
+                  <Lock className="w-4 h-4" />
                   {getText({ zh: '登录密码', en: 'Password', ko: '비밀번호', vi: 'Mật khẩu' })}
                 </label>
-                <button
-                  onClick={async () => {
-                    if (!isMerchant) {
-                      alert(getText({ zh: '此功能仅限商家使用', en: 'Merchant only', ko: '판매자 전용', vi: 'Chỉ dành cho người bán' }));
-                      return;
-                    }
-                    const newPassword = prompt(getText({ 
-                      zh: '请输入新密码（至少6位）：', 
-                      en: 'Enter new password (min 6 chars):', 
-                      ko: '새 비밀번호 입력 (최소 6자):', 
-                      vi: 'Nhập mật khẩu mới (tối thiểu 6 ký tự):' 
-                    }));
-                    
-                    if (!newPassword) return;
-                    
-                    if (newPassword.length < 6) {
-                      alert(getText({ zh: '密码长度至少6位', en: 'Min 6 characters', ko: '최소 6자', vi: 'Tối thiểu 6 ký tự' }));
-                      return;
-                    }
-                    
-                    try {
-                      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-                      const token = localStorage.getItem('authToken');
-                      
-                      const response = await fetch(`${API_URL}/api/v1/auth/set-password`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ password: newPassword }),
-                      });
-                      
-                      if (response.ok) {
-                        alert(getText({ zh: '密码设置成功！可用于桌面端登录', en: 'Password set successfully!', ko: '비밀번호 설정 완료!', vi: 'Đặt mật khẩu thành công!' }));
-                      } else {
-                        const error = await response.json();
-                        alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                <div className="flex-1 relative">
+                  <button
+                    onClick={() => {
+                      if (!isEditingSettings) return;
+                      if (!isMerchant) {
+                        alert(getText({ zh: '此功能仅限商家使用', en: 'Merchant only', ko: '판매자 전용', vi: 'Chỉ dành cho người bán' }));
+                        return;
                       }
-                    } catch (error: any) {
-                      alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
-                    }
-                  }}
-                  disabled={!isMerchant}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-sm font-normal text-left ${
-                    isMerchant 
-                      ? 'bg-white/90 text-gray-800 hover:bg-white cursor-pointer' 
-                      : 'bg-white/90 text-gray-400/60 cursor-not-allowed'
-                  }`}
-                >
-                  {getText({ zh: '商家专用', en: 'Merchant Only', ko: '판매자 전용', vi: 'Dành cho người bán' })}
-                </button>
+                      setNewPassword('');
+                      setShowPasswordModal(true);
+                    }}
+                    disabled={!isEditingSettings || !isMerchant}
+                    className={`w-full px-3 py-2 rounded-lg text-sm text-left ${
+                      hasPassword ? 'pr-16' : ''
+                    } ${
+                      isEditingSettings && isMerchant
+                        ? 'bg-white/90 text-gray-800 hover:bg-white cursor-pointer' 
+                        : 'bg-white/50 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {getText({ zh: '商家专用', en: 'Merchant Only', ko: '판매자 전용', vi: 'Dành cho người bán' })}
+                  </button>
+                  {hasPassword && (
+                    <button
+                      onClick={async () => {
+                        if (!isEditingSettings) return;
+                        const newState = !passwordEnabled;
+                        try {
+                          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                          const token = localStorage.getItem('authToken');
+                          const res = await fetch(`${API_URL}/api/v1/auth/toggle-password`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ enabled: newState }),
+                          });
+                          if (res.ok) {
+                            setPasswordEnabled(newState);
+                            showToast(
+                              'success',
+                              getText({
+                                zh: newState ? '密码已启用' : '密码已禁用',
+                                en: newState ? 'Password Enabled' : 'Password Disabled',
+                                ko: newState ? '비밀번호 활성화' : '비밀번호 비활성화',
+                                vi: newState ? 'Đã bật mật khẩu' : 'Đã tắt mật khẩu'
+                              }),
+                              getText({
+                                zh: newState ? '现在可以使用密码登录桌面端管理后台' : '桌面端无法使用密码登录，需要时请在手机端启用',
+                                en: newState ? 'You can now login on desktop' : 'Desktop login disabled',
+                                ko: newState ? '데스크톱에서 로그인 가능' : '데스크톱 로그인 비활성화',
+                                vi: newState ? 'Có thể đăng nhập trên máy tính' : 'Đăng nhập máy tính bị tắt'
+                              })
+                            );
+                          }
+                        } catch (error) {
+                          console.error('切换密码状态失败:', error);
+                        }
+                      }}
+                      disabled={!isEditingSettings}
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs font-bold transition-colors ${
+                        passwordEnabled 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-red-500 text-white'
+                      } ${!isEditingSettings && 'opacity-50'}`}
+                    >
+                      {passwordEnabled ? '✓ 已启用' : '✕ 已禁用'}
+                    </button>
+                  )}
+                </div>
               </div>
               
               {/* 收件人信息 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
-                  <User className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
+                  <User className="w-4 h-4" />
                   {getText({ zh: '收件人', en: 'Receiver', ko: '수령인', vi: 'Người nhận' })}
                 </label>
                 <div className="flex-1 relative">
@@ -1949,7 +1971,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={receiverName}
                     onChange={(e) => handleReceiverNameChange(e.target.value)}
                     placeholder={getText({ zh: '请输入收件人姓名', en: 'Enter receiver name', ko: '수령인 이름을 입력하세요', vi: 'Nhập tên người nhận' })}
-                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm ${
+                      isEditingSettings ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-500'
+                    }`}
                     readOnly={!isEditingSettings}
                   />
 
@@ -1962,9 +1986,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
               
               {/* 联系电话 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
-                  <Phone className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
+                  <Phone className="w-4 h-4" />
                   {getText({ zh: '联系电话', en: 'Phone Number', ko: '전화번호', vi: 'Số điện thoại' })}
                 </label>
                 <div className="flex-1 relative">
@@ -1973,7 +1997,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     value={receiverPhone}
                     onChange={(e) => handleReceiverPhoneChange(e.target.value)}
                     placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone number', ko: '전화번호를 입력하세요', vi: 'Nhập số điện thoại' })}
-                    className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                    className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm ${
+                      isEditingSettings ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-500'
+                    }`}
                     readOnly={!isEditingSettings}
                   />
 
@@ -1986,9 +2012,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
               
               {/* 收货地址 - 点击打开地址选择弹窗 */}
-              <div className="flex items-center gap-3">
-                <label className="text-white font-bold whitespace-nowrap flex items-center gap-2 w-24">
-                  <MapPin className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <label className="text-white text-sm font-bold whitespace-nowrap flex items-center gap-1.5 w-20">
+                  <MapPin className="w-4 h-4" />
                   {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
                 </label>
                 <button
@@ -1999,10 +2025,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     }
                   }}
                   disabled={!isEditingSettings}
-                  className={`flex-1 px-2 py-1.5 rounded-lg text-left text-sm ${
+                  className={`flex-1 px-3 py-2 rounded-lg text-left text-sm ${
                     isEditingSettings 
                       ? 'bg-white/90 text-gray-800 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer' 
-                      : 'bg-white/50 text-gray-600 cursor-not-allowed'
+                      : 'bg-white/50 text-gray-500 cursor-not-allowed'
                   }`}
                 >
                   {selectedProvince && selectedCity ? 
@@ -2014,8 +2040,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               
               {/* 详细地址输入 */}
               {selectedCity && (
-                <div className="flex items-center gap-3">
-                  <label className="text-white font-bold whitespace-nowrap opacity-0 flex items-center gap-2 w-24">
+                <div className="flex items-center gap-2">
+                  <label className="text-white text-sm font-bold whitespace-nowrap opacity-0 flex items-center gap-1.5 w-20">
                     <MapPin className="w-5 h-5" />
                     {getText({ zh: '收货地址', en: 'Shipping Address', ko: '배송 주소', vi: 'Địa chỉ giao hàng' })}
                   </label>
@@ -2025,7 +2051,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       value={detailAddress}
                       onChange={(e) => handleDetailAddressChange(e.target.value)}
                       placeholder={getText({ zh: '请输入详细地址（街道、门牌号等）', en: 'Enter detailed address', ko: '상세 주소를 입력하세요', vi: 'Nhập địa chỉ chi tiết' })}
-                      className="w-full px-2 py-1.5 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm"
+                      className={`w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm ${
+                        isEditingSettings ? 'bg-white/90 text-gray-800' : 'bg-white/50 text-gray-500'
+                      }`}
                       readOnly={!isEditingSettings}
                     />
                     {detailAddressError && (
@@ -2039,8 +2067,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               
               {/* 钱包地址 */}
               <div className="relative">
-                <label className="flex items-center gap-2 text-white font-bold mb-2">
-                  <WalletIcon className="w-5 h-5" />
+                <label className="flex items-center gap-1.5 text-white text-sm font-bold mb-2">
+                  <WalletIcon className="w-4 h-4" />
                   {getText({ zh: '钱包地址', en: 'Wallet Address', ko: '지갑 주소', vi: 'Địa chỉ ví' })}
                 </label>
                 {isWalletBound ? (
@@ -2058,8 +2086,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   </div>
                 ) : (
                   // 未绑定，显示只读提示
-                  <div className="w-full px-2 py-1.5 bg-white/50 text-gray-500 rounded-lg text-sm text-center">
-                    {getText({ zh: '请先充值，系统将自动绑定您的钱包地址', en: 'Please deposit first to auto-bind your wallet', ko: '먼저 충전하여 지갑을 자동으로 연결하세요', vi: 'Vui lòng nạp tiền trước để tự động liên kết ví' })}
+                  <div className="w-full px-3 py-2 bg-white/50 text-gray-500 rounded-lg text-sm text-center">
+                    {getText({ zh: '充值任意金额，系统自动绑定钱包地址', en: 'Deposit any amount to auto-bind wallet', ko: '임의 금액 충전 시 지갑 자동 연결', vi: 'Nạp bất kỳ số tiền nào để tự động liên kết ví' })}
                   </div>
                 )}
                 {!isWalletBound && walletAddress && walletAddress.length < 56 && (
@@ -2074,47 +2102,48 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 )}
               </div>
               
-              {/* 按钮 */}
-              <div className="flex justify-center gap-3 pt-4">
-                {!isEditingSettings ? (
+            </div>
+            
+            {/* 按钮 - 固定在底部 */}
+            <div className="flex justify-center gap-3 px-4 py-3 border-t border-white/20 bg-gradient-to-br from-purple-500 to-pink-500">
+              {!isEditingSettings ? (
+                <button
+                  onClick={() => setIsEditingSettings(true)}
+                  className="w-24 py-2.5 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                >
+                  {getText({ zh: '修改', en: 'Edit', ko: '수정', vi: 'Sửa' })}
+                </button>
+              ) : (
+                <>
                   <button
-                    onClick={() => setIsEditingSettings(true)}
-                    className="py-1.5 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
+                    onClick={() => {
+                      // 恢复原始值
+                      setEmail(originalSettings.email);
+                      setUsername(originalSettings.username);
+                      setWalletAddress(originalSettings.walletAddress);
+                      setReceiverName(originalSettings.receiverName);
+                      setReceiverPhone(originalSettings.receiverPhone);
+                      setSelectedProvince(originalSettings.selectedProvince);
+                      setSelectedCity(originalSettings.selectedCity);
+                      setSelectedDistrict(originalSettings.selectedDistrict);
+                      setDetailAddress(originalSettings.detailAddress);
+                      setIsEditingSettings(false);
+                    }}
+                    className="w-28 py-2.5 bg-white/30 text-white rounded-lg font-bold hover:bg-white/40 transition-all active:scale-95"
                   >
-                    {getText({ zh: '修改', en: 'Edit', ko: '수정', vi: 'Sửa' })}
+                    {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
                   </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => {
-                        // 恢复原始值
-                        setEmail(originalSettings.email);
-                        setUsername(originalSettings.username);
-                        setWalletAddress(originalSettings.walletAddress);
-                        setReceiverName(originalSettings.receiverName);
-                        setReceiverPhone(originalSettings.receiverPhone);
-                        setSelectedProvince(originalSettings.selectedProvince);
-                        setSelectedCity(originalSettings.selectedCity);
-                        setSelectedDistrict(originalSettings.selectedDistrict);
-                        setDetailAddress(originalSettings.detailAddress);
-                        setIsEditingSettings(false);
-                      }}
-                      className="py-1.5 px-6 bg-white/30 text-white rounded-lg font-bold hover:bg-white/40 transition-all active:scale-95 text-sm"
-                    >
-                      {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleSaveSettings();
-                        setIsEditingSettings(false);
-                      }}
-                      className="py-1.5 px-6 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95 text-sm"
-                    >
-                      {getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
-                    </button>
-                  </>
-                )}
-              </div>
+                  <button
+                    onClick={() => {
+                      handleSaveSettings();
+                      setIsEditingSettings(false);
+                    }}
+                    className="w-28 py-2.5 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all active:scale-95"
+                  >
+                    {getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2442,9 +2471,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         const currentItems = balanceHistory.slice(startIndex, startIndex + pageSize);
         
         return (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-8" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 max-w-md w-full shadow-2xl h-[calc(100vh-4rem)] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-full h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4 pb-3">
                 <div className="flex-1"></div>
                 <h2 className="text-xl font-bold text-white">
                   {getText({ zh: '余额明细', en: 'Balance History', ko: '잔액 내역', vi: 'Lịch sử số dư' })}
@@ -2455,13 +2484,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               </div>
               
               {/* 当前余额 */}
-              <div className="bg-white/10 rounded-lg p-3 mb-3 flex items-center justify-center gap-1">
+              <div className="bg-white/10 mx-4 rounded-lg p-3 mb-3 flex items-center justify-center gap-1">
                 <p className="text-white/80 text-sm">{getText({ zh: '当前余额', en: 'Current Balance', ko: '현재 잔액', vi: 'Số dư hiện tại' })}</p>
                 <p className="text-3xl font-bold text-yellow-400">{userInfo?.balance || '0.00'} π</p>
               </div>
               
               {/* 明细列表 */}
-              <div className="flex-1 overflow-y-auto space-y-1.5 mb-3">
+              <div className="flex-1 overflow-y-auto px-4 space-y-2 mb-3">
                 {balanceHistory.length > 0 ? (
                   currentItems.map((item: any, index: number) => {
                     const getStatusText = (status: string) => {
@@ -2474,11 +2503,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                     };
                     
                     return (
-                      <div key={startIndex + index} className="bg-white/10 rounded-lg p-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <p className="text-sm font-medium text-white">
+                      <div key={startIndex + index} className="bg-white/10 rounded-lg p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <p className="text-sm font-medium text-white break-words">
                                 {(() => {
                                   const reason = item.reason || getText({ zh: '余额变动', en: 'Balance Change', ko: '잔액 변동', vi: 'Thay đổi số dư' });
                                   // 如果是被拒绝的提现申请，分割原因文本（支持中英文冒号）
@@ -2518,7 +2547,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
               
               {/* 分页控制和总记录数 - 固定在底部 */}
               {balanceHistory.length > 0 && (
-                <div className="flex items-center justify-between pt-3 border-t border-white/20 flex-shrink-0">
+                <div className="flex items-center justify-between px-4 py-3 border-t border-white/20 flex-shrink-0">
                   <p className="text-white/50 text-xs">
                     {getText({ zh: `共 ${balanceHistory.length} 条记录`, en: `Total ${balanceHistory.length} records`, ko: `총 ${balanceHistory.length}개 기록`, vi: `Tổng ${balanceHistory.length} bản ghi` })}
                   </p>
@@ -2532,7 +2561,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                       >
                         {getText({ zh: '上一页', en: 'Prev', ko: '이전', vi: 'Trước' })}
                       </button>
-                      <span className="text-white text-sm px-3">
+                      <span className="text-white text-sm px-2">
                         {balanceHistoryPage} / {totalPages}
                       </span>
                       <button
@@ -2599,6 +2628,73 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             <p className="text-white/90 text-center mb-6">
               {toast.message}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* 密码修改弹窗 */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowPasswordModal(false)}>
+          <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-white mb-4 text-center">
+              {getText({ zh: '设置登录密码', en: 'Set Password', ko: '비밀번호 설정', vi: 'Đặt mật khẩu' })}
+            </h3>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder={getText({ zh: '请输入新密码（至少6位）', en: 'Enter password (min 6 chars)', ko: '비밀번호 입력 (최소 6자)', vi: 'Nhập mật khẩu (tối thiểu 6 ký tự)' })}
+              className="w-full px-4 py-3 bg-white/90 text-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="flex-1 py-2.5 bg-white/30 text-white rounded-lg font-bold hover:bg-white/40 transition-all"
+              >
+                {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+              </button>
+              <button
+                onClick={async () => {
+                  if (!newPassword) return;
+                  
+                  if (newPassword.length < 6) {
+                    alert(getText({ zh: '密码长度至少6位', en: 'Min 6 characters', ko: '최소 6자', vi: 'Tối thiểu 6 ký tự' }));
+                    return;
+                  }
+                  
+                  try {
+                    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+                    const token = localStorage.getItem('authToken');
+                    
+                    const response = await fetch(`${API_URL}/api/v1/auth/set-password`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({ password: newPassword }),
+                    });
+                    
+                    if (response.ok) {
+                      setShowPasswordModal(false);
+                      setNewPassword('');
+                      setHasPassword(true);
+                      setPasswordEnabled(true); // 设置密码后自动启用
+                      alert(getText({ zh: '密码设置成功！密码已自动启用，可用于桌面端登录', en: 'Password set and enabled!', ko: '비밀번호 설정 및 활성화 완료!', vi: 'Đặt và bật mật khẩu thành công!' }));
+                    } else {
+                      const error = await response.json();
+                      alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                    }
+                  } catch (error: any) {
+                    alert(error.message || getText({ zh: '设置失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+                  }
+                }}
+                className="flex-1 py-2.5 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all"
+              >
+                {getText({ zh: '确定', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+              </button>
+            </div>
           </div>
         </div>
       )}

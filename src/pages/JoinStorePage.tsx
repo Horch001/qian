@@ -37,14 +37,14 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   const categories = [
     { value: 'PHYSICAL', label: { zh: '实体商城', en: 'Physical Mall', ko: '실물 쇼핑몰', vi: 'Trung tâm mua sắm' } },
     { value: 'VIRTUAL', label: { zh: '虚拟商城', en: 'Virtual Mall', ko: '가상 쇼핑몰', vi: 'Trung tâm ảo' } },
-    { value: 'SERVICE', label: { zh: '上门服务', en: 'Home Service', ko: '방문 서비스', vi: 'Dịch vụ tận nhà' }, needsVerification: true },
-    { value: 'OFFLINE_PLAY', label: { zh: '线下陪玩', en: 'Offline Play', ko: '오프라인 플레이', vi: 'Chơi offline' }, needsVerification: true },
+    { value: 'SERVICE', label: { zh: '上门服务', en: 'Home Service', ko: '방문 서비스', vi: 'Dịch vụ tận nhà' } },
+    { value: 'OFFLINE_PLAY', label: { zh: '线下陪玩', en: 'Offline Play', ko: '오프라인 플레이', vi: 'Chơi offline' } },
     { value: 'COURSE', label: { zh: '知识付费', en: 'Paid Courses', ko: '유료 강좌', vi: 'Khóa học trả phí' } },
     { value: 'DETECTIVE', label: { zh: '私人侦探', en: 'Private Detective', ko: '사립 탐정', vi: 'Thám tử tư' } },
     { value: 'HOUSE_LEASE', label: { zh: '房屋租赁', en: 'House Lease', ko: '주택 임대', vi: 'Cho thuê nhà' } },
   ];
 
-  const needsVerification = ['SERVICE', 'OFFLINE_PLAY'].includes(formData.category);
+  const needsVerification = false; // 不再要求实名认证
 
   useEffect(() => {
     const piUser = localStorage.getItem('piUserInfo');
@@ -72,20 +72,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
       setError(getText({ zh: '请输入有效的邮箱地址', en: 'Please enter valid email', ko: '유효한 이메일을 입력하세요', vi: 'Vui lòng nhập email hợp lệ' }));
       return;
     }
-    if (needsVerification) {
-      if (!formData.realName.trim()) {
-        setError(getText({ zh: '上门服务/线下陪玩需要填写真实姓名', en: 'Real name required for this category', ko: '이 카테고리에는 실명이 필요합니다', vi: 'Cần tên thật cho danh mục này' }));
-        return;
-      }
-      if (!formData.idCard.trim()) {
-        setError(getText({ zh: '请填写身份证号', en: 'Please enter ID number', ko: '신분증 번호를 입력하세요', vi: 'Vui lòng nhập số CMND' }));
-        return;
-      }
-      if (!formData.idCardImage) {
-        setError(getText({ zh: '请上传身份证正面照片', en: 'Please upload ID card image', ko: '신분증 사진을 업로드하세요', vi: 'Vui lòng tải lên ảnh CMND' }));
-        return;
-      }
-    }
+    // 不再要求实名认证
     if (formData.businessType === 'enterprise' && !formData.businessLicense) {
       setError(getText({ zh: '企业入驻需要上传营业执照', en: 'Business license required for enterprise', ko: '기업은 사업자 등록증이 필요합니다', vi: 'Cần giấy phép kinh doanh cho doanh nghiệp' }));
       return;
@@ -158,7 +145,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
                 <option key={cat.value} value={cat.value}>{cat.label[language]}</option>
               ))}
             </select>
-            {needsVerification && <p className="text-orange-500 text-xs mt-1">{getText({ zh: '⚠️ 该板块需要实名认证', en: '⚠️ This category requires ID verification', ko: '⚠️ 이 카테고리는 신원 확인이 필요합니다', vi: '⚠️ Danh mục này cần xác minh danh tính' })}</p>}
+
           </div>
 
           {/* 店铺名称 */}

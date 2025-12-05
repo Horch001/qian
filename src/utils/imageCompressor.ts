@@ -124,3 +124,101 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
+
+/**
+ * 图片质量检测结果
+ */
+export interface ImageQualityResult {
+  isValid: boolean;
+  width: number;
+  height: number;
+  warnings: string[];
+  errors: string[];
+}
+
+/**
+ * 检测图片质量
+ * 参考电商平台标准：主图建议800x800以上，最小不低于400x400
+ */
+export async function checkImageQuality(
+  file: File,
+  type: 'main' | 'sub' | 'detail' = 'main'
+): Promise<ImageQualityResult> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        const { width, height } = img;
+        const warnings: string[] = [];
+        const errors: string[] = [];
+        
+        // 尺寸检测标准
+        const standards = {
+          main: { min: 400, recommended: 800, name: '主图' },
+          sub: { min: 400, recommended: 800, name: '副图' },
+          detail: { min: 480, recommended: 750, name: '详情图' }
+        };
+        
+        const standard = standards[type];
+        
+        // 检测最小尺寸（硬性要求）
+        if (width < standard.min || height < standard.min) {
+          errors.push(`${standard.name}尺寸过小！当前${width}x${height}，最小要求${standard.min}x${standard.min}`);
+        }
+        
+        // 检测推荐尺寸（建议）
+        if (width < standard.recommended || height < standard.recommended) {
+          warnings.push(`${standard.name}建议尺寸${standard.recommended}x${standard.recommended}以上，当前${width}x${height}可能影响展示效果`);
+        }
+        
+        // 检测宽高比（主图和副图建议正方形）
+        if (type === 'main' || type === 'sub') {
+          const ratio = width / height;
+          if (ratio < 0.8 || ratio > 1.2) {
+            warnings.push(`${standard.name}建议使用正方形图片（1:1），当前比例${ratio.toFixed(2)}:1`);
+          }
+        }
+        
+        // 检测文件大小
+        if (file.size > 5 * 1024 * 1024) {
+          warnings.push(`图片文件过大（${formatFileSize(file.size)}），上传可能较慢`);
+        }
+        
+        resolve({
+          isValid: errors.length === 0,
+          width,
+          height,
+          warnings,
+          errors
+        });
+      };
+      
+      img.onerror = () => {
+        resolve({
+          isValid: false,
+          width: 0,
+          height: 0,
+          warnings: [],
+          errors: ['图片格式错误或已损坏']
+        });
+      };
+      
+      img.src = e.target?.result as string;
+    };
+    
+    reader.onerror = () => {
+      resolve({
+        isValid: false,
+        width: 0,
+        height: 0,
+        warnings: [],
+        errors: ['文件读取失败']
+      });
+    };
+    
+    reader.readAsDataURL(file);
+  });
+}

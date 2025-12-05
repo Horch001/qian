@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
-import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize } from '../utils/imageCompressor';
+import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize, checkImageQuality } from '../utils/imageCompressor';
 
 interface UploadProductPageProps {
   language: Language;
@@ -17,14 +17,15 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const [merchant, setMerchant] = useState<any>(null);
   const [allMerchants, setAllMerchants] = useState<Merchant[]>([]);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     price: '',
     stock: '',
-    mainImage: '', // 主图
-    subImages: [] as string[], // 副图（最多4张）
-    detailImages: [] as string[], // 详情图（最多5张）
+    mainImage: '',
+    subImages: [] as string[],
+    detailImages: [] as string[],
   });
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -39,19 +40,16 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     HOUSE_LEASE: { zh: '房屋租赁', en: 'House Lease', ko: '주택 임대', vi: 'Cho thuê nhà' },
   };
 
-  // 从路由state获取指定的店铺ID和编辑的商品
   const stateData = location.state as { merchantId?: string; shopName?: string; editProduct?: any } | null;
   const isEditMode = !!stateData?.editProduct;
 
   useEffect(() => {
     const fetchMerchants = async () => {
       try {
-        // 获取所有店铺
         const merchants = await merchantApi.getMyAllMerchants();
         const approvedMerchants = merchants.filter(m => m.status === 'APPROVED');
         setAllMerchants(approvedMerchants);
         
-        // 如果从路由传入了店铺ID，使用它
         if (stateData?.merchantId) {
           const targetMerchant = approvedMerchants.find(m => m.id === stateData.merchantId);
           if (targetMerchant) {
@@ -59,15 +57,12 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
             setSelectedMerchantId(targetMerchant.id);
           }
         } else if (approvedMerchants.length > 0) {
-          // 否则使用第一个已通过的店铺
           setMerchant(approvedMerchants[0]);
           setSelectedMerchantId(approvedMerchants[0].id);
         }
         
-        // 如果是编辑模式，加载商品数据
         if (stateData?.editProduct) {
           const product = stateData.editProduct;
-          console.log('加载编辑商品数据:', product);
           setFormData({
             title: product.title || '',
             description: product.description || '',
@@ -84,16 +79,6 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     };
     fetchMerchants();
   }, [stateData?.merchantId, stateData?.editProduct]);
-
-  // 切换店铺
-  const handleMerchantChange = (merchantId: string) => {
-    const selected = allMerchants.find(m => m.id === merchantId);
-    if (selected) {
-      setMerchant(selected);
-      setSelectedMerchantId(merchantId);
-    }
-  };
-
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
@@ -115,27 +100,24 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
 
     setLoading(true);
     try {
-      // 组合所有图片：主图在第一位，副图在后面
       const allImages = [formData.mainImage, ...formData.subImages];
       
       const productData = {
         merchantId: selectedMerchantId,
         title: formData.title,
         description: formData.description || undefined,
-        price: formData.price, // 直接使用字符串，避免浮点数精度问题
+        price: formData.price,
         stock: parseInt(formData.stock),
         images: allImages,
         detailImages: formData.detailImages,
       };
       
       if (isEditMode && stateData?.editProduct) {
-        // 编辑模式：更新商品
         await merchantApi.updateProduct(stateData.editProduct.id, productData);
-        alert(getText({ zh: '商品已更新，等待管理员审核', en: 'Product updated, pending review', ko: '상품이 업데이트되었습니다. 검토 대기 중', vi: 'Sản phẩm đã cập nhật, chờ duyệt' }));
+        alert(getText({ zh: '商品已更新，等待管理员审核', en: 'Product updated, pending review', ko: '상품이 업데이트되었습니다', vi: 'Sản phẩm đã cập nhật' }));
       } else {
-        // 新增模式：上传商品
         await merchantApi.uploadProduct(productData);
-        alert(getText({ zh: '商品已提交，等待管理员审核', en: 'Product submitted, pending review', ko: '상품이 제출되었습니다. 검토 대기 중', vi: 'Sản phẩm đã gửi, chờ duyệt' }));
+        alert(getText({ zh: '商品已提交，等待管理员审核', en: 'Product submitted, pending review', ko: '상품이 제출되었습니다', vi: 'Sản phẩm đã gửi' }));
       }
       
       navigate('/my-shops');
@@ -168,7 +150,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           <div className="flex-1 flex items-center justify-center p-8 text-center">
             <div className="text-white">
               <AlertTriangle size={48} className="mx-auto mb-4 opacity-50" />
-              <p>{getText({ zh: '您还不是商家或未通过审核', en: 'You are not a merchant or not approved', ko: '판매자가 아니거나 승인되지 않았습니다', vi: 'Bạn không phải là người bán hoặc chưa được phê duyệt' })}</p>
+              <p>{getText({ zh: '您还不是商家或未通过审核', en: 'You are not a merchant or not approved', ko: '판매자가 아니거나 승인되지 않았습니다', vi: 'Bạn không phải là người bán' })}</p>
             </div>
           </div>
         </div>
@@ -176,176 +158,281 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     );
   }
 
+  const allImages = formData.mainImage ? [formData.mainImage, ...formData.subImages] : [];
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
-      <div className="w-full max-w-md flex flex-col min-h-screen">
-        <header className="p-4 flex items-center justify-center relative">
-          <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
-          <h1 className="text-lg font-bold text-white">
+    <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
+      {/* 顶部工具栏 */}
+      <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200">
+        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
+          </button>
+          <h1 className="text-sm font-bold text-gray-800">
             {isEditMode 
-              ? getText({ zh: '编辑商品', en: 'Edit Product', ko: '상품 편집', vi: 'Chỉnh sửa sản phẩm' })
-              : getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })
+              ? getText({ zh: '编辑商品', en: 'Edit Product', ko: '상품 편집', vi: 'Chỉnh sửa' })
+              : getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên' })
             }
           </h1>
-        </header>
+          <button 
+            onClick={handleSubmit}
+            disabled={loading}
+            className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-pink-500 text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center gap-1"
+          >
+            <Save size={16} />
+            {loading ? getText({ zh: '保存中', en: 'Saving', ko: '저장 중', vi: 'Đang lưu' }) : getText({ zh: '保存', en: 'Save', ko: '저장', vi: 'Lưu' })}
+          </button>
+        </div>
+      </header>
 
-        <div className="flex-1 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl p-4 space-y-4">
-          {/* 商品主图 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品主图', en: 'Main Image', ko: '메인 이미지', vi: 'Hình ảnh chính' })} *</label>
-            <p className="text-gray-500 text-xs mb-2">{getText({ zh: '主图将显示在商品列表和详情页顶部（自动压缩优化）', en: 'Main image (auto-compressed)', ko: '메인 이미지 (자동 압축)', vi: 'Hình ảnh chính (tự động nén)' })}</p>
-            <div className="border-2 border-dashed border-purple-300 rounded-lg p-4 text-center bg-purple-50">
-              {formData.mainImage ? (
-                <div className="relative inline-block">
-                  <img src={formData.mainImage} alt="Main" className="max-h-40 mx-auto rounded" />
-                  <button onClick={() => setFormData({ ...formData, mainImage: '' })} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center"><X size={14} /></button>
-                  <p className="text-xs text-gray-500 mt-2">{formatFileSize(getCompressedSize(formData.mainImage))}</p>
-                </div>
-              ) : (
-                <label className="cursor-pointer">
-                  <Upload className="w-10 h-10 text-purple-400 mx-auto mb-2" />
-                  <p className="text-purple-600 text-sm font-bold">{getText({ zh: '点击上传主图', en: 'Upload main image', ko: '메인 이미지 업로드', vi: 'Tải lên hình ảnh chính' })}</p>
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+      <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-4">
+        {/* 主图展示区 - 可编辑 */}
+        <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-80 flex items-center justify-center overflow-hidden relative group">
+          {allImages.length > 0 ? (
+            <>
+              <img 
+                src={allImages[currentImageIndex]} 
+                alt="商品主图" 
+                className="w-full h-full object-contain" 
+              />
+              {/* 编辑按钮 */}
+              <label className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg cursor-pointer hover:bg-white transition-colors flex items-center gap-2 shadow-lg">
+                <Edit3 size={16} className="text-purple-600" />
+                <span className="text-sm font-bold text-purple-600">{getText({ zh: '更换', en: 'Change', ko: '변경', vi: 'Thay đổi' })}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       try {
                         const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                        setFormData({ ...formData, mainImage: compressed });
+                        if (currentImageIndex === 0) {
+                          setFormData({ ...formData, mainImage: compressed });
+                        } else {
+                          const newSubImages = [...formData.subImages];
+                          newSubImages[currentImageIndex - 1] = compressed;
+                          setFormData({ ...formData, subImages: newSubImages });
+                        }
                       } catch (error) {
-                        console.error('图片压缩失败:', error);
-                        alert(getText({ zh: '图片处理失败，请重试', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                        alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                       }
                     }
-                  }} />
-                </label>
-              )}
-            </div>
-          </div>
-
-          {/* 商品副图 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品副图', en: 'Additional Images', ko: '추가 이미지', vi: 'Hình ảnh phụ' })} <span className="text-gray-400 font-normal text-sm">({getText({ zh: '最多4张', en: 'Max 4', ko: '최대 4장', vi: 'Tối đa 4' })})</span></label>
-            <p className="text-gray-500 text-xs mb-2">{getText({ zh: '副图将显示在详情页下方，展示商品更多细节', en: 'Additional images will be shown below main image in detail page', ko: '추가 이미지는 상세 페이지 하단에 표시됩니다', vi: 'Hình ảnh phụ sẽ hiển thị bên dưới hình ảnh chính' })}</p>
-            <div className="grid grid-cols-4 gap-2">
-              {formData.subImages.map((img, idx) => (
-                <div key={idx} className="relative aspect-square">
-                  <img src={img} alt={`Sub ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
-                  <button onClick={() => {
-                    const newImages = [...formData.subImages];
-                    newImages.splice(idx, 1);
-                    setFormData({ ...formData, subImages: newImages });
-                  }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"><X size={12} /></button>
+                  }} 
+                />
+              </label>
+              {/* 图片尺寸建议 */}
+              <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
+                <p className="text-white text-xs">{getText({ zh: '建议尺寸: 800x800 或 1000x1000', en: 'Recommended: 800x800 or 1000x1000', ko: '권장 크기: 800x800 또는 1000x1000', vi: 'Khuyến nghị: 800x800 hoặc 1000x1000' })}</p>
+              </div>
+            </>
+          ) : (
+            <label className="cursor-pointer flex flex-col items-center gap-3">
+              <div className="w-20 h-20 bg-white/50 rounded-full flex items-center justify-center">
+                <ImagePlus className="w-10 h-10 text-purple-400" />
+              </div>
+              <p className="text-purple-600 font-bold">{getText({ zh: '点击上传商品主图', en: 'Upload main image', ko: '메인 이미지 업로드', vi: 'Tải lên hình ảnh chính' })}</p>
+              <p className="text-purple-500 text-sm">{getText({ zh: '建议尺寸: 800x800 或 1000x1000 (正方形)', en: 'Recommended: 800x800 or 1000x1000 (square)', ko: '권장: 800x800 또는 1000x1000 (정사각형)', vi: 'Khuyến nghị: 800x800 hoặc 1000x1000 (vuông)' })}</p>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    try {
+                      const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                      setFormData({ ...formData, mainImage: compressed });
+                    } catch (error) {
+                      alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                    }
+                  }
+                }} 
+              />
+            </label>
+          )}
+        </div>
+        
+        {/* 副图缩略图 - 可点击切换 */}
+        {allImages.length > 0 && (
+          <div className="bg-white py-3 border-b">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
+              {allImages.map((img: string, idx: number) => (
+                <div 
+                  key={idx} 
+                  className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                    currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
+                  }`}
+                  onClick={() => setCurrentImageIndex(idx)}
+                >
+                  <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
+                  {idx > 0 && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newSubImages = [...formData.subImages];
+                        newSubImages.splice(idx - 1, 1);
+                        setFormData({ ...formData, subImages: newSubImages });
+                        if (currentImageIndex >= idx) {
+                          setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
+                        }
+                      }}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </div>
               ))}
-              {formData.subImages.length < 4 && (
-                <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+              {formData.subImages.length < 8 && formData.mainImage && (
+                <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
                   <ImagePlus className="w-6 h-6 text-gray-400" />
-                  <span className="text-xs text-gray-400 mt-1">{getText({ zh: '添加', en: 'Add', ko: '추가', vi: 'Thêm' })}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file && formData.subImages.length < 4) {
-                      try {
-                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                        setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
-                      } catch (error) {
-                        console.error('图片压缩失败:', error);
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && formData.subImages.length < 8) {
+                        try {
+                          const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                          setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
+                        } catch (error) {
+                          console.error('图片压缩失败:', error);
+                        }
                       }
-                    }
-                  }} />
+                    }} 
+                  />
                 </label>
               )}
             </div>
           </div>
+        )}
 
-          {/* 商品名称 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品名称', en: 'Product Name', ko: '상품명', vi: 'Tên sản phẩm' })} *</label>
-            <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder={getText({ zh: '请输入商品名称', en: 'Enter product name', ko: '상품명 입력', vi: 'Nhập tên sản phẩm' })} className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
+        {/* 价格和标题 - 可编辑 */}
+        <div className="bg-white p-4">
+          <div className="mb-3">
+            <div className="flex items-baseline gap-2">
+              <input 
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                className="text-2xl font-bold text-red-600 border-b-2 border-transparent hover:border-red-300 focus:border-red-500 focus:outline-none w-32"
+              />
+              <span className="text-2xl font-bold text-red-600">π</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">{getText({ zh: '点击编辑价格', en: 'Click to edit price', ko: '가격 편집', vi: 'Nhấp để chỉnh sửa giá' })}</p>
           </div>
-
-          {/* 店铺信息显示 */}
-          <div className="bg-purple-50 p-3 rounded-lg">
-            <p className="text-sm text-gray-600">
-              <Store className="w-4 h-4 inline mr-1" />
-              {getText({ zh: '上传到店铺', en: 'Upload to', ko: '업로드 대상', vi: 'Tải lên' })}: 
-              <span className="font-bold text-purple-600 ml-2">{merchant?.shopName}</span>
-            </p>
-          </div>
-
-          {/* 商品分类 - 固定为入驻板块 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品分类', en: 'Category', ko: '카테고리', vi: 'Danh mục' })}</label>
-            <div className="px-4 py-3 bg-gray-100 rounded-lg text-gray-600">
-              {categoryLabels[merchant.category]?.[language] || merchant.category}
-              <span className="text-xs text-gray-400 ml-2">({getText({ zh: '根据入驻板块自动设置', en: 'Auto-set by your shop category', ko: '상점 카테고리에 따라 자동 설정', vi: 'Tự động đặt theo danh mục cửa hàng' })})</span>
+          <input 
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder={getText({ zh: '请输入商品名称', en: 'Enter product name', ko: '상품명 입력', vi: 'Nhập tên sản phẩm' })}
+            className="text-base font-bold text-gray-800 leading-relaxed w-full border-b-2 border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none py-1"
+          />
+          <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
+            <div className="flex items-center gap-2">
+              <span>{getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}</span>
+              <input 
+                type="number"
+                value={formData.stock}
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                placeholder="0"
+                min="1"
+                className="w-16 px-2 py-1 border border-gray-300 rounded text-center focus:border-purple-500 focus:outline-none"
+              />
             </div>
           </div>
+        </div>
 
-          {/* 价格 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '售价 (π)', en: 'Price (π)', ko: '가격 (π)', vi: 'Giá (π)' })} *</label>
-            <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} placeholder="0.00" step="0.01" min="0" className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
+        {/* 店铺信息 */}
+        <div className="bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
+                {merchant?.logo ? (
+                  <img src={merchant.logo} alt="店铺Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Store className="w-5 h-5 text-purple-600" />
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-gray-800 text-sm">{merchant?.shopName}</p>
+                <p className="text-xs text-gray-500">{categoryLabels[merchant.category]?.[language]}</p>
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* 库存 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '库存数量', en: 'Stock', ko: '재고', vi: 'Kho' })} *</label>
-            <input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} placeholder={getText({ zh: '请输入真实库存', en: 'Enter real stock', ko: '실제 재고 입력', vi: 'Nhập kho thực' })} min="1" className="w-full px-4 py-3 border border-gray-300 rounded-lg" />
-            <p className="text-orange-500 text-xs mt-1 flex items-center gap-1"><AlertTriangle size={12} />{getText({ zh: '请填写真实库存，用户购买后无货将被罚款', en: 'Enter real stock. Penalty for out-of-stock after purchase', ko: '실제 재고를 입력하세요. 구매 후 품절 시 벌금', vi: 'Nhập kho thực. Phạt nếu hết hàng sau khi mua' })}</p>
-          </div>
-
-          {/* 商品描述 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '商品描述', en: 'Description', ko: '설명', vi: 'Mô tả' })}</label>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={getText({ zh: '请输入商品描述', en: 'Enter description', ko: '설명 입력', vi: 'Nhập mô tả' })} rows={4} className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none" />
-          </div>
-
-          {/* 详情图 */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-2">{getText({ zh: '详情图', en: 'Detail Images', ko: '상세 이미지', vi: 'Hình ảnh chi tiết' })} <span className="text-gray-400 font-normal text-sm">({getText({ zh: '最多5张', en: 'Max 5', ko: '최대 5장', vi: 'Tối đa 5' })})</span></label>
-            <p className="text-gray-500 text-xs mb-2">{getText({ zh: '详情图将显示在商品详情介绍区域', en: 'Detail images will be shown in product description area', ko: '상세 이미지는 상품 설명 영역에 표시됩니다', vi: 'Hình ảnh chi tiết sẽ hiển thị trong phần mô tả sản phẩm' })}</p>
-            <div className="grid grid-cols-5 gap-2">
-              {formData.detailImages.map((img, idx) => (
-                <div key={idx} className="relative aspect-square">
-                  <img src={img} alt={`Detail ${idx + 1}`} className="w-full h-full object-cover rounded-lg" />
-                  <button onClick={() => {
+        {/* 商品描述 - 可编辑 */}
+        <div className="bg-white p-4">
+          <h3 className="font-bold text-gray-800 text-sm mb-3">{getText({ zh: '商品描述', en: 'Description', ko: '설명', vi: 'Mô tả' })}</h3>
+          <textarea 
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder={getText({ zh: '请输入商品描述...', en: 'Enter description...', ko: '설명 입력...', vi: 'Nhập mô tả...' })}
+            rows={4}
+            className="w-full text-sm text-gray-600 leading-relaxed border border-gray-200 rounded-lg p-3 focus:border-purple-500 focus:outline-none resize-none"
+          />
+        </div>
+        
+        {/* 详情图展示和编辑 - 占满宽度 */}
+        <div className="bg-white">
+          <div className="p-4 pb-2">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-bold text-gray-700">{getText({ zh: '详情图', en: 'Detail Images', ko: '상세 이미지', vi: 'Hình ảnh chi tiết' })}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '建议宽度750px，高度不限', en: 'Width: 750px recommended', ko: '권장 너비: 750px', vi: 'Khuyến nghị rộng: 750px' })}</p>
+              </div>
+              <span className="text-xs text-gray-400">({formData.detailImages.length}/20)</span>
+            </div>
+            {formData.detailImages.map((img: string, idx: number) => (
+              <div key={idx} className="relative w-full bg-gray-50 group">
+                <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+                <button 
+                  onClick={() => {
                     const newImages = [...formData.detailImages];
                     newImages.splice(idx, 1);
                     setFormData({ ...formData, detailImages: newImages });
-                  }} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center"><X size={12} /></button>
-                </div>
-              ))}
-              {formData.detailImages.length < 5 && (
-                <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
-                  <ImagePlus className="w-5 h-5 text-gray-400" />
-                  <span className="text-[10px] text-gray-400 mt-1">{getText({ zh: '添加', en: 'Add', ko: '추가', vi: 'Thêm' })}</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file && formData.detailImages.length < 5) {
-                      try {
-                        const compressed = await compressImage(file, COMPRESS_PRESETS.detail);
-                        setFormData({ ...formData, detailImages: [...formData.detailImages, compressed] });
-                      } catch (error) {
-                        console.error('图片压缩失败:', error);
+                  }}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {formData.detailImages.length < 20 && (
+            <div className="p-4 pt-2">
+              <label className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+                  <ImagePlus className="w-8 h-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-500">{getText({ zh: '添加详情图', en: 'Add detail image', ko: '상세 이미지 추가', vi: 'Thêm hình ảnh chi tiết' })}</span>
+                  <span className="text-xs text-gray-400 mt-1">{getText({ zh: '宽度750px最佳', en: 'Width 750px best', ko: '너비 750px 최적', vi: 'Rộng 750px tốt nhất' })}</span>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file && formData.detailImages.length < 20) {
+                        try {
+                          const compressed = await compressImage(file, COMPRESS_PRESETS.detail);
+                          setFormData({ ...formData, detailImages: [...formData.detailImages, compressed] });
+                        } catch (error) {
+                          console.error('图片压缩失败:', error);
+                        }
                       }
-                    }
-                  }} />
+                    }} 
+                  />
                 </label>
-              )}
             </div>
-          </div>
-
-            {/* 提交按钮 */}
-            <button onClick={handleSubmit} disabled={loading} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50">
-              <Upload size={20} />
-              {loading ? getText({ zh: '提交中...', en: 'Submitting...', ko: '제출 중...', vi: 'Đang gửi...' }) : getText({ zh: '提交审核', en: 'Submit for Review', ko: '검토 제출', vi: 'Gửi xét duyệt' })}
-            </button>
-
-            <p className="text-center text-gray-500 text-sm">{getText({ zh: '商品提交后需要管理员审核', en: 'Products need admin review', ko: '상품은 관리자 검토가 필요합니다', vi: 'Sản phẩm cần được quản trị viên xét duyệt' })}</p>
-          </div>
+          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

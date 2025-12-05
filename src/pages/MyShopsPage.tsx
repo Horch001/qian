@@ -126,7 +126,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
           <h1 className="text-lg font-bold text-white">{getText({ zh: '我的店铺', en: 'My Shops', ko: '내 상점', vi: 'Cửa hàng của tôi' })}</h1>
         </header>
 
-        <main className="flex-1 p-4 overflow-y-auto pb-4">
+        <main className="flex-1 px-2 overflow-y-auto pb-4">
         {shops.length === 0 ? (
           <div className="text-center py-12">
             <Store size={64} className="text-white/30 mx-auto mb-4" />
@@ -142,10 +142,10 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
           <div className="space-y-3">
             {shops.filter(shop => shop.status !== 'SUSPENDED').map((shop) => (
               <div key={shop.id} className="bg-white rounded-xl overflow-hidden shadow-lg relative">
-                {/* 左上角45度斜放板块标签 - 融入卡片 */}
+                {/* 左上角45度斜放板块标签 - 丝带效果 */}
                 <div className="absolute top-0 left-0 w-20 h-20 overflow-hidden">
-                  <div className="absolute top-[10px] -left-[29px] w-28 bg-gradient-to-br from-purple-500 to-pink-500 text-white text-[11px] font-bold py-[5px] text-center transform rotate-[-45deg] shadow-sm leading-tight">
-                    {getText(categoryNames[shop.category || ''] || { zh: '未分类', en: 'Uncategorized', ko: '미분류', vi: 'Chưa phân loại' })}
+                  <div className="absolute top-[6px] -left-[36px] w-28 bg-gradient-to-br from-purple-600 via-purple-500 to-pink-500 text-yellow-400 text-[11px] font-bold py-[5px] text-center transform rotate-[-45deg] shadow-[0_2px_8px_rgba(0,0,0,0.3)] leading-tight border-y border-purple-700/30" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
+                    {getText(categoryNames[shop.category || ''] || { zh: '未分类', en: 'Uncategorized', ko: '미分류', vi: 'Chưa phân loại' })}
                   </div>
                 </div>
                 
@@ -160,7 +160,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                 </button>
                 
                 {/* 店铺信息 - 整体居中 */}
-                <div className="py-4 px-4 flex items-center justify-center gap-4">
+                <div className="py-4 pl-6 pr-4 flex items-center gap-2">
                   <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
                     {shop.logo ? (
                       <img src={shop.logo} alt={shop.shopName} className="w-full h-full object-cover" />
@@ -168,13 +168,15 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                       <Store size={28} className="text-purple-500" />
                     )}
                   </div>
-                  <div className="text-left">
+                  <div className="text-left flex-1 min-w-0">
                     <h3 className="font-bold text-gray-800">{shop.shopName}</h3>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
-                      <span className="text-orange-500 font-medium">{getText({ zh: '评分', en: 'Rating', ko: '평점', vi: 'Điểm' })} {shop.rating?.toFixed(1) || '5.0'}</span>
-                      <span>{getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Bán' })} {shop.totalSales || 0}</span>
-                      <span>{getText({ zh: '商品', en: 'Items', ko: '상품', vi: 'SP' })} {shopStats[shop.id]?.productCount || 0}</span>
-                      <span className={`px-2 py-0.5 rounded-full font-medium ${
+                    <div className="flex items-center justify-between mt-1 text-xs text-gray-400">
+                      <div className="flex items-center gap-3">
+                        <span className="text-orange-500 font-medium">{getText({ zh: '评分', en: 'Rating', ko: '평점', vi: 'Điểm' })} {shop.rating?.toFixed(1) || '5.0'}</span>
+                        <span>{getText({ zh: '销量', en: 'Sales', ko: '판매', vi: 'Bán' })} {shop.totalSales || 0}</span>
+                        <span>{getText({ zh: '商品', en: 'Items', ko: '상품', vi: 'SP' })} {shopStats[shop.id]?.productCount || 0}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                         shop.status === 'REJECTED' ? 'bg-red-100 text-red-600' :
                         shop.status === 'PENDING' ? 'bg-yellow-100 text-yellow-600' :
                         (shopStats[shop.id]?.productCount || 0) > 0 ? 'bg-blue-100 text-blue-600' :
@@ -191,67 +193,52 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
 
                 {/* 展开的操作菜单 */}
                 {selectedShop === shop.id && shop.status === 'APPROVED' && (
-                  <div className="border-t border-gray-100 p-3 bg-gray-50">
-                    <div className="grid grid-cols-5 gap-2">
+                  <div className="border-t border-gray-100 p-2 bg-gray-50">
+                    <div className="grid grid-cols-5 gap-1.5">
                       <button
                         onClick={() => navigate('/shop-info', { state: { merchantId: shop.id, autoEdit: true } })}
-                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Edit3 className="w-5 h-5 text-green-500" />
-                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Sửa' })}</span>
+                        <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Sửa' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/upload-product', { state: { merchantId: shop.id, shopName: shop.shopName } })}
-                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Upload className="w-5 h-5 text-blue-500" />
-                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải' })}</span>
+                        <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '上传商品', en: 'Upload', ko: '업로드', vi: 'Tải' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/shop-products', { state: { merchantId: shop.id } })}
-                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors relative"
+                        className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-purple-50 transition-colors relative"
                       >
                         {(shopStats[shop.id]?.productCount || 0) > 0 && (
-                          <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
+                          <span className="absolute top-0.5 right-0.5 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
                             {shopStats[shop.id]?.productCount || 0}
                           </span>
                         )}
                         <Package className="w-5 h-5 text-yellow-500" />
-                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '我的商品', en: 'Products', ko: '상품', vi: 'Hàng' })}</span>
-                      </button>
-                      <button
-                        onClick={() => navigate('/shop-orders', { state: { merchantId: shop.id } })}
-                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors relative"
-                      >
-                        {(shopStats[shop.id]?.orderCount || 0) > 0 && (
-                          <span className="absolute top-1 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[16px] h-4 px-1 flex items-center justify-center">
-                            {shopStats[shop.id]?.orderCount || 0}
-                          </span>
-                        )}
-                        <ShoppingBag className="w-5 h-5 text-red-500" />
-                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '订单管理', en: 'Orders', ko: '주문', vi: 'Đơn' })}</span>
+                        <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '我的商品', en: 'Products', ko: '상품', vi: 'Hàng' })}</span>
                       </button>
                       <button
                         onClick={() => navigate('/shop-stats', { state: { merchantId: shop.id } })}
-                        className="flex flex-col items-center gap-1 py-3 px-1 bg-white rounded-lg hover:bg-purple-50 transition-colors"
+                        className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <span className="text-[10px] text-gray-700 font-medium">{getText({ zh: '店铺数据', en: 'Stats', ko: '통계', vi: 'Số' })}</span>
+                        <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '店铺数据', en: 'Stats', ko: '통계', vi: 'Số' })}</span>
                       </button>
-                    </div>
-                    {/* 删除店铺按钮 - 单独一行 */}
-                    <div className="mt-2">
                       <button
                         onClick={() => handleDeleteShop(shop.id, shop.shopName)}
                         disabled={deletingShop === shop.id}
-                        className="w-full py-2 bg-white rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-2 text-red-600 font-medium text-sm disabled:opacity-50"
+                        className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-red-50 transition-colors"
                       >
                         {deletingShop === shop.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin text-red-500" />
                         ) : (
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5 text-red-500" />
                         )}
-                        <span>{getText({ zh: '删除店铺', en: 'Delete Shop', ko: '상점 삭제', vi: 'Xóa cửa hàng' })}</span>
+                        <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '删除店铺', en: 'Delete', ko: '삭제', vi: 'Xóa' })}</span>
                       </button>
                     </div>
                   </div>
@@ -292,7 +279,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
             className="px-6 py-3 bg-white rounded-full flex items-center gap-2 text-purple-600 font-bold shadow-lg hover:bg-gray-50 active:scale-95 transition-all"
           >
             <Plus size={18} />
-            {getText({ zh: '入驻新板块', en: 'Join New', ko: '입점', vi: 'Đăng ký' })}
+            {getText({ zh: '入驻', en: 'Join', ko: '입점', vi: 'Đăng ký' })}
           </button>
         </div>
       </div>

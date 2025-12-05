@@ -623,8 +623,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         
         {/* 副图展示 - 点击切换主图 */}
         {item.images && item.images.length > 1 && (
-          <div className="bg-white p-3 border-b">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="bg-white py-3 border-b">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
               {item.images.map((img: string, idx: number) => (
                 <div 
                   key={idx} 
@@ -654,6 +654,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             <span>|</span>
             <span>{language === 'zh' ? '已售' : 'Sold'} {item.sales || 0}</span>
             <span>|</span>
+            <span>{language === 'zh' ? '库存' : 'Stock'} {item.stock || 0}</span>
+            <span>|</span>
             <span>{language === 'zh' ? '收藏' : 'Favs'} {favoriteCount}</span>
             <span>|</span>
             <button 
@@ -677,7 +679,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           )}
         </div>
 
-        <div className="bg-white mt-2 p-4">
+        <div className="bg-white p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center overflow-hidden">
@@ -716,7 +718,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           </div>
         </div>
 
-        <div className="bg-white mt-2 p-4">
+        <div className="bg-white p-4">
           <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '服务保障' : 'Guarantees'}</h3>
           <div className="grid grid-cols-3 gap-2">
             <div className="flex items-center gap-1 text-xs text-gray-600">
@@ -734,32 +736,32 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           </div>
         </div>
 
-        <div className="bg-white mt-2 p-4">
+        <div className="bg-white p-4">
           <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '商品描述' : 'Description'}</h3>
           
           {/* 商品描述文字 - 显示商家填写的内容 */}
-          <div className="text-sm text-gray-600 leading-relaxed mb-4 whitespace-pre-wrap">
+          <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
             {item.description || (language === 'zh' ? '商家暂未填写商品描述' : 'No description available')}
           </div>
-          
-          {/* 详情图展示 - 可点击放大，不显示标题 */}
-          {item.detailImages && item.detailImages.length > 0 && (
-            <div className="space-y-2 mt-4">
-              {item.detailImages.map((img: string, idx: number) => (
-                <div 
-                  key={idx} 
-                  className="w-full rounded-lg overflow-hidden bg-gray-50 cursor-pointer"
-                  onClick={() => {
-                    setViewerImage(img);
-                    setShowImageViewer(true);
-                  }}
-                >
-                  <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+        
+        {/* 详情图展示 - 占满宽度，可点击放大 */}
+        {item.detailImages && item.detailImages.length > 0 && (
+          <div className="bg-white">
+            {item.detailImages.map((img: string, idx: number) => (
+              <div 
+                key={idx} 
+                className="w-full bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  setViewerImage(img);
+                  setShowImageViewer(true);
+                }}
+              >
+                <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+              </div>
+            ))}
+          </div>
+        )}
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
