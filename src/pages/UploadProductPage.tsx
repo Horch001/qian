@@ -204,8 +204,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     try {
       // 从 subMedia 中分离图片和视频
       const subImages = formData.subMedia.filter(m => m.type === 'image').map(m => m.url);
-      const videos = formData.subMedia.filter(m => m.type === 'video').map(m => m.url);
-      const allImages = [formData.mainImage, ...subImages];
+      const subVideos = formData.subMedia.filter(m => m.type === 'video').map(m => m.url);
+      
+      // 判断主图是图片还是视频
+      const isMainVideo = formData.mainImage.startsWith('data:video/') || 
+                          (formData.mainImage.includes('/uploads/') && formData.mainImage.match(/\.(mp4|webm|mov)$/i));
+      
+      const allImages = isMainVideo ? subImages : [formData.mainImage, ...subImages];
+      const videos = isMainVideo ? [formData.mainImage, ...subVideos] : subVideos;
       
       // 从 detailMedia 中分离详情图和详情视频
       const detailImages = formData.detailMedia.filter(m => m.type === 'image').map(m => m.url);
