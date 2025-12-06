@@ -634,9 +634,17 @@ export const merchantApi = {
     request<ProductListResponse>(`/merchants/${id}/products?page=${page}&limit=${limit}`),
 
   // 获取商家订单列表
-  getMyOrders: (status?: string) => {
+  getMyOrders: async (status?: string) => {
     const query = status ? `?status=${status}` : '';
-    return request<any[]>(`/merchants/my/orders${query}`);
+    const orders = await request<any[]>(`/merchants/my/orders${query}`);
+    // 处理订单商品图片URL
+    return orders.map(order => ({
+      ...order,
+      items: order.items?.map((item: any) => ({
+        ...item,
+        product: item.product ? processProductImages(item.product) : item.product,
+      })) || [],
+    }));
   },
 
   // 删除店铺

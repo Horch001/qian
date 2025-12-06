@@ -5,6 +5,25 @@ import { Language, Translations } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+// 获取服务器基础URL（用于图片）
+const getServerBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 
+    (window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://h.toupiao.pro');
+  return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
+};
+
+// 处理图片URL（兼容Base64和文件URL）
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (imageUrl.startsWith('/uploads/')) {
+    const serverBaseUrl = getServerBaseUrl();
+    return `${serverBaseUrl}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
 interface AfterSalePageProps {
   language: Language;
   translations: Translations;
@@ -55,11 +74,21 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
         
         if (response.ok) {
           const data = await response.json();
-          // 给每个售后订单附加店铺名称和logo
+          // 给每个售后订单附加店铺名称和logo，并处理图片URL
           const dataWithShop = (data || []).map((item: any) => ({
             ...item,
             shopName: merchant.shopName,
-            shopLogo: merchant.logo,
+            shopLogo: processImageUrl(merchant.logo),
+            order: item.order ? {
+              ...item.order,
+              items: item.order.items?.map((orderItem: any) => ({
+                ...orderItem,
+                product: orderItem.product ? {
+                  ...orderItem.product,
+                  images: orderItem.product.images?.map((img: string) => processImageUrl(img)) || [],
+                } : orderItem.product,
+              })) || [],
+            } : item.order,
           }));
           allAfterSales.push(...dataWithShop);
         }
