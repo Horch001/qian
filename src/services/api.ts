@@ -236,11 +236,18 @@ export interface Product {
   icon?: string;
   images: string[];
   detailImages?: string[]; // 详情图
+  parameters?: Record<string, string>; // 商品参数
   merchantId?: string;
   merchant: {
     id: string;
     shopName: string;
     rating: number;
+    logo?: string;
+    userId?: string;
+    user?: {
+      id: string;
+      username?: string;
+    };
   };
   category: {
     id: string;
@@ -525,6 +532,7 @@ export interface ProductUpload {
   image?: string;
   images?: string[];
   detailImages?: string[]; // 详情图
+  parameters?: Record<string, string>; // 商品参数
 }
 
 export const merchantApi = {

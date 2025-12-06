@@ -197,7 +197,7 @@ export const HouseLeasePage: React.FC = () => {
               <div className="flex gap-2 relative">
                 <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-amber-100 to-orange-100 rounded-lg shadow-inner overflow-hidden">
                   {product.images && product.images.length > 0 ? (
-                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" loading="lazy" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl">{product.icon || '🏠'}</div>
                   )}

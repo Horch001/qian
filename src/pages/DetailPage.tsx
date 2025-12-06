@@ -92,20 +92,35 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   useEffect(() => {
     const fetchProductDetail = async () => {
       const productId = location.state?.item?.id;
-      if (!productId || pageType !== 'product') return;
+      if (!productId) return;
 
-      // 如果已经有完整数据（images长度>1或有detailImages），不需要重新获取
-      const hasFullData = (location.state?.item?.images?.length > 1) || 
-                          (location.state?.item?.detailImages?.length > 0);
-      if (hasFullData) return;
+      // 检查sessionStorage缓存（会话级别，关闭标签页后清除）
+      const cacheKey = `product_detail_${productId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const cachedData = JSON.parse(cached);
+          const cacheTime = cachedData.timestamp;
+          const now = Date.now();
+          // 缓存5分钟有效
+          if (now - cacheTime < 5 * 60 * 1000) {
+            console.log('使用缓存的商品数据');
+            setItem(cachedData.data);
+            return;
+          }
+        } catch (e) {
+          // 缓存解析失败，继续请求
+        }
+      }
 
+      // 所有板块都获取完整的商品详情数据（确保包含parameters、detailImages等）
       setLoadingDetail(true);
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         
-        // 添加超时控制（5秒）
+        // 添加超时控制（10秒）
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
         const response = await fetch(`${API_URL}/api/v1/products/${productId}`, {
           signal: controller.signal,
@@ -115,14 +130,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         
         if (response.ok) {
           const productData = await response.json();
-          // 合并数据，保留原有的多语言字段
-          setItem({
-            ...location.state?.item,
+          // 完全使用后端返回的数据，确保所有字段都正确
+          const fullData = {
             ...productData,
+            // 确保这些字段存在
             images: productData.images || [],
             detailImages: productData.detailImages || [],
             description: productData.description || '',
-          });
+            parameters: productData.parameters || null,
+          };
+          setItem(fullData);
+          
+          // 缓存到sessionStorage（5分钟有效）
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              data: fullData,
+              timestamp: Date.now(),
+            }));
+          } catch (e) {
+            // sessionStorage满了，忽略错误
+            console.warn('缓存失败:', e);
+          }
         }
       } catch (error: any) {
         if (error.name === 'AbortError') {
@@ -136,7 +164,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     };
 
     fetchProductDetail();
-  }, [location.state?.item?.id, pageType]);
+  }, [location.state?.item?.id]);
 
   const specs = [
     { zh: '标准版', en: 'Standard', ko: '표준', vi: 'Tiêu chuẩn' },
@@ -611,7 +639,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-20">
         {/* 主图展示 - 可点击放大 */}
         <div 
-          className="bg-gradient-to-br from-purple-100 to-pink-100 h-80 flex items-center justify-center overflow-hidden cursor-pointer"
+          className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden cursor-pointer"
           onClick={() => {
             const allImages = item.images || [];
             if (allImages.length > 0) {
@@ -624,7 +652,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             <img 
               src={item.images[currentImageIndex]} 
               alt={item.title?.[language] || '商品'} 
-              className="w-full h-full object-contain" 
+              className="w-full h-full object-cover" 
             />
           ) : (
             <span className="text-7xl">{item.icon || '📦'}</span>
@@ -688,6 +716,21 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             </div>
           )}
         </div>
+
+        {/* 商品参数 */}
+        {item.parameters && Object.keys(item.parameters).length > 0 && (
+          <div className="bg-white p-4">
+            <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '商品参数' : language === 'en' ? 'Parameters' : language === 'ko' ? '상품 매개변수' : 'Thông số'}</h3>
+            <div className="space-y-2">
+              {Object.entries(item.parameters).map(([key, value], index) => (
+                <div key={index} className="flex text-sm">
+                  <span className="text-gray-500 w-24 flex-shrink-0">{key}</span>
+                  <span className="text-gray-800 flex-1">{String(value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="bg-white p-4">
           <div className="flex items-center justify-between">

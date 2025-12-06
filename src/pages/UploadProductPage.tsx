@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
 import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize, checkImageQuality } from '../utils/imageCompressor';
@@ -26,6 +26,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     mainImage: '',
     subImages: [] as string[],
     detailImages: [] as string[],
+    parameters: [] as { key: string; value: string }[],
   });
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -63,14 +64,16 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         
         if (stateData?.editProduct) {
           const product = stateData.editProduct;
+          const params = product.parameters ? Object.entries(product.parameters).map(([key, value]) => ({ key, value: String(value) })) : [];
           setFormData({
             title: product.title || '',
             description: product.description || '',
             price: product.price?.toString() || '',
             stock: product.stock?.toString() || '',
             mainImage: product.images?.[0] || '',
-            subImages: product.images?.slice(1, 5) || [],
+            subImages: product.images?.slice(1) || [],
             detailImages: product.detailImages || [],
+            parameters: params,
           });
         }
       } catch (error) {
@@ -102,6 +105,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     try {
       const allImages = [formData.mainImage, ...formData.subImages];
       
+      // 转换参数为对象格式
+      const parametersObj = formData.parameters.reduce((acc, param) => {
+        if (param.key.trim() && param.value.trim()) {
+          acc[param.key.trim()] = param.value.trim();
+        }
+        return acc;
+      }, {} as Record<string, string>);
+      
       const productData = {
         merchantId: selectedMerchantId,
         title: formData.title,
@@ -110,6 +121,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         stock: parseInt(formData.stock),
         images: allImages,
         detailImages: formData.detailImages,
+        parameters: Object.keys(parametersObj).length > 0 ? parametersObj : undefined,
       };
       
       if (isEditMode && stateData?.editProduct) {
@@ -187,13 +199,13 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-4">
         {/* 主图展示区 - 可编辑 */}
-        <div className="bg-gradient-to-br from-purple-100 to-pink-100 h-80 flex items-center justify-center overflow-hidden relative group">
+        <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden relative group">
           {allImages.length > 0 ? (
             <>
               <img 
                 src={allImages[currentImageIndex]} 
                 alt="商品主图" 
-                className="w-full h-full object-contain" 
+                className="w-full h-full object-cover" 
               />
               {/* 编辑按钮 */}
               <label className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg cursor-pointer hover:bg-white transition-colors flex items-center gap-2 shadow-lg">
@@ -254,66 +266,103 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           )}
         </div>
         
-        {/* 副图缩略图 - 可点击切换 */}
-        {allImages.length > 0 && (
-          <div className="bg-white py-3 border-b">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
-              {allImages.map((img: string, idx: number) => (
-                <div 
-                  key={idx} 
-                  className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
-                    currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
-                  }`}
-                  onClick={() => setCurrentImageIndex(idx)}
-                >
-                  <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
-                  {idx > 0 && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const newSubImages = [...formData.subImages];
-                        newSubImages.splice(idx - 1, 1);
-                        setFormData({ ...formData, subImages: newSubImages });
-                        if (currentImageIndex >= idx) {
-                          setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
-                        }
-                      }}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-              ))}
-              {formData.subImages.length < 8 && formData.mainImage && (
-                <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
-                  <ImagePlus className="w-6 h-6 text-gray-400" />
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file && formData.subImages.length < 8) {
-                        try {
-                          const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                          setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
-                        } catch (error) {
-                          console.error('图片压缩失败:', error);
-                        }
-                      }
-                    }} 
-                  />
-                </label>
-              )}
-            </div>
+        {/* 副图上传区 - 始终显示副图上传按钮 */}
+        <div className="bg-white py-3 border-b">
+          <div className="px-4 mb-2 flex items-center justify-between">
+            <p className="text-xs font-bold text-gray-600">{getText({ zh: '副图 (最多8张)', en: 'Sub Images (Max 8)', ko: '서브 이미지 (최대 8장)', vi: 'Hình phụ (Tối đa 8)' })}</p>
+            <p className="text-xs text-gray-400">{formData.subImages.length}/8</p>
           </div>
-        )}
+          <div className="flex gap-2 overflow-x-auto px-4" style={{ scrollbarWidth: 'thin' }}>
+            {/* 主图缩略图 - 只在有主图时显示 */}
+            {formData.mainImage && (
+              <div 
+                className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                  currentImageIndex === 0 ? 'border-2 border-purple-600' : 'border border-gray-200'
+                }`}
+                onClick={() => setCurrentImageIndex(0)}
+              >
+                <img src={formData.mainImage} alt="主图" className="w-full h-full object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 bg-purple-600 text-white text-[10px] text-center py-0.5">
+                  {getText({ zh: '主图', en: 'Main', ko: '메인', vi: 'Chính' })}
+                </div>
+              </div>
+            )}
+            
+            {/* 副图 */}
+            {formData.subImages.map((img: string, idx: number) => (
+              <div 
+                key={idx} 
+                className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                  currentImageIndex === idx + 1 ? 'border-2 border-purple-600' : 'border border-gray-200'
+                }`}
+                onClick={() => setCurrentImageIndex(idx + 1)}
+              >
+                <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-cover" />
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const newSubImages = [...formData.subImages];
+                    newSubImages.splice(idx, 1);
+                    setFormData({ ...formData, subImages: newSubImages });
+                    if (currentImageIndex > idx) {
+                      setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
+                    }
+                  }}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            
+            {/* 添加副图按钮 - 始终显示 */}
+            {formData.subImages.length < 8 && (
+              <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+                <ImagePlus className="w-5 h-5 text-gray-400" />
+                <span className="text-[10px] text-gray-500 mt-0.5">{getText({ zh: '副图', en: 'Sub', ko: '서브', vi: 'Phụ' })}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file && formData.subImages.length < 8) {
+                      try {
+                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                        setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
+                      } catch (error) {
+                        console.error('图片压缩失败:', error);
+                      }
+                    }
+                  }} 
+                />
+              </label>
+            )}
+          </div>
+        </div>
 
-        {/* 价格和标题 - 可编辑 */}
-        <div className="bg-white p-4">
-          <div className="mb-3">
-            <div className="flex items-baseline gap-2">
+        {/* 商品信息 - 统一表单样式 */}
+        <div className="bg-white p-4 space-y-3">
+          {/* 商品名称 */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-bold text-gray-700 w-20 flex-shrink-0">
+              {getText({ zh: '商品名称', en: 'Name', ko: '상품명', vi: 'Tên' })}
+            </label>
+            <input 
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder={getText({ zh: '请输入商品名称', en: 'Enter name', ko: '상품명 입력', vi: 'Nhập tên' })}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all"
+            />
+          </div>
+
+          {/* 价格 */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-bold text-gray-700 w-20 flex-shrink-0">
+              {getText({ zh: '商品价格', en: 'Price', ko: '가격', vi: 'Giá' })}
+            </label>
+            <div className="flex-1 relative">
               <input 
                 type="number"
                 value={formData.price}
@@ -321,32 +370,84 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 placeholder="0.00"
                 step="0.01"
                 min="0"
-                className="text-2xl font-bold text-red-600 border-b-2 border-transparent hover:border-red-300 focus:border-red-500 focus:outline-none w-32"
+                className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg text-gray-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all"
               />
-              <span className="text-2xl font-bold text-red-600">π</span>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">{getText({ zh: '点击编辑价格', en: 'Click to edit price', ko: '가격 편집', vi: 'Nhấp để chỉnh sửa giá' })}</p>
-          </div>
-          <input 
-            type="text"
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder={getText({ zh: '请输入商品名称', en: 'Enter product name', ko: '상품명 입력', vi: 'Nhập tên sản phẩm' })}
-            className="text-base font-bold text-gray-800 leading-relaxed w-full border-b-2 border-transparent hover:border-gray-300 focus:border-purple-500 focus:outline-none py-1"
-          />
-          <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
-            <div className="flex items-center gap-2">
-              <span>{getText({ zh: '库存', en: 'Stock', ko: '재고', vi: 'Kho' })}</span>
-              <input 
-                type="number"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                placeholder="0"
-                min="1"
-                className="w-16 px-2 py-1 border border-gray-300 rounded text-center focus:border-purple-500 focus:outline-none"
-              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-red-600 font-bold">π</span>
             </div>
           </div>
+
+          {/* 库存 */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-bold text-gray-700 w-20 flex-shrink-0">
+              {getText({ zh: '库存数量', en: 'Stock', ko: '재고', vi: 'Kho' })}
+            </label>
+            <input 
+              type="number"
+              value={formData.stock}
+              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+              placeholder="0"
+              min="1"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-800 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none transition-all"
+            />
+          </div>
+        </div>
+
+        {/* 商品参数 */}
+        <div className="bg-white p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-700">{getText({ zh: '商品参数', en: 'Parameters', ko: '상품 매개변수', vi: 'Thông số' })}</h3>
+            <button
+              onClick={() => setFormData({ ...formData, parameters: [...formData.parameters, { key: '', value: '' }] })}
+              className="flex items-center gap-1 px-3 py-1 text-xs text-purple-600 border border-purple-600 rounded-lg hover:bg-purple-50 transition-colors"
+            >
+              <Plus size={14} />
+              {getText({ zh: '添加参数', en: 'Add', ko: '추가', vi: 'Thêm' })}
+            </button>
+          </div>
+          
+          {formData.parameters.length === 0 ? (
+            <div className="text-center py-6 text-gray-400 text-sm">
+              {getText({ zh: '暂无参数，点击上方按钮添加', en: 'No parameters, click above to add', ko: '매개변수 없음', vi: 'Chưa có thông số' })}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {formData.parameters.map((param, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={param.key}
+                    onChange={(e) => {
+                      const newParams = [...formData.parameters];
+                      newParams[index].key = e.target.value;
+                      setFormData({ ...formData, parameters: newParams });
+                    }}
+                    placeholder={getText({ zh: '参数名（如：品牌）', en: 'Name (e.g. Brand)', ko: '이름', vi: 'Tên' })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={param.value}
+                    onChange={(e) => {
+                      const newParams = [...formData.parameters];
+                      newParams[index].value = e.target.value;
+                      setFormData({ ...formData, parameters: newParams });
+                    }}
+                    placeholder={getText({ zh: '参数值（如：Apple）', en: 'Value (e.g. Apple)', ko: '값', vi: 'Giá trị' })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-200 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      const newParams = formData.parameters.filter((_, i) => i !== index);
+                      setFormData({ ...formData, parameters: newParams });
+                    }}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 店铺信息 */}

@@ -174,7 +174,7 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
                 <div className="flex gap-3">
                   <div className="w-20 h-20 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg overflow-hidden">
                     {product.images && product.images.length > 0 ? (
-                      <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" />
+                      <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-4xl">{product.icon || '📦'}</div>
                     )}
