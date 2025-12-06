@@ -15,31 +15,41 @@ const getServerBaseUrl = () => {
   return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
 };
 
-// 处理图片URL（兼容Base64和文件URL）- 动态从环境变量获取
-const processImageUrl = (imageUrl: string | undefined | null): string => {
-  if (!imageUrl) return '';
-  // 如果是Base64，直接返回
-  if (imageUrl.startsWith('data:image/')) return imageUrl;
+// 处理媒体URL（兼容Base64和文件URL，支持图片和视频）- 动态从环境变量获取
+const processMediaUrl = (mediaUrl: string | undefined | null): string => {
+  if (!mediaUrl) return '';
+  // 如果是Base64图片，直接返回
+  if (mediaUrl.startsWith('data:image/')) return mediaUrl;
+  // 如果是Base64视频，直接返回
+  if (mediaUrl.startsWith('data:video/')) return mediaUrl;
   // 如果是完整URL，直接返回
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) return mediaUrl;
   // 如果是相对路径，拼接服务器地址（动态获取）
-  if (imageUrl.startsWith('/uploads/')) {
+  if (mediaUrl.startsWith('/uploads/')) {
     const serverBaseUrl = getServerBaseUrl();
-    return `${serverBaseUrl}${imageUrl}`;
+    return `${serverBaseUrl}${mediaUrl}`;
   }
-  return imageUrl;
+  return mediaUrl;
 };
 
-// 处理商品对象中的图片URL
-const processProductImages = (product: any): any => {
+// 向后兼容：保留旧的函数名
+const processImageUrl = processMediaUrl;
+
+// 处理商品对象中的所有媒体URL（图片和视频）
+const processProductMedia = (product: any): any => {
   if (!product) return product;
   return {
     ...product,
-    images: product.images?.map((img: string) => processImageUrl(img)) || [],
-    detailImages: product.detailImages?.map((img: string) => processImageUrl(img)) || [],
+    images: product.images?.map((img: string) => processMediaUrl(img)) || [],
+    videos: product.videos?.map((vid: string) => processMediaUrl(vid)) || [],
+    detailImages: product.detailImages?.map((img: string) => processMediaUrl(img)) || [],
+    detailVideos: product.detailVideos?.map((vid: string) => processMediaUrl(vid)) || [],
     icon: product.icon,
   };
 };
+
+// 向后兼容：保留旧的函数名
+const processProductImages = processProductMedia;
 
 // 获取存储的 token
 const getToken = (): string | null => {

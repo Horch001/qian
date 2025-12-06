@@ -18,17 +18,21 @@ const getServerBaseUrl = () => {
   return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
 };
 
-// 处理图片URL（兼容Base64和文件URL）
-const processImageUrl = (imageUrl: string | undefined | null): string => {
-  if (!imageUrl) return '';
-  if (imageUrl.startsWith('data:image/')) return imageUrl;
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
-  if (imageUrl.startsWith('/uploads/')) {
+// 处理媒体URL（兼容Base64和文件URL，支持图片和视频）
+const processMediaUrl = (mediaUrl: string | undefined | null): string => {
+  if (!mediaUrl) return '';
+  if (mediaUrl.startsWith('data:image/')) return mediaUrl;
+  if (mediaUrl.startsWith('data:video/')) return mediaUrl;
+  if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) return mediaUrl;
+  if (mediaUrl.startsWith('/uploads/')) {
     const serverBaseUrl = getServerBaseUrl();
-    return `${serverBaseUrl}${imageUrl}`;
+    return `${serverBaseUrl}${mediaUrl}`;
   }
-  return imageUrl;
+  return mediaUrl;
 };
+
+// 向后兼容
+const processImageUrl = processMediaUrl;
 
 export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }) => {
   const navigate = useNavigate();
@@ -152,9 +156,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           // 完全使用后端返回的数据，确保所有字段都正确，并处理图片URL
           const fullData = {
             ...productData,
-            // 确保这些字段存在，并处理图片URL
-            images: (productData.images || []).map((img: string) => processImageUrl(img)),
-            detailImages: (productData.detailImages || []).map((img: string) => processImageUrl(img)),
+            // 确保这些字段存在，并处理图片和视频URL
+            images: (productData.images || []).map((img: string) => processMediaUrl(img)),
+            videos: (productData.videos || []).map((vid: string) => processMediaUrl(vid)),
+            detailImages: (productData.detailImages || []).map((img: string) => processMediaUrl(img)),
+            detailVideos: (productData.detailVideos || []).map((vid: string) => processMediaUrl(vid)),
             description: productData.description || '',
             parameters: productData.parameters || null,
           };
@@ -656,46 +662,97 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-20">
-        {/* 主图展示 - 可点击放大 */}
-        <div 
-          className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden cursor-pointer"
-          onClick={() => {
-            const allImages = item.images || [];
-            if (allImages.length > 0) {
-              setViewerImage(allImages[currentImageIndex]);
-              setShowImageViewer(true);
+        {/* 主图/视频展示区 - 可点击放大或播放 */}
+        <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden">
+          {(() => {
+            // 合并图片和视频到一个数组
+            const allMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
+            (item.images || []).forEach((img: string) => {
+              allMedia.push({ type: 'image', url: img });
+            });
+            (item.videos || []).forEach((vid: string) => {
+              allMedia.push({ type: 'video', url: vid });
+            });
+
+            if (allMedia.length === 0) {
+              return <span className="text-7xl">{item.icon || '📦'}</span>;
             }
-          }}
-        >
-          {item.images && item.images.length > 0 ? (
-            <img 
-              src={item.images[currentImageIndex]} 
-              alt={item.title?.[language] || '商品'} 
-              className="w-full h-full object-cover" 
-            />
-          ) : (
-            <span className="text-7xl">{item.icon || '📦'}</span>
-          )}
+
+            const currentMedia = allMedia[currentImageIndex];
+            if (!currentMedia) {
+              return <span className="text-7xl">{item.icon || '📦'}</span>;
+            }
+
+            if (currentMedia.type === 'image') {
+              return (
+                <img 
+                  src={currentMedia.url} 
+                  alt={item.title?.[language] || '商品'} 
+                  className="w-full h-full object-cover cursor-pointer" 
+                  onClick={() => {
+                    setViewerImage(currentMedia.url);
+                    setShowImageViewer(true);
+                  }}
+                />
+              );
+            } else {
+              return (
+                <video 
+                  src={currentMedia.url} 
+                  className="w-full h-full object-cover" 
+                  controls
+                  autoPlay
+                  preload="metadata"
+                />
+              );
+            }
+          })()}
         </div>
         
-        {/* 副图展示 - 点击切换主图 */}
-        {item.images && item.images.length > 1 && (
-          <div className="bg-white py-3 border-b">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
-              {item.images.map((img: string, idx: number) => (
-                <div 
-                  key={idx} 
-                  className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                    currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
-                  }`}
-                  onClick={() => setCurrentImageIndex(idx)}
-                >
-                  <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
-                </div>
-              ))}
+        {/* 副图/视频展示 - 点击切换主图 */}
+        {(() => {
+          // 合并图片和视频到一个数组
+          const allMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
+          (item.images || []).forEach((img: string) => {
+            allMedia.push({ type: 'image', url: img });
+          });
+          (item.videos || []).forEach((vid: string) => {
+            allMedia.push({ type: 'video', url: vid });
+          });
+
+          if (allMedia.length <= 1) return null;
+
+          return (
+            <div className="bg-white py-3 border-b">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
+                {allMedia.map((media, idx: number) => (
+                  <div 
+                    key={idx} 
+                    className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                      currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
+                    }`}
+                    onClick={() => setCurrentImageIndex(idx)}
+                  >
+                    {media.type === 'image' ? (
+                      <img src={media.url} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <>
+                        <video src={media.url} className="w-full h-full object-cover" preload="metadata" />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                          <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* 价格和标题 */}
         <div className="bg-white p-4">
@@ -830,6 +887,20 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 }}
               >
                 <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 详情视频展示 - 占满宽度 */}
+        {item.detailVideos && item.detailVideos.length > 0 && (
+          <div className="bg-white">
+            <div className="p-4 pb-2">
+              <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '详情视频' : 'Detail Videos'}</h3>
+            </div>
+            {item.detailVideos.map((video: string, idx: number) => (
+              <div key={idx} className="w-full bg-gray-50 mb-2 px-4">
+                <video src={video} controls className="w-full h-auto rounded-lg" preload="metadata" />
               </div>
             ))}
           </div>

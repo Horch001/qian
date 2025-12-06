@@ -25,7 +25,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     stock: '',
     mainImage: '',
     subImages: [] as string[],
+    subMedia: [] as Array<{ type: 'image' | 'video'; url: string }>,  // 副图/视频统一管理（最多8个，视频最多1个）
     detailImages: [] as string[],
+    detailMedia: [] as Array<{ type: 'image' | 'video'; url: string }>,  // 详情图/视频统一管理（最多20个，视频最多1个）
     parameters: [] as { key: string; value: string }[],
   });
 
@@ -65,14 +67,45 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         if (stateData?.editProduct) {
           const product = stateData.editProduct;
           const params = product.parameters ? Object.entries(product.parameters).map(([key, value]) => ({ key, value: String(value) })) : [];
+          
+          // 合并副图和视频到 subMedia
+          const subMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
+          const subImages = product.images?.slice(1) || [];
+          const videos = product.videos || [];
+          
+          // 先添加副图
+          subImages.forEach((img: string) => {
+            subMedia.push({ type: 'image', url: img });
+          });
+          // 再添加视频（最多1个）
+          videos.forEach((video: string) => {
+            subMedia.push({ type: 'video', url: video });
+          });
+          
+          // 合并详情图和详情视频到 detailMedia
+          const detailMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
+          const detailImages = product.detailImages || [];
+          const detailVideos = product.detailVideos || [];
+          
+          // 先添加详情图
+          detailImages.forEach((img: string) => {
+            detailMedia.push({ type: 'image', url: img });
+          });
+          // 再添加详情视频（最多1个）
+          detailVideos.forEach((video: string) => {
+            detailMedia.push({ type: 'video', url: video });
+          });
+          
           setFormData({
             title: product.title || '',
             description: product.description || '',
             price: product.price?.toString() || '',
             stock: product.stock?.toString() || '',
             mainImage: product.images?.[0] || '',
-            subImages: product.images?.slice(1) || [],
-            detailImages: product.detailImages || [],
+            subImages: [],  // 不再使用
+            subMedia: subMedia,
+            detailImages: [],  // 不再使用
+            detailMedia: detailMedia,
             parameters: params,
           });
         }
@@ -103,7 +136,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
 
     setLoading(true);
     try {
-      const allImages = [formData.mainImage, ...formData.subImages];
+      // 从 subMedia 中分离图片和视频
+      const subImages = formData.subMedia.filter(m => m.type === 'image').map(m => m.url);
+      const videos = formData.subMedia.filter(m => m.type === 'video').map(m => m.url);
+      const allImages = [formData.mainImage, ...subImages];
+      
+      // 从 detailMedia 中分离详情图和详情视频
+      const detailImages = formData.detailMedia.filter(m => m.type === 'image').map(m => m.url);
+      const detailVideos = formData.detailMedia.filter(m => m.type === 'video').map(m => m.url);
       
       // 转换参数为对象格式
       const parametersObj = formData.parameters.reduce((acc, param) => {
@@ -120,7 +160,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         price: formData.price,
         stock: parseInt(formData.stock),
         images: allImages,
-        detailImages: formData.detailImages,
+        videos: videos,
+        detailImages: detailImages,
+        detailVideos: detailVideos,
         parameters: Object.keys(parametersObj).length > 0 ? parametersObj : undefined,
       };
       
@@ -170,7 +212,10 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     );
   }
 
-  const allImages = formData.mainImage ? [formData.mainImage, ...formData.subImages] : [];
+  // 主图展示区只显示图片（不包含视频）
+  const displayImages = formData.mainImage 
+    ? [formData.mainImage, ...formData.subMedia.filter(m => m.type === 'image').map(m => m.url)] 
+    : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
@@ -198,42 +243,112 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-4">
-        {/* 主图展示区 - 可编辑 */}
+        {/* 主图展示区 - 可编辑，支持图片和视频 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden relative group">
-          {allImages.length > 0 ? (
+          {formData.mainImage || formData.subMedia.length > 0 ? (
             <>
-              <img 
-                src={allImages[currentImageIndex]} 
-                alt="商品主图" 
-                className="w-full h-full object-cover" 
-              />
-              {/* 编辑按钮 */}
-              <label className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg cursor-pointer hover:bg-white transition-colors flex items-center gap-2 shadow-lg">
-                <Edit3 size={16} className="text-purple-600" />
-                <span className="text-sm font-bold text-purple-600">{getText({ zh: '更换', en: 'Change', ko: '변경', vi: 'Thay đổi' })}</span>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      try {
-                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                        if (currentImageIndex === 0) {
-                          setFormData({ ...formData, mainImage: compressed });
-                        } else {
-                          const newSubImages = [...formData.subImages];
-                          newSubImages[currentImageIndex - 1] = compressed;
-                          setFormData({ ...formData, subImages: newSubImages });
-                        }
-                      } catch (error) {
-                        alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
-                      }
+              {/* 显示当前选中的媒体 */}
+              {currentImageIndex === 0 && formData.mainImage ? (
+                formData.mainImage.startsWith('data:video/') ? (
+                  <video 
+                    src={formData.mainImage} 
+                    className="w-full h-full object-cover" 
+                    controls
+                    autoPlay
+                  />
+                ) : (
+                  <img 
+                    src={formData.mainImage} 
+                    alt="商品主图" 
+                    className="w-full h-full object-cover" 
+                  />
+                )
+              ) : currentImageIndex > 0 && formData.subMedia[currentImageIndex - 1] ? (
+                formData.subMedia[currentImageIndex - 1].type === 'image' ? (
+                  <img 
+                    src={formData.subMedia[currentImageIndex - 1].url} 
+                    alt={`副图 ${currentImageIndex}`} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <video 
+                    src={formData.subMedia[currentImageIndex - 1].url} 
+                    className="w-full h-full object-cover" 
+                    controls
+                    autoPlay
+                  />
+                )
+              ) : null}
+              
+              {/* 编辑按钮 - 只对主图显示 */}
+              {currentImageIndex === 0 && (
+                <label className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg cursor-pointer hover:bg-white transition-colors flex items-center gap-2 shadow-lg">
+                  <Edit3 size={16} className="text-purple-600" />
+                  <span className="text-sm font-bold text-purple-600">{getText({ zh: '更换', en: 'Change', ko: '변경', vi: 'Thay đổi' })}</span>
+                  <input 
+                    type="file" 
+                    accept={
+                      formData.mainImage.startsWith('data:video/') 
+                        ? "image/*" 
+                        : "image/*,video/mp4,video/webm,video/quicktime"
                     }
-                  }} 
-                />
-              </label>
+                    className="hidden" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // 判断是图片还是视频
+                        if (file.type.startsWith('image/')) {
+                          try {
+                            const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                            setFormData({ ...formData, mainImage: compressed });
+                          } catch (error) {
+                            alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                          }
+                        } else if (file.type.startsWith('video/')) {
+                          // 验证文件格式
+                          const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
+                          if (!validFormats.includes(file.type)) {
+                            alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
+                            return;
+                          }
+                          // 验证文件大小（50MB）
+                          if (file.size > 50 * 1024 * 1024) {
+                            alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
+                            return;
+                          }
+                          
+                          // 验证视频比例（只允许正方形或横屏）
+                          const video = document.createElement('video');
+                          video.preload = 'metadata';
+                          video.onloadedmetadata = () => {
+                            window.URL.revokeObjectURL(video.src);
+                            const width = video.videoWidth;
+                            const height = video.videoHeight;
+                            
+                            if (width < height) {
+                              alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
+                              return;
+                            }
+                            
+                            // 转换为Base64
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                              const base64 = e.target?.result as string;
+                              setFormData({ ...formData, mainImage: base64 });
+                            };
+                            reader.readAsDataURL(file);
+                          };
+                          video.onerror = () => {
+                            alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
+                          };
+                          video.src = URL.createObjectURL(file);
+                        }
+                      }
+                    }} 
+                  />
+                </label>
+              )}
+              
               {/* 图片尺寸建议 */}
               <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
                 <p className="text-white text-xs">{getText({ zh: '建议尺寸: 800x800 或 1000x1000', en: 'Recommended: 800x800 or 1000x1000', ko: '권장 크기: 800x800 또는 1000x1000', vi: 'Khuyến nghị: 800x800 hoặc 1000x1000' })}</p>
@@ -244,20 +359,61 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
               <div className="w-20 h-20 bg-white/50 rounded-full flex items-center justify-center">
                 <ImagePlus className="w-10 h-10 text-purple-400" />
               </div>
-              <p className="text-purple-600 font-bold">{getText({ zh: '点击上传商品主图', en: 'Upload main image', ko: '메인 이미지 업로드', vi: 'Tải lên hình ảnh chính' })}</p>
-              <p className="text-purple-500 text-sm">{getText({ zh: '建议尺寸: 800x800 或 1000x1000 (正方形)', en: 'Recommended: 800x800 or 1000x1000 (square)', ko: '권장: 800x800 또는 1000x1000 (정사각형)', vi: 'Khuyến nghị: 800x800 hoặc 1000x1000 (vuông)' })}</p>
+              <p className="text-purple-600 font-bold">{getText({ zh: '点击上传商品主图', en: 'Upload main media', ko: '메인 미디어 업로드', vi: 'Tải lên phương tiện chính' })}</p>
+              <p className="text-purple-500 text-sm">{getText({ zh: '支持图片或视频', en: 'Image or video', ko: '이미지 또는 비디오', vi: 'Hình ảnh hoặc video' })}</p>
               <input 
                 type="file" 
-                accept="image/*" 
+                accept="image/*,video/mp4,video/webm,video/quicktime" 
                 className="hidden" 
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    try {
-                      const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                      setFormData({ ...formData, mainImage: compressed });
-                    } catch (error) {
-                      alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                    // 判断是图片还是视频
+                    if (file.type.startsWith('image/')) {
+                      try {
+                        const compressed = await compressImage(file, COMPRESS_PRESETS.main);
+                        setFormData({ ...formData, mainImage: compressed });
+                      } catch (error) {
+                        alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
+                      }
+                    } else if (file.type.startsWith('video/')) {
+                      // 验证文件格式
+                      const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
+                      if (!validFormats.includes(file.type)) {
+                        alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
+                        return;
+                      }
+                      // 验证文件大小（50MB）
+                      if (file.size > 50 * 1024 * 1024) {
+                        alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
+                        return;
+                      }
+                      
+                      // 验证视频比例（只允许正方形或横屏）
+                      const video = document.createElement('video');
+                      video.preload = 'metadata';
+                      video.onloadedmetadata = () => {
+                        window.URL.revokeObjectURL(video.src);
+                        const width = video.videoWidth;
+                        const height = video.videoHeight;
+                        
+                        if (width < height) {
+                          alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
+                          return;
+                        }
+                        
+                        // 转换为Base64
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                          const base64 = e.target?.result as string;
+                          setFormData({ ...formData, mainImage: base64 });
+                        };
+                        reader.readAsDataURL(file);
+                      };
+                      video.onerror = () => {
+                        alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
+                      };
+                      video.src = URL.createObjectURL(file);
                     }
                   }
                 }} 
@@ -266,11 +422,14 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           )}
         </div>
         
-        {/* 副图上传区 - 始终显示副图上传按钮 */}
+        {/* 副图上传区 */}
         <div className="bg-white py-3 border-b">
           <div className="px-4 mb-2 flex items-center justify-between">
-            <p className="text-xs font-bold text-gray-600">{getText({ zh: '副图 (最多8张)', en: 'Sub Images (Max 8)', ko: '서브 이미지 (최대 8장)', vi: 'Hình phụ (Tối đa 8)' })}</p>
-            <p className="text-xs text-gray-400">{formData.subImages.length}/8</p>
+            <div>
+              <p className="text-xs font-bold text-gray-600">{getText({ zh: '副图 (最多8张)', en: 'Sub Images (Max 8)', ko: '서브 이미지 (최대 8장)', vi: 'Hình phụ (Tối đa 8)' })}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '主图可上传视频', en: 'Main image supports video', ko: '메인 이미지는 비디오 지원', vi: 'Hình chính hỗ trợ video' })}</p>
+            </div>
+            <p className="text-xs text-gray-400">{formData.subMedia.length}/8</p>
           </div>
           <div className="flex gap-2 overflow-x-auto px-4" style={{ scrollbarWidth: 'thin' }}>
             {/* 主图缩略图 - 只在有主图时显示 */}
@@ -281,15 +440,28 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 }`}
                 onClick={() => setCurrentImageIndex(0)}
               >
-                <img src={formData.mainImage} alt="主图" className="w-full h-full object-cover" />
+                {formData.mainImage.startsWith('data:video/') ? (
+                  <>
+                    <video src={formData.mainImage} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <img src={formData.mainImage} alt="主图" className="w-full h-full object-cover" />
+                )}
                 <div className="absolute bottom-0 left-0 right-0 bg-purple-600 text-white text-[10px] text-center py-0.5">
                   {getText({ zh: '主图', en: 'Main', ko: '메인', vi: 'Chính' })}
                 </div>
               </div>
             )}
             
-            {/* 副图 */}
-            {formData.subImages.map((img: string, idx: number) => (
+            {/* 副图/视频 */}
+            {formData.subMedia.map((media, idx: number) => (
               <div 
                 key={idx} 
                 className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
@@ -297,26 +469,39 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 }`}
                 onClick={() => setCurrentImageIndex(idx + 1)}
               >
-                <img src={img} alt={`副图 ${idx + 1}`} className="w-full h-full object-cover" />
+                {media.type === 'image' ? (
+                  <img src={media.url} alt={`副图 ${idx + 1}`} className="w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <video src={media.url} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                      <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                        </svg>
+                      </div>
+                    </div>
+                  </>
+                )}
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    const newSubImages = [...formData.subImages];
-                    newSubImages.splice(idx, 1);
-                    setFormData({ ...formData, subImages: newSubImages });
+                    const newSubMedia = [...formData.subMedia];
+                    newSubMedia.splice(idx, 1);
+                    setFormData({ ...formData, subMedia: newSubMedia });
                     if (currentImageIndex > idx) {
                       setCurrentImageIndex(Math.max(0, currentImageIndex - 1));
                     }
                   }}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600"
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-600 z-10"
                 >
                   <X size={12} />
                 </button>
               </div>
             ))}
             
-            {/* 添加副图按钮 - 始终显示 */}
-            {formData.subImages.length < 8 && (
+            {/* 添加副图按钮 */}
+            {formData.subMedia.length < 8 && (
               <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
                 <ImagePlus className="w-5 h-5 text-gray-400" />
                 <span className="text-[10px] text-gray-500 mt-0.5">{getText({ zh: '副图', en: 'Sub', ko: '서브', vi: 'Phụ' })}</span>
@@ -326,12 +511,16 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                   className="hidden" 
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file && formData.subImages.length < 8) {
+                    if (file && formData.subMedia.length < 8) {
                       try {
                         const compressed = await compressImage(file, COMPRESS_PRESETS.main);
-                        setFormData({ ...formData, subImages: [...formData.subImages, compressed] });
+                        setFormData({ 
+                          ...formData, 
+                          subMedia: [...formData.subMedia, { type: 'image', url: compressed }] 
+                        });
                       } catch (error) {
                         console.error('图片压缩失败:', error);
+                        alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                       }
                     }
                   }} 
@@ -481,55 +670,122 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           />
         </div>
         
-        {/* 详情图展示和编辑 - 占满宽度 */}
+        {/* 详情图/视频展示和编辑 - 统一管理 */}
         <div className="bg-white">
           <div className="p-4 pb-2">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <p className="text-sm font-bold text-gray-700">{getText({ zh: '详情图', en: 'Detail Images', ko: '상세 이미지', vi: 'Hình ảnh chi tiết' })}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '建议宽度750px，高度不限', en: 'Width: 750px recommended', ko: '권장 너비: 750px', vi: 'Khuyến nghị rộng: 750px' })}</p>
+                <p className="text-sm font-bold text-gray-700">{getText({ zh: '详情图/视频', en: 'Detail Media', ko: '상세 미디어', vi: 'Phương tiện chi tiết' })}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '建议宽度750px，视频最多1个', en: 'Width 750px, Max 1 video', ko: '너비 750px, 최대 1개 비디오', vi: 'Rộng 750px, Tối đa 1 video' })}</p>
               </div>
-              <span className="text-xs text-gray-400">({formData.detailImages.length}/20)</span>
+              <span className="text-xs text-gray-400">({formData.detailMedia.length}/20)</span>
             </div>
-            {formData.detailImages.map((img: string, idx: number) => (
-              <div key={idx} className="relative w-full bg-gray-50 group">
-                <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+            {formData.detailMedia.map((media, idx: number) => (
+              <div key={idx} className="relative w-full bg-gray-50 group mb-2">
+                {media.type === 'image' ? (
+                  <img src={media.url} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+                ) : (
+                  <video src={media.url} controls className="w-full h-auto" />
+                )}
                 <button 
                   onClick={() => {
-                    const newImages = [...formData.detailImages];
-                    newImages.splice(idx, 1);
-                    setFormData({ ...formData, detailImages: newImages });
+                    const newMedia = [...formData.detailMedia];
+                    newMedia.splice(idx, 1);
+                    setFormData({ ...formData, detailMedia: newMedia });
                   }}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 >
                   <X size={14} />
                 </button>
               </div>
             ))}
           </div>
-          {formData.detailImages.length < 20 && (
+          {formData.detailMedia.length < 20 && (
             <div className="p-4 pt-2">
+              {/* 添加详情图/视频 - 统一按钮 */}
               <label className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
-                  <ImagePlus className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-500">{getText({ zh: '添加详情图', en: 'Add detail image', ko: '상세 이미지 추가', vi: 'Thêm hình ảnh chi tiết' })}</span>
-                  <span className="text-xs text-gray-400 mt-1">{getText({ zh: '宽度750px最佳', en: 'Width 750px best', ko: '너비 750px 최적', vi: 'Rộng 750px tốt nhất' })}</span>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file && formData.detailImages.length < 20) {
+                <ImagePlus className="w-8 h-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-500">
+                  {formData.detailMedia.filter(m => m.type === 'video').length < 1 
+                    ? getText({ zh: '添加详情图/视频', en: 'Add Image/Video', ko: '이미지/비디오 추가', vi: 'Thêm ảnh/video' })
+                    : getText({ zh: '添加详情图', en: 'Add Image', ko: '이미지 추가', vi: 'Thêm ảnh' })
+                  }
+                </span>
+                <span className="text-xs text-gray-400 mt-1">
+                  {formData.detailMedia.filter(m => m.type === 'video').length < 1 
+                    ? getText({ zh: '宽度750px最佳，视频最多1个', en: 'Width 750px, Max 1 video', ko: '너비 750px, 최대 1개 비디오', vi: 'Rộng 750px, Tối đa 1 video' })
+                    : getText({ zh: '宽度750px最佳', en: 'Width 750px best', ko: '너비 750px 최적', vi: 'Rộng 750px tốt nhất' })
+                  }
+                </span>
+                <input 
+                  type="file" 
+                  accept={
+                    formData.detailMedia.filter(m => m.type === 'video').length < 1 
+                      ? "image/*,video/mp4,video/webm,video/quicktime"
+                      : "image/*"
+                  }
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file && formData.detailMedia.length < 20) {
+                      // 判断是图片还是视频
+                      if (file.type.startsWith('image/')) {
                         try {
                           const compressed = await compressImage(file, COMPRESS_PRESETS.detail);
-                          setFormData({ ...formData, detailImages: [...formData.detailImages, compressed] });
+                          setFormData({ 
+                            ...formData, 
+                            detailMedia: [...formData.detailMedia, { type: 'image', url: compressed }] 
+                          });
                         } catch (error) {
                           console.error('图片压缩失败:', error);
+                          alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                         }
+                      } else if (file.type.startsWith('video/')) {
+                        // 验证文件格式
+                        const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
+                        if (!validFormats.includes(file.type)) {
+                          alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
+                          return;
+                        }
+                        // 验证文件大小（50MB）
+                        if (file.size > 50 * 1024 * 1024) {
+                          alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
+                          return;
+                        }
+                        
+                        // 验证视频比例（只允许正方形或横屏）
+                        const video = document.createElement('video');
+                        video.preload = 'metadata';
+                        video.onloadedmetadata = () => {
+                          window.URL.revokeObjectURL(video.src);
+                          const width = video.videoWidth;
+                          const height = video.videoHeight;
+                          
+                          if (width < height) {
+                            alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
+                            return;
+                          }
+                          
+                          // 转换为Base64
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            const base64 = e.target?.result as string;
+                            setFormData({ 
+                              ...formData, 
+                              detailMedia: [...formData.detailMedia, { type: 'video', url: base64 }] 
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        };
+                        video.onerror = () => {
+                          alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
+                        };
+                        video.src = URL.createObjectURL(file);
                       }
-                    }} 
-                  />
-                </label>
+                    }
+                  }} 
+                />
+              </label>
             </div>
           )}
         </div>
