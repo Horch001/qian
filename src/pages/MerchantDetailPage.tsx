@@ -3,6 +3,25 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Store, Star, Package, MessageCircle } from 'lucide-react';
 import { Language, Translations } from '../types';
 
+// 获取服务器基础URL（用于图片）
+const getServerBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 
+    (window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://h.toupiao.pro');
+  return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
+};
+
+// 处理图片URL（兼容Base64和文件URL）
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (imageUrl.startsWith('/uploads/')) {
+    const serverBaseUrl = getServerBaseUrl();
+    return `${serverBaseUrl}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
 interface MerchantDetailPageProps {
   language: Language;
   translations: Translations;
@@ -31,12 +50,22 @@ export const MerchantDetailPage: React.FC<MerchantDetailPageProps> = ({ language
 
       if (merchantRes.ok) {
         const merchantData = await merchantRes.json();
-        setMerchant(merchantData);
+        // 处理商家logo
+        setMerchant({
+          ...merchantData,
+          logo: processImageUrl(merchantData.logo),
+        });
       }
 
       if (productsRes.ok) {
         const productsData = await productsRes.json();
-        setProducts(productsData.items || []);
+        // 处理商品图片
+        const processedProducts = (productsData.items || []).map((product: any) => ({
+          ...product,
+          images: product.images?.map((img: string) => processImageUrl(img)) || [],
+          detailImages: product.detailImages?.map((img: string) => processImageUrl(img)) || [],
+        }));
+        setProducts(processedProducts);
       }
     } catch (error) {
       console.error('Failed to fetch merchant:', error);

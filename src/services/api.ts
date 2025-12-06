@@ -198,7 +198,14 @@ export const userApi = {
   getBalanceHistory: () => request<any[]>('/users/balance-history'),
 
   // 购物车相关
-  getCartItems: () => request<any[]>('/users/cart'),
+  getCartItems: async () => {
+    const items = await request<any[]>('/users/cart');
+    // 处理购物车商品图片URL
+    return items.map(item => ({
+      ...item,
+      product: item.product ? processProductImages(item.product) : item.product,
+    }));
+  },
 
   addToCart: (productId: string, quantity: number, spec?: string) =>
     request('/users/cart', {
@@ -355,13 +362,31 @@ export interface Order {
 
 export const orderApi = {
   // 获取订单列表
-  getOrders: (status?: string) => {
+  getOrders: async (status?: string) => {
     const query = status ? `?status=${status}` : '';
-    return request<Order[]>(`/orders${query}`);
+    const orders = await request<Order[]>(`/orders${query}`);
+    // 处理订单商品图片URL
+    return orders.map(order => ({
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        product: item.product ? processProductImages(item.product) : item.product,
+      })),
+    }));
   },
 
   // 获取订单详情
-  getOrder: (id: string) => request<Order>(`/orders/${id}`),
+  getOrder: async (id: string) => {
+    const order = await request<Order>(`/orders/${id}`);
+    // 处理订单商品图片URL
+    return {
+      ...order,
+      items: order.items.map(item => ({
+        ...item,
+        product: item.product ? processProductImages(item.product) : item.product,
+      })),
+    };
+  },
 
   // 创建订单
   createOrder: (data: {
@@ -402,7 +427,11 @@ export const orderApi = {
 
 export const favoriteApi = {
   // 获取收藏列表
-  getFavorites: () => request<Product[]>('/favorites'),
+  getFavorites: async () => {
+    const products = await request<Product[]>('/favorites');
+    // 处理收藏商品图片URL
+    return products.map(processProductImages);
+  },
 
   // 添加收藏
   addFavorite: (productId: string) =>
