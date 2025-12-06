@@ -83,27 +83,27 @@ export async function compressImages(
 }
 
 /**
- * 预设配置 - 极限压缩版本
- * 为了解决数据库Base64存储性能问题，大幅降低图片质量和尺寸
+ * 预设配置 - 优化版本
+ * 使用本地文件存储后，可以提高图片质量，改善用户体验
  */
 export const COMPRESS_PRESETS = {
-  // 缩略图：用于列表页（极限压缩）
+  // 缩略图：用于列表页
   thumbnail: {
-    maxWidth: 300,
-    maxHeight: 300,
-    quality: 0.5,  // 降低到50%
+    maxWidth: 400,
+    maxHeight: 400,
+    quality: 0.75,
   },
-  // 主图：用于详情页主图（大幅压缩）
+  // 主图：用于详情页主图（高清）
   main: {
-    maxWidth: 600,   // 从800降到600
-    maxHeight: 600,
-    quality: 0.6,    // 从0.8降到0.6
+    maxWidth: 1200,   // 提高到1200px
+    maxHeight: 1200,
+    quality: 0.85,    // 提高到85%
   },
-  // 详情图：用于商品详情（大幅压缩）
+  // 详情图：用于商品详情（高清）
   detail: {
-    maxWidth: 800,   // 从1200降到800
-    maxHeight: 800,
-    quality: 0.65,   // 从0.85降到0.65
+    maxWidth: 1200,   // 提高到1200px
+    maxHeight: 1200,
+    quality: 0.85,    // 提高到85%
   },
 };
 
