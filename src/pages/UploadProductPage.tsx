@@ -51,22 +51,37 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         return null;
       }
 
-      // 验证视频比例（只允许正方形或横屏）
+      // 验证视频比例和编码（只允许正方形或横屏）
       const videoElement = document.createElement('video');
       videoElement.preload = 'metadata';
       
-      const checkRatio = await new Promise<boolean>((resolve) => {
+      const videoCheck = await new Promise<{ valid: boolean; width: number; height: number }>((resolve) => {
         videoElement.onloadedmetadata = () => {
           window.URL.revokeObjectURL(videoElement.src);
           const width = videoElement.videoWidth;
           const height = videoElement.videoHeight;
-          resolve(width >= height);
+          
+          // 检查视频是否有有效的尺寸
+          if (width === 0 || height === 0) {
+            resolve({ valid: false, width: 0, height: 0 });
+            return;
+          }
+          
+          resolve({ valid: width >= height, width, height });
         };
-        videoElement.onerror = () => resolve(false);
+        videoElement.onerror = () => {
+          window.URL.revokeObjectURL(videoElement.src);
+          resolve({ valid: false, width: 0, height: 0 });
+        };
         videoElement.src = URL.createObjectURL(file);
       });
 
-      if (!checkRatio) {
+      if (videoCheck.width === 0 || videoCheck.height === 0) {
+        alert(getText({ zh: '视频格式不支持或已损坏，请使用H.264编码的MP4格式', en: 'Video format not supported or corrupted', ko: '비디오 형식이 지원되지 않거나 손상됨', vi: 'Định dạng video không được hỗ trợ hoặc bị hỏng' }));
+        return null;
+      }
+
+      if (!videoCheck.valid) {
         alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
         return null;
       }
