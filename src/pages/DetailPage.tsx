@@ -11,6 +11,25 @@ interface DetailPageProps {
   translations: Translations;
 }
 
+// 获取服务器基础URL（用于图片）- 自动检测
+const getServerBaseUrl = () => {
+  const url = import.meta.env.VITE_API_URL || 
+    (window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://h.toupiao.pro');
+  return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
+};
+
+// 处理图片URL（兼容Base64和文件URL）
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (imageUrl.startsWith('/uploads/')) {
+    const serverBaseUrl = getServerBaseUrl();
+    return `${serverBaseUrl}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
 export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,12 +149,12 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         
         if (response.ok) {
           const productData = await response.json();
-          // 完全使用后端返回的数据，确保所有字段都正确
+          // 完全使用后端返回的数据，确保所有字段都正确，并处理图片URL
           const fullData = {
             ...productData,
-            // 确保这些字段存在
-            images: productData.images || [],
-            detailImages: productData.detailImages || [],
+            // 确保这些字段存在，并处理图片URL
+            images: (productData.images || []).map((img: string) => processImageUrl(img)),
+            detailImages: (productData.detailImages || []).map((img: string) => processImageUrl(img)),
             description: productData.description || '',
             parameters: productData.parameters || null,
           };
