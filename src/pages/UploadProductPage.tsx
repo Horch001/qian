@@ -45,9 +45,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         return null;
       }
 
-      // 验证文件大小（50MB）
-      if (file.size > 50 * 1024 * 1024) {
-        alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
+      // 验证文件大小（20MB）
+      if (file.size > 20 * 1024 * 1024) {
+        alert(getText({ zh: '视频文件不能超过 20MB，建议压缩后上传', en: 'Video cannot exceed 20MB', ko: '비디오는 20MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 20MB' }));
         return null;
       }
 
@@ -435,7 +435,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           <div className="px-4 mb-2 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-gray-600">{getText({ zh: '副图 (最多8张)', en: 'Sub Images (Max 8)', ko: '서브 이미지 (최대 8장)', vi: 'Hình phụ (Tối đa 8)' })}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '主图可上传视频', en: 'Main image supports video', ko: '메인 이미지는 비디오 지원', vi: 'Hình chính hỗ trợ video' })}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '主图可上传视频（最大20MB）', en: 'Main supports video (Max 20MB)', ko: '메인 비디오 지원 (최대 20MB)', vi: 'Hỗ trợ video (Tối đa 20MB)' })}</p>
             </div>
             <p className="text-xs text-gray-400">{formData.subMedia.length}/8</p>
           </div>
@@ -684,7 +684,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
             <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-sm font-bold text-gray-700">{getText({ zh: '详情图/视频', en: 'Detail Media', ko: '상세 미디어', vi: 'Phương tiện chi tiết' })}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '建议宽度750px，视频最多1个', en: 'Width 750px, Max 1 video', ko: '너비 750px, 최대 1개 비디오', vi: 'Rộng 750px, Tối đa 1 video' })}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{getText({ zh: '建议宽度750px，视频最多1个（20MB）', en: 'Width 750px, Max 1 video (20MB)', ko: '너비 750px, 최대 1개 비디오 (20MB)', vi: 'Rộng 750px, Tối đa 1 video (20MB)' })}</p>
               </div>
               <span className="text-xs text-gray-400">({formData.detailMedia.length}/20)</span>
             </div>
@@ -721,7 +721,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 </span>
                 <span className="text-xs text-gray-400 mt-1">
                   {formData.detailMedia.filter(m => m.type === 'video').length < 1 
-                    ? getText({ zh: '宽度750px最佳，视频最多1个', en: 'Width 750px, Max 1 video', ko: '너비 750px, 최대 1개 비디오', vi: 'Rộng 750px, Tối đa 1 video' })
+                    ? getText({ zh: '宽度750px最佳，视频最多1个（20MB）', en: 'Width 750px, Max 1 video (20MB)', ko: '너비 750px, 최대 1개 비디오 (20MB)', vi: 'Rộng 750px, Tối đa 1 video (20MB)' })
                     : getText({ zh: '宽度750px最佳', en: 'Width 750px best', ko: '너비 750px 최적', vi: 'Rộng 750px tốt nhất' })
                   }
                 </span>

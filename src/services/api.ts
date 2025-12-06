@@ -576,12 +576,27 @@ export interface ProductUpload {
 
 // ==================== 上传 API ====================
 export const uploadApi = {
-  // 上传单个视频
-  uploadVideo: (videoBase64: string) =>
-    request<{ url: string }>('/upload/video', {
-      method: 'POST',
-      body: JSON.stringify({ video: videoBase64 }),
-    }),
+  // 上传单个视频（带超时控制）
+  uploadVideo: async (videoBase64: string): Promise<{ url: string }> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
+    
+    try {
+      const response = await request<{ url: string }>('/upload/video', {
+        method: 'POST',
+        body: JSON.stringify({ video: videoBase64 }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('上传超时，请压缩视频后重试');
+      }
+      throw error;
+    }
+  },
 
   // 批量上传视频
   uploadVideos: (videosBase64: string[]) =>
