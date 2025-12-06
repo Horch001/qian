@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { merchantApi, Merchant } from '../services/api';
+import { merchantApi, Merchant, uploadApi } from '../services/api';
 import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize, checkImageQuality } from '../utils/imageCompressor';
 
 interface UploadProductPageProps {
@@ -18,6 +18,8 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const [allMerchants, setAllMerchants] = useState<Merchant[]>([]);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -32,6 +34,70 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   });
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
+
+  // 统一的视频处理函数：验证并上传视频
+  const handleVideoUpload = async (file: File): Promise<string | null> => {
+    try {
+      // 验证文件格式
+      const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
+      if (!validFormats.includes(file.type)) {
+        alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
+        return null;
+      }
+
+      // 验证文件大小（50MB）
+      if (file.size > 50 * 1024 * 1024) {
+        alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
+        return null;
+      }
+
+      // 验证视频比例（只允许正方形或横屏）
+      const videoElement = document.createElement('video');
+      videoElement.preload = 'metadata';
+      
+      const checkRatio = await new Promise<boolean>((resolve) => {
+        videoElement.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(videoElement.src);
+          const width = videoElement.videoWidth;
+          const height = videoElement.videoHeight;
+          resolve(width >= height);
+        };
+        videoElement.onerror = () => resolve(false);
+        videoElement.src = URL.createObjectURL(file);
+      });
+
+      if (!checkRatio) {
+        alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
+        return null;
+      }
+
+      // 转换为Base64
+      setUploadingVideo(true);
+      setVideoUploadProgress(getText({ zh: '正在读取视频...', en: 'Reading video...', ko: '비디오 읽는 중...', vi: 'Đang đọc video...' }));
+      
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      // 上传到服务器
+      setVideoUploadProgress(getText({ zh: '正在上传视频...', en: 'Uploading video...', ko: '비디오 업로드 중...', vi: 'Đang tải video...' }));
+      const response = await uploadApi.uploadVideo(base64);
+      
+      setUploadingVideo(false);
+      setVideoUploadProgress('');
+      
+      return response.url;
+    } catch (error) {
+      console.error('视频上传失败:', error);
+      setUploadingVideo(false);
+      setVideoUploadProgress('');
+      alert(getText({ zh: '视频上传失败，请重试', en: 'Video upload failed', ko: '비디오 업로드 실패', vi: 'Tải video thất bại' }));
+      return null;
+    }
+  };
 
   const categoryLabels: Record<string, { [key: string]: string }> = {
     PHYSICAL: { zh: '实体商城', en: 'Physical Mall', ko: '실물 쇼핑몰', vi: 'Trung tâm mua sắm' },
@@ -245,11 +311,19 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
       <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-4">
         {/* 主图展示区 - 可编辑，支持图片和视频 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden relative group">
+          {/* 视频上传进度提示 */}
+          {uploadingVideo && (
+            <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center z-50">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+              <p className="text-white text-sm">{videoUploadProgress}</p>
+            </div>
+          )}
+          
           {formData.mainImage || formData.subMedia.length > 0 ? (
             <>
               {/* 显示当前选中的媒体 */}
               {currentImageIndex === 0 && formData.mainImage ? (
-                formData.mainImage.startsWith('data:video/') ? (
+                formData.mainImage.startsWith('data:video/') || formData.mainImage.includes('/uploads/') && formData.mainImage.match(/\.(mp4|webm|mov)$/i) ? (
                   <video 
                     src={formData.mainImage} 
                     className="w-full h-full object-cover" 
@@ -288,7 +362,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                   <input 
                     type="file" 
                     accept={
-                      formData.mainImage.startsWith('data:video/') 
+                      formData.mainImage.startsWith('data:video/') || (formData.mainImage.includes('/uploads/') && formData.mainImage.match(/\.(mp4|webm|mov)$/i))
                         ? "image/*" 
                         : "image/*,video/mp4,video/webm,video/quicktime"
                     }
@@ -305,43 +379,10 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                             alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                           }
                         } else if (file.type.startsWith('video/')) {
-                          // 验证文件格式
-                          const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
-                          if (!validFormats.includes(file.type)) {
-                            alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
-                            return;
+                          const videoUrl = await handleVideoUpload(file);
+                          if (videoUrl) {
+                            setFormData({ ...formData, mainImage: videoUrl });
                           }
-                          // 验证文件大小（50MB）
-                          if (file.size > 50 * 1024 * 1024) {
-                            alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
-                            return;
-                          }
-                          
-                          // 验证视频比例（只允许正方形或横屏）
-                          const video = document.createElement('video');
-                          video.preload = 'metadata';
-                          video.onloadedmetadata = () => {
-                            window.URL.revokeObjectURL(video.src);
-                            const width = video.videoWidth;
-                            const height = video.videoHeight;
-                            
-                            if (width < height) {
-                              alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
-                              return;
-                            }
-                            
-                            // 转换为Base64
-                            const reader = new FileReader();
-                            reader.onload = (e) => {
-                              const base64 = e.target?.result as string;
-                              setFormData({ ...formData, mainImage: base64 });
-                            };
-                            reader.readAsDataURL(file);
-                          };
-                          video.onerror = () => {
-                            alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
-                          };
-                          video.src = URL.createObjectURL(file);
                         }
                       }
                     }} 
@@ -377,43 +418,10 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                         alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                       }
                     } else if (file.type.startsWith('video/')) {
-                      // 验证文件格式
-                      const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
-                      if (!validFormats.includes(file.type)) {
-                        alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
-                        return;
+                      const videoUrl = await handleVideoUpload(file);
+                      if (videoUrl) {
+                        setFormData({ ...formData, mainImage: videoUrl });
                       }
-                      // 验证文件大小（50MB）
-                      if (file.size > 50 * 1024 * 1024) {
-                        alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
-                        return;
-                      }
-                      
-                      // 验证视频比例（只允许正方形或横屏）
-                      const video = document.createElement('video');
-                      video.preload = 'metadata';
-                      video.onloadedmetadata = () => {
-                        window.URL.revokeObjectURL(video.src);
-                        const width = video.videoWidth;
-                        const height = video.videoHeight;
-                        
-                        if (width < height) {
-                          alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
-                          return;
-                        }
-                        
-                        // 转换为Base64
-                        const reader = new FileReader();
-                        reader.onload = (e) => {
-                          const base64 = e.target?.result as string;
-                          setFormData({ ...formData, mainImage: base64 });
-                        };
-                        reader.readAsDataURL(file);
-                      };
-                      video.onerror = () => {
-                        alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
-                      };
-                      video.src = URL.createObjectURL(file);
                     }
                   }
                 }} 
@@ -440,7 +448,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                 }`}
                 onClick={() => setCurrentImageIndex(0)}
               >
-                {formData.mainImage.startsWith('data:video/') ? (
+                {formData.mainImage.startsWith('data:video/') || (formData.mainImage.includes('/uploads/') && formData.mainImage.match(/\.(mp4|webm|mov)$/i)) ? (
                   <>
                     <video src={formData.mainImage} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
@@ -741,46 +749,13 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
                           alert(getText({ zh: '图片处理失败', en: 'Image processing failed', ko: '이미지 처리 실패', vi: 'Xử lý hình ảnh thất bại' }));
                         }
                       } else if (file.type.startsWith('video/')) {
-                        // 验证文件格式
-                        const validFormats = ['video/mp4', 'video/webm', 'video/quicktime'];
-                        if (!validFormats.includes(file.type)) {
-                          alert(getText({ zh: '仅支持 mp4、webm、mov 格式', en: 'Only mp4, webm, mov supported', ko: 'mp4, webm, mov만 지원', vi: 'Chỉ hỗ trợ mp4, webm, mov' }));
-                          return;
+                        const videoUrl = await handleVideoUpload(file);
+                        if (videoUrl) {
+                          setFormData({ 
+                            ...formData, 
+                            detailMedia: [...formData.detailMedia, { type: 'video', url: videoUrl }] 
+                          });
                         }
-                        // 验证文件大小（50MB）
-                        if (file.size > 50 * 1024 * 1024) {
-                          alert(getText({ zh: '视频文件不能超过 50MB', en: 'Video cannot exceed 50MB', ko: '비디오는 50MB를 초과할 수 없습니다', vi: 'Video không được vượt quá 50MB' }));
-                          return;
-                        }
-                        
-                        // 验证视频比例（只允许正方形或横屏）
-                        const video = document.createElement('video');
-                        video.preload = 'metadata';
-                        video.onloadedmetadata = () => {
-                          window.URL.revokeObjectURL(video.src);
-                          const width = video.videoWidth;
-                          const height = video.videoHeight;
-                          
-                          if (width < height) {
-                            alert(getText({ zh: '只支持正方形或横屏视频（宽度≥高度）', en: 'Only square or landscape videos (width ≥ height)', ko: '정사각형 또는 가로 비디오만 지원 (너비 ≥ 높이)', vi: 'Chỉ hỗ trợ video vuông hoặc ngang (rộng ≥ cao)' }));
-                            return;
-                          }
-                          
-                          // 转换为Base64
-                          const reader = new FileReader();
-                          reader.onload = (e) => {
-                            const base64 = e.target?.result as string;
-                            setFormData({ 
-                              ...formData, 
-                              detailMedia: [...formData.detailMedia, { type: 'video', url: base64 }] 
-                            });
-                          };
-                          reader.readAsDataURL(file);
-                        };
-                        video.onerror = () => {
-                          alert(getText({ zh: '视频加载失败', en: 'Video load failed', ko: '비디오 로드 실패', vi: 'Tải video thất bại' }));
-                        };
-                        video.src = URL.createObjectURL(file);
                       }
                     }
                   }} 

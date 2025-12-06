@@ -574,6 +574,23 @@ export interface ProductUpload {
   parameters?: Record<string, string>; // 商品参数
 }
 
+// ==================== 上传 API ====================
+export const uploadApi = {
+  // 上传单个视频
+  uploadVideo: (videoBase64: string) =>
+    request<{ url: string }>('/upload/video', {
+      method: 'POST',
+      body: JSON.stringify({ video: videoBase64 }),
+    }),
+
+  // 批量上传视频
+  uploadVideos: (videosBase64: string[]) =>
+    request<{ urls: string[] }>('/upload/videos', {
+      method: 'POST',
+      body: JSON.stringify({ videos: videosBase64 }),
+    }),
+};
+
 export const merchantApi = {
   // 申请入驻商家
   apply: (data: MerchantApplication) =>
