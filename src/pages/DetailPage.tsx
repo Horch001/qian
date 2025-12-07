@@ -18,11 +18,10 @@ const getServerBaseUrl = () => {
   return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
 };
 
-// 处理媒体URL（兼容Base64和文件URL，支持图片和视频）
+// 处理图片URL（兼容Base64和文件URL）
 const processMediaUrl = (mediaUrl: string | undefined | null): string => {
   if (!mediaUrl) return '';
   if (mediaUrl.startsWith('data:image/')) return mediaUrl;
-  if (mediaUrl.startsWith('data:video/')) return mediaUrl;
   if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) return mediaUrl;
   if (mediaUrl.startsWith('/uploads/')) {
     const serverBaseUrl = getServerBaseUrl();
@@ -120,23 +119,27 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       // 检查sessionStorage缓存（会话级别，关闭标签页后清除）
       const cacheKey = `product_detail_${productId}`;
       const cached = sessionStorage.getItem(cacheKey);
+      let cachedData = null;
+      
       if (cached) {
         try {
-          const cachedData = JSON.parse(cached);
+          cachedData = JSON.parse(cached);
           const cacheTime = cachedData.timestamp;
           const now = Date.now();
           // 缓存5分钟有效
           if (now - cacheTime < 5 * 60 * 1000) {
-            console.log('使用缓存的商品数据');
+            console.log('使用缓存的商品基础数据');
+            // 先显示缓存数据，但动态数据会被后续请求更新
             setItem(cachedData.data);
-            return;
+          } else {
+            cachedData = null;
           }
         } catch (e) {
-          // 缓存解析失败，继续请求
+          cachedData = null;
         }
       }
 
-      // 所有板块都获取完整的商品详情数据（确保包含parameters、detailImages等）
+      // 始终从服务器获取最新数据（包括动态数据：销量、库存、收藏数等）
       setLoadingDetail(true);
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -156,11 +159,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           // 完全使用后端返回的数据，确保所有字段都正确，并处理图片URL
           const fullData = {
             ...productData,
-            // 确保这些字段存在，并处理图片和视频URL
+            // 确保这些字段存在，并处理图片URL
             images: (productData.images || []).map((img: string) => processMediaUrl(img)),
-            videos: (productData.videos || []).map((vid: string) => processMediaUrl(vid)),
             detailImages: (productData.detailImages || []).map((img: string) => processMediaUrl(img)),
-            detailVideos: (productData.detailVideos || []).map((vid: string) => processMediaUrl(vid)),
             description: productData.description || '',
             parameters: productData.parameters || null,
           };
@@ -179,7 +180,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         }
       } catch (error: any) {
         if (error.name === 'AbortError') {
-          console.log('获取商品详情超时，使用列表数据');
+          console.log('获取商品详情超时，使用缓存数据');
         } else {
           console.error('获取商品详情失败:', error);
         }
@@ -665,88 +666,47 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         {/* 主图/视频展示区 - 可点击放大或播放 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden">
           {(() => {
-            // 合并图片和视频到一个数组
-            const allMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
-            (item.images || []).forEach((img: string) => {
-              allMedia.push({ type: 'image', url: img });
-            });
-            (item.videos || []).forEach((vid: string) => {
-              allMedia.push({ type: 'video', url: vid });
-            });
-
-            if (allMedia.length === 0) {
+            const images = item.images || [];
+            if (images.length === 0) {
               return <span className="text-7xl">{item.icon || '📦'}</span>;
             }
 
-            const currentMedia = allMedia[currentImageIndex];
-            if (!currentMedia) {
+            const currentImage = images[currentImageIndex];
+            if (!currentImage) {
               return <span className="text-7xl">{item.icon || '📦'}</span>;
             }
 
-            if (currentMedia.type === 'image') {
-              return (
-                <img 
-                  src={currentMedia.url} 
-                  alt={item.title?.[language] || '商品'} 
-                  className="w-full h-full object-cover cursor-pointer" 
-                  onClick={() => {
-                    setViewerImage(currentMedia.url);
-                    setShowImageViewer(true);
-                  }}
-                />
-              );
-            } else {
-              return (
-                <video 
-                  src={currentMedia.url} 
-                  className="w-full h-full object-cover" 
-                  controls
-                  autoPlay
-                  preload="metadata"
-                />
-              );
-            }
+            return (
+              <img 
+                src={currentImage} 
+                alt={item.title?.[language] || '商品'} 
+                className="w-full h-full object-cover cursor-pointer" 
+                onClick={() => {
+                  setViewerImage(currentImage);
+                  setShowImageViewer(true);
+                }}
+              />
+            );
           })()}
         </div>
         
-        {/* 副图/视频展示 - 点击切换主图 */}
+        {/* 副图展示 - 点击切换主图 */}
         {(() => {
-          // 合并图片和视频到一个数组
-          const allMedia: Array<{ type: 'image' | 'video'; url: string }> = [];
-          (item.images || []).forEach((img: string) => {
-            allMedia.push({ type: 'image', url: img });
-          });
-          (item.videos || []).forEach((vid: string) => {
-            allMedia.push({ type: 'video', url: vid });
-          });
-
-          if (allMedia.length <= 1) return null;
+          const images = item.images || [];
+          if (images.length <= 1) return null;
 
           return (
             <div className="bg-white py-3 border-b">
               <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4">
-                {allMedia.map((media, idx: number) => (
+                {images.map((img, idx: number) => (
                   <div 
                     key={idx} 
-                    className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all relative ${
+                    className={`w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden cursor-pointer transition-all ${
                       currentImageIndex === idx ? 'border-2 border-purple-600' : 'border border-gray-200'
                     }`}
                     onClick={() => setCurrentImageIndex(idx)}
                   >
-                    {media.type === 'image' ? (
-                      <img src={media.url} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
-                    ) : (
-                      <>
-                        <video src={media.url} className="w-full h-full object-cover" preload="metadata" />
-                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
-                          <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center">
-                            <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
-                              <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                            </svg>
-                          </div>
-                        </div>
-                      </>
-                    )}
+                    <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>
@@ -761,10 +721,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           </div>
           <h2 className="text-base font-bold text-gray-800 leading-relaxed">{item.title?.[language] || item.name?.[language] || item.resource?.[language] || '商品'}</h2>
           <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
-            <div className="flex items-center gap-1">
-              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              <span className="font-bold">{item.rating || 4.8}</span>
-            </div>
+            <span>{language === 'zh' ? '评分' : language === 'en' ? 'Rating' : language === 'ko' ? '평점' : 'Đánh giá'} <span className="font-bold">{item.rating || 4.8}</span></span>
             <span>|</span>
             <span>{language === 'zh' ? '已售' : 'Sold'} {item.sales || 0}</span>
             <span>|</span>
@@ -780,17 +737,15 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             </button>
           </div>
           
-          {/* 用户评价列表 - 展开时显示在统计信息下方 */}
-          {showReviews && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <ProductReviews 
-                productId={item.id} 
-                language={language} 
-                onReviewCountChange={setReviewCount}
-                isExpanded={showReviews}
-              />
-            </div>
-          )}
+          {/* 用户评价列表 - 始终渲染以获取评价数量，但只在展开时显示 */}
+          <div className={showReviews ? "mt-4 pt-4 border-t border-gray-200" : ""}>
+            <ProductReviews 
+              productId={item.id} 
+              language={language} 
+              onReviewCountChange={setReviewCount}
+              isExpanded={showReviews}
+            />
+          </div>
         </div>
 
         {/* 商品参数 */}
@@ -892,19 +847,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           </div>
         )}
 
-        {/* 详情视频展示 - 占满宽度 */}
-        {item.detailVideos && item.detailVideos.length > 0 && (
-          <div className="bg-white">
-            <div className="p-4 pb-2">
-              <h3 className="font-bold text-gray-800 text-sm mb-3">{language === 'zh' ? '详情视频' : 'Detail Videos'}</h3>
-            </div>
-            {item.detailVideos.map((video: string, idx: number) => (
-              <div key={idx} className="w-full bg-gray-50 mb-2 px-4">
-                <video src={video} controls className="w-full h-auto rounded-lg" preload="metadata" />
-              </div>
-            ))}
-          </div>
-        )}
+
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">

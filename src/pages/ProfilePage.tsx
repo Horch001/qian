@@ -331,6 +331,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           paymentMethod: order.paymentMethod,
           status: order.orderStatus?.toLowerCase() || 'pending',
           createdAt: order.createdAt,
+          completedAt: order.completedAt, // 收货时间
+          reviewed: order.reviewed,
+          merchantReviewed: order.merchantReviewed,
+          items: order.items, // 保留完整的items数据，用于获取商家信息
           // 保留售后状态标记
           hasActiveAfterSale: order.hasActiveAfterSale || false,
           afterSale: order.afterSale || null,
@@ -486,6 +490,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         paymentMethod: order.paymentMethod,
         status: order.orderStatus?.toLowerCase() || 'pending',
         createdAt: order.createdAt,
+        completedAt: order.completedAt, // 收货时间
+        reviewed: order.reviewed,
+        merchantReviewed: order.merchantReviewed,
+        items: order.items, // 保留完整的items数据
         // 保留售后状态标记
         hasActiveAfterSale: order.hasActiveAfterSale || false,
         afterSale: order.afterSale || null,
@@ -1398,23 +1406,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                         </button>
                         {/* 展开的订单详情 */}
                         {expandedOrder === order.id && (
-                          <div className="px-3 pb-3 pt-1 border-t border-white/10 space-y-2">
-                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          <div className="px-3 pb-3 pt-1 border-t border-white/10 space-y-1.5">
+                            <div className="space-y-1.5 text-[10px]">
                               <div>
-                                <span className="text-white/50">{getText({ zh: '订单编号', en: 'Order ID', ko: '주문 번호', vi: 'Mã đơn' })}</span>
-                                <p className="text-white font-mono">{order.id}</p>
+                                <span className="text-white/50">{getText({ zh: '订单编号:', en: 'Order ID:', ko: '주문 번호:', vi: 'Mã đơn:' })} </span>
+                                <span className="text-white font-mono">{order.id}</span>
                               </div>
                               <div>
-                                <span className="text-white/50">{getText({ zh: '下单时间', en: 'Order Time', ko: '주문 시간', vi: 'Thời gian' })}</span>
-                                <p className="text-white">{new Date(order.createdAt).toLocaleString()}</p>
+                                <span className="text-white/50">{getText({ zh: '下单时间:', en: 'Order Time:', ko: '주문 시간:', vi: 'Thời gian:' })} </span>
+                                <span className="text-white">{new Date(order.createdAt).toLocaleString()}</span>
+                              </div>
+                              {order.status === 'completed' && order.completedAt && (
+                                <div>
+                                  <span className="text-white/50">{getText({ zh: '收货时间:', en: 'Received:', ko: '수령 시간:', vi: 'Nhận hàng:' })} </span>
+                                  <span className="text-white">{new Date(order.completedAt).toLocaleString()}</span>
+                                </div>
+                              )}
+                              <div>
+                                <span className="text-white/50">{getText({ zh: '支付方式:', en: 'Payment:', ko: '결제 방법:', vi: 'Thanh toán:' })} </span>
+                                <span className="text-white">{order.paymentMethod === 'pi' ? 'Pi钱包' : getText({ zh: '余额支付', en: 'Balance', ko: '잔액', vi: 'Số dư' })}</span>
                               </div>
                               <div>
-                                <span className="text-white/50">{getText({ zh: '支付方式', en: 'Payment', ko: '결제 방법', vi: 'Thanh toán' })}</span>
-                                <p className="text-white">{order.paymentMethod === 'pi' ? 'Pi钱包' : getText({ zh: '余额支付', en: 'Balance', ko: '잔액', vi: 'Số dư' })}</p>
-                              </div>
-                              <div>
-                                <span className="text-white/50">{getText({ zh: '订单状态', en: 'Status', ko: '상태', vi: 'Trạng thái' })}</span>
-                                <p className={order.status === 'refunded' ? 'text-gray-400' : order.status === 'refunding' ? 'text-orange-400' : order.status === 'cancelled' ? 'text-gray-400' : order.status === 'pending' ? 'text-yellow-400' : 'text-green-400'}>
+                                <span className="text-white/50">{getText({ zh: '订单状态:', en: 'Status:', ko: '상태:', vi: 'Trạng thái:' })} </span>
+                                <span className={order.status === 'refunded' ? 'text-gray-400' : order.status === 'refunding' ? 'text-orange-400' : order.status === 'cancelled' ? 'text-gray-400' : order.status === 'pending' ? 'text-yellow-400' : 'text-green-400'}>
                                   {order.status === 'pending' ? getText({ zh: '待付款', en: 'Pending Payment', ko: '결제 대기', vi: 'Chờ thanh toán' })
                                     : order.status === 'paid' ? getText({ zh: '待发货', en: 'Paid', ko: '결제 완료', vi: 'Đã thanh toán' })
                                     : order.status === 'shipped' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' })
@@ -1423,15 +1437,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     : order.status === 'refunded' ? getText({ zh: '已退款', en: 'Refunded', ko: '환불됨', vi: 'Đã hoàn tiền' })
                                     : order.status === 'cancelled' ? getText({ zh: '已取消', en: 'Cancelled', ko: '취소됨', vi: 'Đã hủy' })
                                     : getText({ zh: '未知', en: 'Unknown', ko: '알 수 없음', vi: 'Không xác định' })}
-                                </p>
+                                </span>
                               </div>
                             </div>
-                            {/* 七天无理由退款提示 */}
-                            {order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
-                              const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-                              const daysLeft = 7 - daysDiff;
-                              return daysLeft > 0 && <div className="text-[10px] text-yellow-300 bg-yellow-500/10 px-2 py-1 rounded">{getText({ zh: `七天无理由退款，剩余 ${daysLeft} 天`, en: `7-day refund, ${daysLeft} days left`, ko: `7일 환불, ${daysLeft}일 남음`, vi: `Hoàn tiền 7 ngày, còn ${daysLeft} ngày` })}</div>;
-                            })()}
                             {/* 待付款订单操作 */}
                             {order.status === 'pending' && (
                               <div className="flex gap-2 mt-2">
@@ -1452,7 +1460,22 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                             {/* 已付款订单操作 */}
                             {order.status !== 'pending' && order.status !== 'cancelled' && order.status !== 'refunded' && order.status !== 'refunding' && (
                               <div className="flex gap-2 mt-2">
-                                <button className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30">
+                                <button 
+                                  onClick={() => {
+                                    const merchantId = order.items?.[0]?.product?.merchantId;
+                                    if (merchantId) {
+                                      navigate('/chat', { 
+                                        state: { 
+                                          merchantId: merchantId,
+                                          orderId: order.id
+                                        } 
+                                      });
+                                    } else {
+                                      alert(getText({ zh: '无法获取商家信息', en: 'Cannot get merchant info', ko: '판매자 정보를 가져올 수 없습니다', vi: 'Không thể lấy thông tin người bán' }));
+                                    }
+                                  }}
+                                  className="flex-1 py-1.5 bg-white/20 text-white text-[10px] font-bold rounded-lg hover:bg-white/30"
+                                >
                                   {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
                                 </button>
                                 {/* 查看物流按钮 - 已发货和已完成订单可查看 */}
@@ -1479,7 +1502,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
                                         const token = localStorage.getItem('authToken');
                                         const response = await fetch(`${API_URL}/api/v1/orders/${order.id}/confirm`, {
-                                          method: 'POST',
+                                          method: 'PUT',
                                           headers: {
                                             'Authorization': `Bearer ${token}`,
                                           },
@@ -1500,59 +1523,62 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     {getText({ zh: '确认收货', en: 'Confirm', ko: '수령 확인', vi: 'Xác nhận' })}
                                   </button>
                                 )}
-                                {/* 评价商品按钮 */}
-                                {order.status === 'completed' && !order.reviewed && (
+                                {/* 评价按钮 - 合并商品和商家评价 */}
+                                {order.status === 'completed' && (!order.reviewed || !order.merchantReviewed) && (
                                   <button 
                                     onClick={() => {
                                       navigate('/review', { 
                                         state: { 
                                           order: order,
-                                          item: order.items[0]
-                                        } 
-                                      });
-                                    }}
-                                    className="flex-1 py-1.5 bg-yellow-500 text-white text-[10px] font-bold rounded-lg hover:bg-yellow-600"
-                                  >
-                                    {getText({ zh: '评价商品', en: 'Review', ko: '상품 리뷰', vi: 'Đánh giá SP' })}
-                                  </button>
-                                )}
-                                {/* 评价商家按钮 */}
-                                {order.status === 'completed' && !order.merchantReviewed && (
-                                  <button 
-                                    onClick={() => {
-                                      navigate('/merchant-review', { 
-                                        state: { 
-                                          order: order,
+                                          item: order.items[0],
                                           merchantId: order.items[0]?.product?.merchantId,
                                           merchantName: order.items[0]?.product?.merchant?.shopName
                                         } 
                                       });
                                     }}
-                                    className="flex-1 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-lg hover:bg-green-600"
+                                    className="flex-1 py-1.5 bg-yellow-500 text-white text-[10px] font-bold rounded-lg hover:bg-yellow-600"
                                   >
-                                    {getText({ zh: '评价商家', en: 'Review Shop', ko: '판매자 리뷰', vi: 'Đánh giá shop' })}
+                                    {getText({ zh: '评价', en: 'Review', ko: '리뷰', vi: 'Đánh giá' })}
                                   </button>
                                 )}
                               </div>
                             )}
-                            {/* 退款/退货按钮 */}
-                            {order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
-                              const daysDiff = Math.floor((new Date().getTime() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-                              if (daysDiff > 7) return null;
-                              const isCompleted = order.status === 'completed';
-                              return (
-                                <div className="flex gap-2 mt-1">
-                                  {!isCompleted ? (
+                            {/* 售后处理中提示 */}
+                            {order.hasActiveAfterSale && (
+                              <div className="flex gap-2 mt-1">
+                                <div className="flex-1 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded-lg text-center">
+                                  {getText({ zh: '售后处理中', en: 'After-sale Processing', ko: '애프터 서비스 처리 중', vi: 'Đang xử lý bảo hành' })}
+                                </div>
+                              </div>
+                            )}
+                            {/* 退款/退货按钮 - 只在没有售后的情况下显示 */}
+                            {!order.hasActiveAfterSale && order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
+                              // 未收货订单（待发货、已发货）可以申请退款
+                              if (order.status === 'paid' || order.status === 'shipped') {
+                                return (
+                                  <div className="flex gap-2 mt-1">
                                     <button onClick={() => handleRefund(order, false)} className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">
                                       {getText({ zh: '申请退款', en: 'Refund', ko: '환불', vi: 'Hoàn tiền' })}
                                     </button>
-                                  ) : (
-                                    <button onClick={() => handleRefund(order, true)} className="flex-1 py-1.5 bg-orange-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-orange-600">
-                                      {getText({ zh: '退货退款', en: 'Return & Refund', ko: '반품 환불', vi: 'Trả hàng hoàn tiền' })}
-                                    </button>
-                                  )}
-                                </div>
-                              );
+                                  </div>
+                                );
+                              }
+                              
+                              // 已完成订单（已确认收货），7天内可以退货退款
+                              if (order.status === 'completed' && order.completedAt) {
+                                const daysSinceCompleted = Math.floor((new Date().getTime() - new Date(order.completedAt).getTime()) / (1000 * 60 * 60 * 24));
+                                if (daysSinceCompleted <= 7) {
+                                  return (
+                                    <div className="flex gap-2 mt-1">
+                                      <button onClick={() => handleRefund(order, true)} className="flex-1 py-1.5 bg-orange-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-orange-600">
+                                        {getText({ zh: '退货退款', en: 'Return & Refund', ko: '반품 환불', vi: 'Trả hàng hoàn tiền' })}
+                                      </button>
+                                    </div>
+                                  );
+                                }
+                              }
+                              
+                              return null;
                             })()}
                             {/* 删除订单按钮 - 仅已退款订单显示 */}
                             {order.status === 'refunded' && (
@@ -1730,6 +1756,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                 >
                   <HeadphonesIcon className="w-5 h-5 text-orange-300" />
                   <span className="text-sm text-white font-bold">{getText({ zh: '售后管理', en: 'After Sales', ko: '애프터 서비스', vi: 'Dịch vụ' })}</span>
+                </button>
+                <button 
+                  onClick={() => navigate('/merchant-reviews')}
+                  className="flex items-center justify-center gap-3 py-3 px-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <Star className="w-5 h-5 text-yellow-300" />
+                  <span className="text-sm text-white font-bold">{getText({ zh: '评价管理', en: 'Reviews', ko: '리뷰', vi: 'Đánh giá' })}</span>
                 </button>
                 <button 
                   onClick={() => navigate('/settlement')}
@@ -2472,7 +2505,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         
         return (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center" onClick={() => { setShowBalanceHistory(false); setBalanceHistoryPage(1); }}>
-            <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-full h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-br from-purple-500 to-pink-500 max-w-md w-full h-full flex flex-col" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-4 pb-3">
                 <div className="flex-1"></div>
                 <h2 className="text-xl font-bold text-white">

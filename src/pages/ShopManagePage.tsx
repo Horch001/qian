@@ -86,7 +86,8 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
         const allMerchantIds = allMerchants.map((m: any) => m.id);
         const ordersData = await merchantApi.getMyOrders();
         const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
+          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
+          !o.hasActiveAfterSale  // 排除有售后的订单
         );
         setOrders(currentMerchantOrders);
       } else {
@@ -152,9 +153,10 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
           const allMerchantIds = allMerchants.map((m: any) => m.id);
           
           const ordersData = await merchantApi.getMyOrders();
-          // 筛选该商家所有店铺的订单
+          // 筛选该商家所有店铺的订单，并排除有售后的订单
           const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-            o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
+            o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
+            !o.hasActiveAfterSale  // 排除有售后的订单
           );
           // 默认只显示待发货订单
           const paidOrders = currentMerchantOrders.filter((o: any) => o.orderStatus === 'PAID');
@@ -180,6 +182,12 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       );
 
       if (!belongsToCurrentShop) return;
+
+      // 🔥 如果订单有售后，从订单列表中移除
+      if (updatedOrder.hasActiveAfterSale) {
+        setOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
+        return;
+      }
 
       // 🔥 立即更新订单列表
       setOrders(prev => {
@@ -660,9 +668,10 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       const allMerchants = await merchantApi.getMyAllMerchants();
                       const allMerchantIds = allMerchants.map((m: any) => m.id);
                       const ordersData = await merchantApi.getMyOrders();
-                      // 筛选该商家所有店铺的订单
+                      // 筛选该商家所有店铺的订单，并排除有售后的订单
                       const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-                        o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
+                        o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
+                        !o.hasActiveAfterSale  // 排除有售后的订单
                       );
                       
                       if (status === 'ALL') {

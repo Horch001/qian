@@ -15,41 +15,31 @@ const getServerBaseUrl = () => {
   return url.replace(/\/api\/v1$/, '').replace(/\/$/, '');
 };
 
-// 处理媒体URL（兼容Base64和文件URL，支持图片和视频）- 动态从环境变量获取
-const processMediaUrl = (mediaUrl: string | undefined | null): string => {
-  if (!mediaUrl) return '';
+// 处理图片URL（兼容Base64和文件URL）- 动态从环境变量获取
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
   // 如果是Base64图片，直接返回
-  if (mediaUrl.startsWith('data:image/')) return mediaUrl;
-  // 如果是Base64视频，直接返回
-  if (mediaUrl.startsWith('data:video/')) return mediaUrl;
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
   // 如果是完整URL，直接返回
-  if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) return mediaUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
   // 如果是相对路径，拼接服务器地址（动态获取）
-  if (mediaUrl.startsWith('/uploads/')) {
+  if (imageUrl.startsWith('/uploads/')) {
     const serverBaseUrl = getServerBaseUrl();
-    return `${serverBaseUrl}${mediaUrl}`;
+    return `${serverBaseUrl}${imageUrl}`;
   }
-  return mediaUrl;
+  return imageUrl;
 };
 
-// 向后兼容：保留旧的函数名
-const processImageUrl = processMediaUrl;
-
-// 处理商品对象中的所有媒体URL（图片和视频）
-const processProductMedia = (product: any): any => {
+// 处理商品对象中的所有图片URL
+const processProductImages = (product: any): any => {
   if (!product) return product;
   return {
     ...product,
-    images: product.images?.map((img: string) => processMediaUrl(img)) || [],
-    videos: product.videos?.map((vid: string) => processMediaUrl(vid)) || [],
-    detailImages: product.detailImages?.map((img: string) => processMediaUrl(img)) || [],
-    detailVideos: product.detailVideos?.map((vid: string) => processMediaUrl(vid)) || [],
+    images: product.images?.map((img: string) => processImageUrl(img)) || [],
+    detailImages: product.detailImages?.map((img: string) => processImageUrl(img)) || [],
     icon: product.icon,
   };
 };
-
-// 向后兼容：保留旧的函数名
-const processProductImages = processProductMedia;
 
 // 获取存储的 token
 const getToken = (): string | null => {
@@ -573,38 +563,6 @@ export interface ProductUpload {
   detailImages?: string[]; // 详情图
   parameters?: Record<string, string>; // 商品参数
 }
-
-// ==================== 上传 API ====================
-export const uploadApi = {
-  // 上传单个视频（带超时控制）
-  uploadVideo: async (videoBase64: string): Promise<{ url: string }> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时
-    
-    try {
-      const response = await request<{ url: string }>('/upload/video', {
-        method: 'POST',
-        body: JSON.stringify({ video: videoBase64 }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('上传超时，请压缩视频后重试');
-      }
-      throw error;
-    }
-  },
-
-  // 批量上传视频
-  uploadVideos: (videosBase64: string[]) =>
-    request<{ urls: string[] }>('/upload/videos', {
-      method: 'POST',
-      body: JSON.stringify({ videos: videosBase64 }),
-    }),
-};
 
 export const merchantApi = {
   // 申请入驻商家

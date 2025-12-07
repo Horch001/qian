@@ -46,6 +46,7 @@ import { LogisticsPage } from './pages/LogisticsPage';
 import { MerchantReviewPage } from './pages/MerchantReviewPage';
 import { AfterSalePage } from './pages/AfterSalePage';
 import { SettlementPage } from './pages/SettlementPage';
+import { MerchantReviewsPage } from './pages/MerchantReviewsPage';
 import eventsSocketService from './services/eventsSocket';
 import './index.css';
 
@@ -331,6 +332,11 @@ export const App: React.FC = () => {
   // Settlement page
   if (location.pathname === '/settlement') {
     return <SettlementPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Merchant reviews page
+  if (location.pathname === '/merchant-reviews') {
+    return <MerchantReviewsPage language={language} translations={TRANSLATIONS} />;
   }
 
   // Detail pages layout
