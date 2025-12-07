@@ -17,7 +17,7 @@ const categoryNames: { [key: string]: { zh: string; en: string; ko: string; vi: 
   OFFLINE_PLAY: { zh: '线下陪玩', en: 'Offline Play', ko: '오프라인 플레이', vi: 'Chơi offline' },
   COURSE: { zh: '知识付费', en: 'Paid Courses', ko: '유료 강좌', vi: 'Khóa học trả phí' },
   DETECTIVE: { zh: '商业调查', en: 'Business Investigation', ko: '비즈니스 조사', vi: 'Điều tra kinh doanh' },
-  HOUSE_LEASE: { zh: '商业租赁', en: 'Commercial Lease', ko: '상업 임대', vi: 'Cho thuê thương mại' },
+  CASUAL_GAME: { zh: '休闲游戏', en: 'Casual Games', ko: '캐주얼 게임', vi: 'Trò chơi giải trí' },
 };
 
 export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {

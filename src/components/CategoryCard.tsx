@@ -16,11 +16,11 @@ const categoryRoutes: Record<string, string> = {
   '5': '/courses',
   '6': '/detective',
   '7': '/tree-hole',
-  '8': '/house-lease',
-  '9': '/venture-capital',
-  '10': '/escrow-trade',
-  '11': '/friendly-links',
-  '12': '/seek-resources',
+  '8': '/venture-capital',
+  '9': '/escrow-trade',
+  '10': '/seek-resources',
+  '11': '/casual-games',
+  '12': '/friendly-links',
 };
 
 export const CategoryCard: React.FC<CategoryCardProps> = ({ item, language }) => {

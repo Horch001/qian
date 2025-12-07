@@ -16,7 +16,7 @@ import { OfflinePlaYPage } from './pages/OfflinePlayPage';
 import { CoursePagePage } from './pages/CoursePagePage';
 import { PrivateDetectivePage } from './pages/PrivateDetectivePage';
 import { PrivateTreeHolePage } from './pages/PrivateTreeHolePage';
-import { HouseLeasePage } from './pages/HouseLeasePage';
+import { CasualGamesPage } from './pages/CasualGamesPage';
 
 import { EscrowTradePage } from './pages/EscrowTradePage';
 import { FriendlyLinksPage } from './pages/FriendlyLinksPage';
@@ -356,7 +356,7 @@ export const App: React.FC = () => {
         <Route path="/courses" element={<CoursePagePage />} />
         <Route path="/detective" element={<PrivateDetectivePage />} />
         <Route path="/tree-hole" element={<PrivateTreeHolePage />} />
-        <Route path="/house-lease" element={<HouseLeasePage />} />
+        <Route path="/casual-games" element={<CasualGamesPage />} />
         <Route path="/venture-capital" element={<div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex items-center justify-center p-4"><div className="text-center"><p className="text-xl text-purple-600 font-bold">拍卖功能开发中...</p></div></div>} />
         <Route path="/escrow-trade" element={<EscrowTradePage />} />
         <Route path="/friendly-links" element={<FriendlyLinksPage />} />

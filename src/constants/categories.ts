@@ -1,6 +1,6 @@
 import {
   ShoppingCart, Monitor, Wrench, Users, BookOpen, Eye,
-  MessageCircle, Building2, Gavel, ShieldCheck, Link as LinkIcon, Trophy
+  MessageCircle, Gamepad2, Gavel, ShieldCheck, Link as LinkIcon, Trophy
 } from 'lucide-react';
 import { CategoryItem } from '../types';
 
@@ -52,20 +52,13 @@ export const CATEGORIES: CategoryItem[] = [
   // 第3行：商业交易类（重要但低频）
   {
     id: '8',
-    title: { zh: '商业租赁', en: 'Commercial Lease', ko: '상업 임대', vi: 'Cho thuê thương mại' },
-    description: { zh: '商铺、写字楼、厂房、车辆等商业资产租赁。', en: 'Lease shops, offices, factories, vehicles and other commercial assets.', ko: '상점, 사무실, 공장, 차량 등 상업 자산 임대.', vi: 'Cho thuê cửa hàng, văn phòng, nhà máy, xe và tài sản thương mại khác.' },
-    icon: Building2,
-    iconColor: 'text-yellow-400',
-  },
-  {
-    id: '9',
     title: { zh: '拍卖平台', en: 'Auction Platform', ko: '경매 플랫폼', vi: 'Nền tảng đấu giá' },
     description: { zh: '竞拍虚拟权益与稀缺资源，价高者得。', en: 'Bid for virtual rights and scarce resources, highest bidder wins.', ko: '가상 권리와 희귀 자원을 입찰하고 최고 입찰자가 승리합니다.', vi: 'Đấu giá quyền ảo và tài nguyên khan hiếm, người trả giá cao nhất thắng.' },
     icon: Gavel,
     iconColor: 'text-yellow-400',
   },
   {
-    id: '10',
+    id: '9',
     title: { zh: '担保交易', en: 'Secured Transaction', ko: '담보 거래', vi: 'Giao dịch được bảo vệ' },
     description: { zh: '平台担保与纠纷处理，安心买卖更可靠。', en: 'Platform guarantee and dispute resolution for safer and more reliable trading.', ko: '더 안전하고 신뢰할 수 있는 거래를 위한 플랫폼 보증 및 분쟁 해결.', vi: 'Bảo đảm nền tảng và giải quyết tranh chấp để giao dịch an toàn và đáng tin cậy hơn.' },
     icon: ShieldCheck,
@@ -73,7 +66,7 @@ export const CATEGORIES: CategoryItem[] = [
   },
   // 第4行：社区辅助功能
   {
-    id: '12',
+    id: '10',
     title: { zh: '悬赏大厅', en: 'Bounty Hall', ko: '현상금 홀', vi: 'Sảnh truy nã' },
     description: { zh: '发布悬赏任务，快速找到资源与帮手。', en: 'Post bounty tasks to quickly find resources and helpers.', ko: '현상금 작업을 게시하여 리소스와 도우미를 빠르게 찾습니다.', vi: 'Đăng nhiệm vụ truy nã để nhanh chóng tìm tài nguyên và người giúp đỡ.' },
     icon: Trophy,
@@ -88,6 +81,13 @@ export const CATEGORIES: CategoryItem[] = [
   },
   {
     id: '11',
+    title: { zh: '休闲游戏', en: 'Casual Games', ko: '캐주얼 게임', vi: 'Trò chơi giải trí' },
+    description: { zh: '斗地主、炸金花、消消乐等休闲小游戏。', en: 'Casual games like Dou Dizhu, Zhajinhua, Match 3 and more.', ko: '투디주, 자진화, 매치 3 등의 캐주얼 게임.', vi: 'Các trò chơi giải trí như Đấu Địa Chủ, Zhajinhua, Match 3 và nhiều hơn nữa.' },
+    icon: Gamepad2,
+    iconColor: 'text-yellow-400',
+  },
+  {
+    id: '12',
     title: { zh: '友情链接', en: 'Friendly Links', ko: '우호적인 링크', vi: 'Liên kết thân thiện' },
     description: { zh: '合作站点与资源导航，互联共享共赢。', en: 'Partner sites and resource navigation for mutual sharing and win-win.', ko: '상호 공유 및 윈-윈을 위한 파트너 사이트 및 리소스 네비게이션.', vi: 'Các trang web đối tác và điều hướng tài nguyên để chia sẻ và cùng thắng.' },
     icon: LinkIcon,
