@@ -46,6 +46,8 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
   const [selectedOrderStatus, setSelectedOrderStatus] = useState<string>('PAID');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showShipModal, setShowShipModal] = useState(false);
+  const [showConfirmCodeModal, setShowConfirmCodeModal] = useState(false);
+  const [confirmCode, setConfirmCode] = useState('');
   const [shipData, setShipData] = useState({
     company: 'SF',
     companyName: '顺丰速运',
@@ -109,6 +111,51 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     } catch (error: any) {
       console.error('发货失败:', error);
       alert(error.message || getText({ zh: '发货失败', en: 'Ship failed', ko: '발송 실패', vi: 'Gửi hàng thất bại' }));
+    }
+  };
+
+  const handleConfirmService = async (withoutCode = false) => {
+    if (!withoutCode && (!confirmCode.trim() || confirmCode.length !== 6)) {
+      alert(getText({ zh: '请输入6位确认码', en: 'Enter 6-digit code', ko: '6자리 코드 입력', vi: 'Nhập mã 6 số' }));
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const body = withoutCode ? {} : { confirmCode };
+      
+      const response = await fetch(`${API_URL}/api/v1/orders/${selectedOrder.id}/confirm-service`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const message = withoutCode 
+          ? getText({ zh: '已申请完成订单！买家有24小时申诉时间', en: 'Applied! Buyer has 24h to appeal', ko: '신청됨! 구매자 24시간 이의제기', vi: 'Đã áp dụng! Người mua có 24h khiếu nại' })
+          : getText({ zh: '服务确认成功！买家有24小时确认时间', en: 'Confirmed! Buyer has 24h', ko: '확인됨! 구매자 24시간', vi: 'Đã xác nhận! Người mua có 24h' });
+        alert(message);
+        setShowConfirmCodeModal(false);
+        setConfirmCode('');
+        setSelectedOrder(null);
+        // 刷新订单列表
+        const allMerchants = await merchantApi.getMyAllMerchants();
+        const allMerchantIds = allMerchants.map((m: any) => m.id);
+        const ordersData = await merchantApi.getMyOrders();
+        const currentMerchantOrders = (ordersData || []).filter((o: any) => 
+          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
+          !o.hasActiveAfterSale
+        );
+        setOrders(currentMerchantOrders);
+      } else {
+        const error = await response.json();
+        alert(error.message || getText({ zh: '确认失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
+      }
+    } catch (error: any) {
+      alert(error.message || getText({ zh: '确认失败', en: 'Failed', ko: '실패', vi: 'Thất bại' }));
     }
   };
 
@@ -759,14 +806,23 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       </button>
                     </div>
                     {!isExpanded && order.items && order.items.length > 0 && (
-                      <div className="flex justify-between items-center text-xs text-gray-600">
-                        <span className="truncate flex-1">
-                          {order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })} × {order.items[0].quantity}
-                          {order.items.length > 1 && ` 等${order.items.length}件`}
-                        </span>
-                        <span className="font-bold text-red-500 ml-2">
-                          {Number(order.items[0].price).toFixed(2)}π
-                        </span>
+                      <div className="flex gap-2 items-center">
+                        {order.items[0].product?.images?.[0] && (
+                          <img 
+                            src={processMediaUrl(order.items[0].product.images[0])} 
+                            alt={order.items[0].product.title} 
+                            className="w-12 h-12 object-cover rounded flex-shrink-0" 
+                          />
+                        )}
+                        <div className="flex-1 min-w-0 flex justify-between items-center text-xs text-gray-600">
+                          <span className="truncate flex-1">
+                            {order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })} × {order.items[0].quantity}
+                            {order.items.length > 1 && ` 等${order.items.length}件`}
+                          </span>
+                          <span className="font-bold text-red-500 ml-2">
+                            {Number(order.items[0].price).toFixed(2)}π
+                          </span>
+                        </div>
                       </div>
                     )}
                     {isExpanded && order.items && order.items.length > 0 && (
@@ -802,11 +858,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                         </div>
                       </div>
                     )}
-                    {isExpanded && !order.address && (
-                        <div className="border-b py-1 pl-[4.5rem]">
-                          <p className="text-xs text-orange-500">{getText({ zh: '⚠️ 旧订单无地址信息，请联系买家', en: '⚠️ No address, contact buyer', ko: '⚠️ 주소 없음, 구매자에게 연락', vi: '⚠️ Không có địa chỉ, liên hệ người mua' })}</p>
-                        </div>
-                    )}
+
                     {isExpanded && (
                       <>
                     <div className="border-b py-1 pl-[4.5rem]">
@@ -819,16 +871,46 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                         {getText({ zh: '订单号', en: 'Order', ko: '주문번호', vi: 'Đơn hàng' })}: {order.orderNo}
                       </p>
                     </div>
+                    {/* 显示服务信息 - 所有状态都显示 */}
+                    {order.serviceConfirmCode && (
+                      <div className="border-b py-2 pl-[4.5rem]">
+                        <div className="bg-purple-50 rounded-lg p-2 text-xs">
+                          <div className="text-gray-600 font-medium mb-1">{getText({ zh: '服务信息', en: 'Service Info', ko: '서비스 정보', vi: 'Thông tin dịch vụ' })}：</div>
+                          {order.serviceTime ? (
+                            <div className="text-gray-700">{getText({ zh: '时间', en: 'Time', ko: '시간', vi: 'Thời gian' })}: {new Date(order.serviceTime).toLocaleString()}</div>
+                          ) : (
+                            <div className="text-gray-400">{getText({ zh: '时间：未填写', en: 'Time: Not provided', ko: '시간: 미제공', vi: 'Thời gian: Chưa cung cấp' })}</div>
+                          )}
+                          {order.serviceLocation ? (
+                            <div className="text-gray-700">{getText({ zh: '地点', en: 'Location', ko: '장소', vi: 'Địa điểm' })}: {order.serviceLocation}</div>
+                          ) : (
+                            <div className="text-gray-400">{getText({ zh: '地点：未填写', en: 'Location: Not provided', ko: '장소: 미제공', vi: 'Địa điểm: Chưa cung cấp' })}</div>
+                          )}
+                          {order.serviceContactPhone ? (
+                            <div className="text-gray-700">{getText({ zh: '电话', en: 'Phone', ko: '전화', vi: 'Điện thoại' })}: {order.serviceContactPhone}</div>
+                          ) : (
+                            <div className="text-gray-400">{getText({ zh: '电话：未填写', en: 'Phone: Not provided', ko: '전화: 미제공', vi: 'Điện thoại: Chưa cung cấp' })}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                       {order.orderStatus === 'PAID' && (
                         <div className="py-1">
                           <button
                             onClick={() => {
                               setSelectedOrder(order);
-                              setShowShipModal(true);
+                              if (order.serviceConfirmCode) {
+                                setShowConfirmCodeModal(true);
+                              } else {
+                                setShowShipModal(true);
+                              }
                             }}
                             className="w-full py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-bold rounded-lg hover:opacity-90"
                           >
-                            {getText({ zh: '立即发货', en: 'Ship Now', ko: '배송하기', vi: 'Gửi hàng' })}
+                            {order.serviceConfirmCode 
+                              ? getText({ zh: '输入确认码', en: 'Enter Code', ko: '코드 입력', vi: 'Nhập mã' })
+                              : getText({ zh: '立即发货', en: 'Ship Now', ko: '배송하기', vi: 'Gửi hàng' })
+                            }
                           </button>
                         </div>
                       )}
@@ -1007,6 +1089,76 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                   className="flex-1 py-2 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {getText({ zh: '确认发货', en: 'Confirm Ship', ko: '발송 확인', vi: 'Xác nhận gửi' })}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 确认码输入弹窗 */}
+        {showConfirmCodeModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-md">
+              <div className="p-4 border-b border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800">
+                  {getText({ zh: '输入服务确认码', en: 'Enter Service Code', ko: '서비스 코드 입력', vi: 'Nhập mã dịch vụ' })}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {getText({ zh: '订单号', en: 'Order No', ko: '주문 번호', vi: 'Mã đơn' })}: {selectedOrder.orderNo}
+                </p>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-sm text-blue-700">
+                    {getText({ zh: '请输入买家提供的6位确认码，确认后买家有24小时确认时间', en: 'Enter 6-digit code from buyer. Buyer has 24h to confirm', ko: '구매자가 제공한 6자리 코드를 입력하세요. 구매자는 24시간 확인 시간이 있습니다', vi: 'Nhập mã 6 số từ người mua. Người mua có 24h để xác nhận' })}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    {getText({ zh: '确认码', en: 'Code', ko: '코드', vi: 'Mã' })}
+                  </label>
+                  <input
+                    type="text"
+                    value={confirmCode}
+                    onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="w-full p-3 border border-gray-300 rounded-lg text-center text-2xl tracking-widest focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <div className="pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2">
+                    {getText({ zh: '买家未提供确认码？', en: 'No code from buyer?', ko: '구매자가 코드를 제공하지 않았나요?', vi: 'Người mua không cung cấp mã?' })}
+                  </p>
+                  <button
+                    onClick={() => {
+                      if (confirm(getText({ zh: '确认申请完成订单？买家将有24小时申诉时间，超时自动完成订单。', en: 'Apply to complete? Buyer has 24h to appeal, then auto-complete.', ko: '완료 신청하시겠습니까? 구매자는 24시간 이의제기 시간이 있으며, 시간 초과 시 자동 완료됩니다.', vi: 'Xác nhận áp dụng hoàn thành? Người mua có 24h khiếu nại, sau đó tự động hoàn thành.' }))) {
+                        handleConfirmService(true);
+                      }
+                    }}
+                    className="w-full py-2 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 text-sm font-medium"
+                  >
+                    {getText({ zh: '无确认码申请完成', en: 'Apply without code', ko: '코드 없이 신청', vi: 'Áp dụng không có mã' })}
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 border-t border-gray-200 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirmCodeModal(false);
+                    setConfirmCode('');
+                    setSelectedOrder(null);
+                  }}
+                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+                </button>
+                <button
+                  onClick={() => handleConfirmService(false)}
+                  disabled={confirmCode.length !== 6}
+                  className="flex-1 py-2 px-4 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {getText({ zh: '确认完成', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
                 </button>
               </div>
             </div>

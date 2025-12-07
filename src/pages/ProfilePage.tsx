@@ -347,6 +347,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           // 保留售后状态标记
           hasActiveAfterSale: order.hasActiveAfterSale || false,
           afterSale: order.afterSale || null,
+          // 服务确认相关字段
+          serviceConfirmCode: order.serviceConfirmCode,
+          serviceTime: order.serviceTime,
+          serviceLocation: order.serviceLocation,
+          serviceContactPhone: order.serviceContactPhone,
+          merchantConfirmedAt: order.merchantConfirmedAt,
+          autoConfirmAt: order.autoConfirmAt,
+          isAutoConfirmed: order.isAutoConfirmed,
         }));
         
         setOrdersList(formattedOrders);
@@ -503,6 +511,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         // 保留售后状态标记
         hasActiveAfterSale: order.hasActiveAfterSale || false,
         afterSale: order.afterSale || null,
+        // 服务确认相关字段
+        serviceConfirmCode: order.serviceConfirmCode,
+        serviceTime: order.serviceTime,
+        serviceLocation: order.serviceLocation,
+        serviceContactPhone: order.serviceContactPhone,
+        merchantConfirmedAt: order.merchantConfirmedAt,
+        autoConfirmAt: order.autoConfirmAt,
+        isAutoConfirmed: order.isAutoConfirmed,
       }));
       setOrdersList(formattedOrders);
       setOrdersCount(formattedOrders.length);
@@ -1403,6 +1419,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                           <div className="flex-1 min-w-0 text-left">
                             <p className="text-white text-xs font-medium truncate">{order.item?.title?.[language] || order.item?.name?.[language] || '商品'}</p>
                             <p className="text-white/60 text-[10px]">{order.item?.spec} × {order.quantity}</p>
+                            {order.serviceConfirmCode && expandedOrder !== order.id && (
+                              <p className="text-yellow-300 text-[10px] font-bold mt-0.5">
+                                确认码: {order.serviceConfirmCode}
+                              </p>
+                            )}
                           </div>
                           <span className="text-yellow-400 font-bold text-sm">{order.totalPrice}π</span>
                           <ChevronDown className={`w-4 h-4 text-white/60 transition-transform ${expandedOrder === order.id ? 'rotate-180' : ''}`} />
@@ -1442,6 +1463,53 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     : getText({ zh: '未知', en: 'Unknown', ko: '알 수 없음', vi: 'Không xác định' })}
                                 </span>
                               </div>
+
+                              {/* 服务确认码显示 */}
+                              {order.serviceConfirmCode && (
+                                <div className="mt-2 bg-purple-500/20 rounded px-2 py-1.5 border border-purple-400/30">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-white/70 text-[10px]">服务确认码：</span>
+                                    <span className="text-yellow-300 font-bold text-base tracking-wider">{order.serviceConfirmCode}</span>
+                                    <span className="text-white/50 text-[9px]">服务完成时出示给商家</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 服务信息显示 */}
+                              {order.serviceTime && (
+                                <div className="mt-2 space-y-1">
+                                  <div>
+                                    <span className="text-white/50">服务时间: </span>
+                                    <span className="text-white">{new Date(order.serviceTime).toLocaleString()}</span>
+                                  </div>
+                                  {order.serviceLocation && (
+                                    <div>
+                                      <span className="text-white/50">服务地点: </span>
+                                      <span className="text-white">{order.serviceLocation}</span>
+                                    </div>
+                                  )}
+                                  {order.serviceContactPhone && (
+                                    <div>
+                                      <span className="text-white/50">联系电话: </span>
+                                      <span className="text-white">{order.serviceContactPhone}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* 商家申请完成提示 - 显示倒计时和申诉提示 */}
+                              {order.status === 'shipped' && order.merchantConfirmedAt && order.autoConfirmAt && !order.isAutoConfirmed && (
+                                <div className="mt-2 bg-orange-500/20 rounded p-2 border border-orange-400/30">
+                                  <div className="text-orange-300 font-bold text-[10px] mb-1">⚠️ 商家已申请完成订单</div>
+                                  <div className="text-white/90 text-[9px] space-y-1">
+                                    <div>请确认服务是否完成</div>
+                                    <div>
+                                      自动完成时间: {new Date(order.autoConfirmAt).toLocaleString()}
+                                    </div>
+                                    <div className="text-orange-200">如有问题请立即申请售后</div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             {/* 待付款订单操作 */}
                             {order.status === 'pending' && (
@@ -1481,8 +1549,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 >
                                   {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
                                 </button>
-                                {/* 查看物流按钮 - 已发货和已完成订单可查看，但在待评价标签页隐藏 */}
-                                {(order.status === 'shipped' || order.status === 'completed') && selectedOrderTab !== 'review' && (
+                                {/* 查看物流按钮 - 只有实物商品订单才显示 */}
+                                {(order.status === 'shipped' || order.status === 'completed') && selectedOrderTab !== 'review' && !order.serviceConfirmCode && (
                                   <button 
                                     onClick={() => {
                                       navigate('/logistics', { 
@@ -1494,24 +1562,36 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     {getText({ zh: '查看物流', en: 'Track', ko: '배송 추적', vi: 'Theo dõi' })}
                                   </button>
                                 )}
-                                {/* 确认收货按钮 - 仅已发货订单显示 */}
+                                {/* 确认收货/确认完成按钮 - 仅已发货订单显示 */}
                                 {order.status === 'shipped' && (
                                   <button 
                                     onClick={async () => {
-                                      if (!confirm(getText({ zh: '确认收货？', en: 'Confirm receipt?', ko: '수령 확인?', vi: 'Xác nhận nhận hàng?' }))) {
+                                      // 判断是否是线下服务订单
+                                      const isService = order.serviceConfirmCode;
+                                      const confirmText = isService 
+                                        ? getText({ zh: '确认服务已完成？', en: 'Confirm service completed?', ko: '서비스 완료 확인?', vi: 'Xác nhận dịch vụ hoàn thành?' })
+                                        : getText({ zh: '确认收货？', en: 'Confirm receipt?', ko: '수령 확인?', vi: 'Xác nhận nhận hàng?' });
+                                      
+                                      if (!confirm(confirmText)) {
                                         return;
                                       }
                                       try {
                                         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
                                         const token = localStorage.getItem('authToken');
-                                        const response = await fetch(`${API_URL}/api/v1/orders/${order.id}/confirm`, {
-                                          method: 'PUT',
+                                        
+                                        // 线下服务使用买家确认接口，实物商品使用确认收货接口
+                                        const endpoint = isService 
+                                          ? `${API_URL}/api/v1/orders/${order.id}/buyer-confirm`
+                                          : `${API_URL}/api/v1/orders/${order.id}/confirm`;
+                                        
+                                        const response = await fetch(endpoint, {
+                                          method: isService ? 'POST' : 'PUT',
                                           headers: {
                                             'Authorization': `Bearer ${token}`,
                                           },
                                         });
                                         if (response.ok) {
-                                          alert(getText({ zh: '确认收货成功！', en: 'Confirmed!', ko: '확인됨!', vi: 'Đã xác nhận!' }));
+                                          alert(getText({ zh: '确认成功！', en: 'Confirmed!', ko: '확인됨!', vi: 'Đã xác nhận!' }));
                                           window.location.reload();
                                         } else {
                                           const error = await response.json();
@@ -1523,7 +1603,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     }}
                                     className="flex-1 py-1.5 bg-green-500 text-white text-[10px] font-bold rounded-lg hover:bg-green-600"
                                   >
-                                    {getText({ zh: '确认收货', en: 'Confirm', ko: '수령 확인', vi: 'Xác nhận' })}
+                                    {order.serviceConfirmCode ? getText({ zh: '确认完成', en: 'Confirm', ko: '확인', vi: 'Xác nhận' }) : getText({ zh: '确认收货', en: 'Confirm', ko: '수령 확인', vi: 'Xác nhận' })}
                                   </button>
                                 )}
                                 {/* 评价按钮 - 只在待评价标签页显示 */}
@@ -1565,10 +1645,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                             {!order.hasActiveAfterSale && order.status !== 'refunded' && order.status !== 'refunding' && order.status !== 'cancelled' && order.status !== 'pending' && (() => {
                               // 未收货订单（待发货、已发货）可以申请退款
                               if (order.status === 'paid' || order.status === 'shipped') {
+                                // 如果商家已申请完成，按钮更突出
+                                const isMerchantApplied = order.merchantConfirmedAt && !order.isAutoConfirmed;
+                                const buttonClass = isMerchantApplied 
+                                  ? "flex-1 py-1.5 bg-red-600 text-white text-[10px] font-bold rounded-lg hover:bg-red-700 animate-pulse"
+                                  : "flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600";
+                                
                                 return (
                                   <div className="flex gap-2 mt-1">
-                                    <button onClick={() => handleRefund(order, false)} className="flex-1 py-1.5 bg-red-500/80 text-white text-[10px] font-bold rounded-lg hover:bg-red-600">
-                                      {getText({ zh: '申请退款', en: 'Refund', ko: '환불', vi: 'Hoàn tiền' })}
+                                    <button onClick={() => handleRefund(order, false)} className={buttonClass}>
+                                      {isMerchantApplied 
+                                        ? getText({ zh: '有问题？立即申请售后', en: 'Issue? Apply now', ko: '문제? 즉시 신청', vi: 'Vấn đề? Áp dụng ngay' })
+                                        : getText({ zh: '申请退款', en: 'Refund', ko: '환불', vi: 'Hoàn tiền' })
+                                      }
                                     </button>
                                   </div>
                                 );

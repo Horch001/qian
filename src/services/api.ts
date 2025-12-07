@@ -400,6 +400,15 @@ export const orderApi = {
   createOrder: (data: {
     items: { productId: string; quantity: number; spec?: string }[];
     addressId?: string;
+    receiverName?: string;
+    receiverPhone?: string;
+    province?: string;
+    city?: string;
+    district?: string;
+    detail?: string;
+    serviceTime?: string;
+    serviceLocation?: string;
+    serviceContactPhone?: string;
   }) =>
     request<Order>('/orders', {
       method: 'POST',
@@ -429,6 +438,17 @@ export const orderApi = {
   // 申请退货退款（已收货）
   refundReturnOrder: (id: string) =>
     request(`/orders/${id}/refund-return`, { method: 'POST' }),
+
+  // 商家确认服务完成
+  confirmService: (orderId: string, confirmCode: string) =>
+    request(`/orders/${orderId}/confirm-service`, {
+      method: 'POST',
+      body: JSON.stringify({ confirmCode }),
+    }),
+
+  // 买家确认完成
+  buyerConfirm: (orderId: string) =>
+    request(`/orders/${orderId}/buyer-confirm`, { method: 'POST' }),
 };
 
 // ==================== 收藏 API ====================

@@ -115,8 +115,7 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
         </header>
 
         {/* 搜索范围提示 */}
-        <div className="px-4 py-2">
-        <div className="bg-white/20 rounded-lg px-3 py-2 text-white text-sm">
+        <div className="px-4 py-2 text-white text-sm">
           {categoryType ? (
             <span>
               {getText({ zh: '搜索范围：', en: 'Scope: ', ko: '검색 범위: ', vi: 'Phạm vi: ' })}
@@ -131,7 +130,6 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
             </span>
           )}
         </div>
-      </div>
 
       {/* 内容区域 */}
       <main className="flex-1 overflow-auto p-4">

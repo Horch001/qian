@@ -45,6 +45,13 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const [showMerchantChat, setShowMerchantChat] = useState(false);
   const [selectedSpec, setSelectedSpec] = useState('');
   const [chatMessage, setChatMessage] = useState('');
+  const [serviceInfo, setServiceInfo] = useState({
+    serviceTime: '',
+    serviceLocation: '',
+    serviceContactPhone: '',
+  });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [favoriteCount, setFavoriteCount] = useState(0);
   const [chatRoomId, setChatRoomId] = useState<string | null>(null);
@@ -107,6 +114,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     description: { zh: '暂无描述', en: 'No description', ko: '설명 없음', vi: 'Không có mô tả' },
   });
   const [loadingDetail, setLoadingDetail] = useState(false);
+  
+  // 判断是否是线下服务商品
+  const isServiceProduct = item?.category?.type === 'SERVICE' || item?.category?.type === 'OFFLINE_PLAY';
   
   const pageType = location.state?.pageType || 'product';
 
@@ -288,6 +298,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const handleBuy = () => {
     // 购买实物商品时检查收货信息是否完整（通过category.type判断）
     const isPhysicalProduct = item.category?.type === 'PHYSICAL';
+    const isServiceProduct = item.category?.type === 'SERVICE' || item.category?.type === 'OFFLINE_PLAY';
     
     if (isPhysicalProduct) {
       const receiverName = localStorage.getItem('receiverName');
@@ -305,6 +316,18 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           ? '실물 상품 구매 전 프로필 설정에서 배송 정보를 완성해주세요'
           : 'Vui lòng hoàn thành thông tin giao hàng trong Cài đặt hồ sơ trước khi mua sản phẩm');
         navigate('/profile');
+        return;
+      }
+    }
+
+    // 检查线下服务信息
+    if (isServiceProduct) {
+      if (!serviceInfo.serviceTime || !serviceInfo.serviceLocation || !serviceInfo.serviceContactPhone) {
+        alert(language === 'zh' ? '请填写完整的服务信息' : 'Please complete service information');
+        return;
+      }
+      if (!agreedToTerms) {
+        alert(language === 'zh' ? '请阅读并同意服务条款' : 'Please agree to the terms');
         return;
       }
     }
@@ -382,6 +405,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
       // 判断是否为实物商品
       const isPhysicalProduct = item.category?.type === 'PHYSICAL';
       
+      // 判断是否是线下服务
+      const isServiceProduct = item.category?.type === 'SERVICE' || item.category?.type === 'OFFLINE_PLAY';
+
       // 创建真实订单
       const order = await orderApi.createOrder({
         items: [{
@@ -402,7 +428,16 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           district: addressDistrict,
           detail: addressDetail,
         }),
+        // 线下服务信息
+        ...(isServiceProduct && {
+          serviceTime: serviceInfo.serviceTime,
+          serviceLocation: serviceInfo.serviceLocation,
+          serviceContactPhone: serviceInfo.serviceContactPhone,
+        }),
       });
+
+      // 保存订单信息（用于显示确认码）
+      setCreatedOrder(order);
 
       if (method === 'balance') {
         // 余额支付 - 乐观更新模式
@@ -977,6 +1012,60 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 <button onClick={() => setQuantity(quantity + 1)} className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center"><Plus className="w-4 h-4" /></button>
               </div>
             </div>
+
+            {/* 线下服务信息表单 */}
+            {(item.category?.type === 'SERVICE' || item.category?.type === 'OFFLINE_PLAY') && (
+              <div className="mb-4 space-y-3">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                  <p className="text-xs text-yellow-800 font-bold mb-1">⚠️ 服务信息</p>
+                  <p className="text-xs text-yellow-700">请填写服务时间和地点，商家确认后您有24小时确认时间</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">服务时间 *</label>
+                  <input
+                    type="datetime-local"
+                    value={serviceInfo.serviceTime}
+                    onChange={(e) => setServiceInfo({...serviceInfo, serviceTime: e.target.value})}
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">服务地点 *</label>
+                  <input
+                    type="text"
+                    value={serviceInfo.serviceLocation}
+                    onChange={(e) => setServiceInfo({...serviceInfo, serviceLocation: e.target.value})}
+                    placeholder="请输入详细地址"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">联系电话 *</label>
+                  <input
+                    type="tel"
+                    value={serviceInfo.serviceContactPhone}
+                    onChange={(e) => setServiceInfo({...serviceInfo, serviceContactPhone: e.target.value})}
+                    placeholder="请输入联系电话"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                    required
+                  />
+                </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-gray-600">
+                    我已知晓：超过24小时自动确认后只能投诉，不能退款
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
               <div className="flex justify-between text-sm"><span className="text-gray-500">{language === 'zh' ? '商品金额' : 'Subtotal'}</span><span>{item.price}π × {quantity}</span></div>
               <div className="flex justify-between text-base font-bold mt-2"><span>{language === 'zh' ? '合计' : 'Total'}</span><span className="text-red-600">{item.price * quantity}π</span></div>
@@ -991,7 +1080,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 </p>
               </div>
             )}
-            <button onClick={handleBuy} className={`w-full py-3 bg-gradient-to-r ${actionButton.color} text-white font-bold rounded-lg`}>
+            <button 
+              onClick={handleBuy} 
+              disabled={isServiceProduct && (!serviceInfo.serviceTime || !serviceInfo.serviceLocation || !serviceInfo.serviceContactPhone || !agreedToTerms)}
+              className={`w-full py-3 bg-gradient-to-r ${actionButton.color} text-white font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
               {language === 'zh' ? '确认购买' : 'Confirm'}
             </button>
           </div>
@@ -1029,6 +1122,25 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             </div>
             <h3 className="text-lg font-bold mb-2">{language === 'zh' ? '支付成功！' : 'Payment Success!'}</h3>
             <p className="text-gray-500 text-sm mb-4">{language === 'zh' ? '订单已创建，商家将尽快处理' : 'Order created, merchant will process soon'}</p>
+            
+            {/* 显示服务确认码 */}
+            {createdOrder?.serviceConfirmCode && (
+              <div className="mb-4 bg-purple-50 rounded-lg p-3 border border-purple-200">
+                <p className="text-sm text-gray-600 mb-2 text-center">您的服务确认码：</p>
+                <p className="text-3xl font-bold text-purple-600 text-center tracking-wider mb-2">
+                  {createdOrder.serviceConfirmCode}
+                </p>
+                <p className="text-xs text-gray-500 text-center mb-2">
+                  请妥善保管，服务完成时出示给商家
+                </p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-2">
+                  <p className="text-xs text-yellow-700">
+                    ⚠️ 商家确认后，您有24小时确认时间。如有问题请及时申请售后，超时将自动确认完成。
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="bg-gray-50 rounded-lg p-3 mb-4 text-left text-sm">
               <p><span className="text-gray-500">{language === 'zh' ? '商品：' : 'Item: '}</span>{item.title?.[language]}</p>
               <p><span className="text-gray-500">{language === 'zh' ? '规格：' : 'Spec: '}</span>{selectedSpec}</p>

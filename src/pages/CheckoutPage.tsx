@@ -48,6 +48,15 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
     detail: '',
   });
 
+  // 线下服务信息
+  const [serviceInfo, setServiceInfo] = useState({
+    serviceTime: '',
+    serviceLocation: '',
+    serviceContactPhone: '',
+  });
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
+
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
   useEffect(() => {
@@ -121,6 +130,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
     return item.product.category?.type === 'PHYSICAL';
   });
 
+  // 检查是否是线下服务类商品
+  const isServiceProduct = items.some(item => 
+    item.product.category?.type === 'SERVICE' || 
+    item.product.category?.type === 'OFFLINE_PLAY'
+  );
+
   const totalPrice = items.reduce((sum, item) => sum + parseFloat(item.product.price) * item.quantity, 0);
 
   const handlePayment = async () => {
@@ -140,6 +155,28 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           vi: 'Vui lòng nhập địa chỉ giao hàng' 
         }));
         navigate('/profile');
+        return;
+      }
+    }
+
+    // 检查线下服务信息
+    if (isServiceProduct) {
+      if (!serviceInfo.serviceTime || !serviceInfo.serviceLocation || !serviceInfo.serviceContactPhone) {
+        alert(getText({ 
+          zh: '请填写完整的服务信息', 
+          en: 'Please complete service information', 
+          ko: '서비스 정보를 입력해주세요', 
+          vi: 'Vui lòng nhập thông tin dịch vụ' 
+        }));
+        return;
+      }
+      if (!agreedToTerms) {
+        alert(getText({ 
+          zh: '请阅读并同意服务条款', 
+          en: 'Please agree to the terms', 
+          ko: '약관에 동의해주세요', 
+          vi: 'Vui lòng đồng ý điều khoản' 
+        }));
         return;
       }
     }
@@ -184,7 +221,16 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           district: address.district,
           detail: address.detail,
         }),
+        // 线下服务信息
+        ...(isServiceProduct && {
+          serviceTime: serviceInfo.serviceTime,
+          serviceLocation: serviceInfo.serviceLocation,
+          serviceContactPhone: serviceInfo.serviceContactPhone,
+        }),
       });
+
+      // 保存订单信息（用于支付成功后显示确认码）
+      setCreatedOrder(order);
 
       if (paymentMethod === 'balance') {
         // 余额支付 - 乐观更新模式
@@ -420,6 +466,74 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           )}
         </div>
 
+        {/* 线下服务信息表单 */}
+        {isServiceProduct && (
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <h3 className="font-bold text-gray-800 mb-3">服务信息</h3>
+            
+            {/* 服务时间 */}
+            <div className="mb-3">
+              <label className="block text-sm text-gray-600 mb-1">服务时间 *</label>
+              <input
+                type="datetime-local"
+                value={serviceInfo.serviceTime}
+                onChange={(e) => setServiceInfo({...serviceInfo, serviceTime: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                required
+              />
+            </div>
+
+            {/* 服务地点 */}
+            <div className="mb-3">
+              <label className="block text-sm text-gray-600 mb-1">服务地点 *</label>
+              <input
+                type="text"
+                value={serviceInfo.serviceLocation}
+                onChange={(e) => setServiceInfo({...serviceInfo, serviceLocation: e.target.value})}
+                placeholder="请输入详细地址"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                required
+              />
+            </div>
+
+            {/* 联系电话 */}
+            <div className="mb-3">
+              <label className="block text-sm text-gray-600 mb-1">联系电话 *</label>
+              <input
+                type="tel"
+                value={serviceInfo.serviceContactPhone}
+                onChange={(e) => setServiceInfo({...serviceInfo, serviceContactPhone: e.target.value})}
+                placeholder="请输入联系电话"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                required
+              />
+            </div>
+
+            {/* 重要提示 */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+              <p className="text-xs text-yellow-800 font-bold mb-2">⚠️ 重要提示</p>
+              <ul className="text-xs text-yellow-700 space-y-1">
+                <li>• 服务完成后，商家将输入确认码完成订单</li>
+                <li>• 收到确认通知后，如有问题请在24小时内申请售后</li>
+                <li>• 超过24小时自动确认，之后只能投诉，不能退款</li>
+              </ul>
+            </div>
+
+            {/* 同意条款 */}
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-1"
+              />
+              <span className="text-xs text-gray-600">
+                我已阅读并同意以上服务条款
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* 支付方式 */}
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <h3 className="font-bold text-gray-800 mb-3">
@@ -473,7 +587,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
           </div>
           <button 
             onClick={handlePayment}
-            disabled={isLoading || isPaymentProcessing}
+            disabled={
+              isLoading || 
+              isPaymentProcessing || 
+              (isServiceProduct && (!serviceInfo.serviceTime || !serviceInfo.serviceLocation || !serviceInfo.serviceContactPhone || !agreedToTerms))
+            }
             className="px-8 py-2.5 bg-gradient-to-r from-purple-600 to-purple-500 text-white text-sm font-bold rounded-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -498,6 +616,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ language }) => {
             <p className="text-sm text-gray-500 mb-4">
               {getText({ zh: '您的订单已创建成功', en: 'Your order has been created', ko: '주문이 생성되었습니다', vi: 'Đơn hàng của bạn đã được tạo' })}
             </p>
+
+            {/* 显示服务确认码 */}
+            {createdOrder?.serviceConfirmCode && (
+              <div className="mb-4 bg-purple-50 rounded-lg p-4">
+                <p className="text-sm text-gray-600 mb-2">您的服务确认码：</p>
+                <p className="text-3xl font-bold text-purple-600 text-center tracking-wider mb-2">
+                  {createdOrder.serviceConfirmCode}
+                </p>
+                <p className="text-xs text-gray-500 text-center">
+                  请妥善保管，服务完成时出示给商家
+                </p>
+                <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-2">
+                  <p className="text-xs text-yellow-700">
+                    ⚠️ 商家确认后，您有24小时确认时间。如有问题请及时申请售后，超时将自动确认完成。
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={() => navigate('/profile')}
