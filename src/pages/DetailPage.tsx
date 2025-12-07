@@ -763,6 +763,32 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           </div>
         )}
 
+        {/* 服务区域 */}
+        {(item.serviceNationwide || (item.serviceAreas && Object.keys(item.serviceAreas).length > 0)) && (
+          <div className="bg-white p-4">
+            <h3 className="font-bold text-gray-800 text-sm mb-3">
+              {language === 'zh' ? '服务区域' : language === 'en' ? 'Service Area' : language === 'ko' ? '서비스 지역' : 'Khu vực dịch vụ'}
+            </h3>
+            {item.serviceNationwide ? (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-green-600 font-bold">✓</span>
+                <span className="text-gray-800">
+                  {language === 'zh' ? '全国服务' : language === 'en' ? 'Nationwide Service' : language === 'ko' ? '전국 서비스' : 'Dịch vụ toàn quốc'}
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {Object.entries(item.serviceAreas).map(([province, cities]) => (
+                  <div key={province} className="text-sm">
+                    <span className="text-gray-700 font-medium">{province}：</span>
+                    <span className="text-gray-600">{(cities as string[]).join('、')}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="bg-white p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">

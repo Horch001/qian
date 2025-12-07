@@ -7,6 +7,18 @@ import { eventsSocketService } from '../services/eventsSocket';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
+// 处理图片URL（兼容Base64和文件URL）
+const processMediaUrl = (mediaUrl: string | undefined | null): string => {
+  if (!mediaUrl) return '';
+  if (mediaUrl.startsWith('data:image/')) return mediaUrl;
+  if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) return mediaUrl;
+  // 如果是相对路径，拼接完整URL
+  if (mediaUrl.startsWith('/')) {
+    return `${API_URL}${mediaUrl}`;
+  }
+  return mediaUrl;
+};
+
 interface ShopManagePageProps {
   language: Language;
   translations: Translations;
@@ -533,9 +545,17 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                   <div key={product.id} className="bg-white rounded-xl overflow-hidden">
                     <div className="p-3 flex gap-3 items-center relative">
                       {/* 左侧：商品图片 */}
-                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0" title={`图片URL: ${product.images?.[0] || '无'} -> ${processMediaUrl(product.images?.[0])}`}>
                         {product.images?.[0] ? (
-                          <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover rounded-lg" />
+                          <img 
+                            src={processMediaUrl(product.images[0])} 
+                            alt={product.title} 
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              console.error('图片加载失败:', product.images[0], '处理后:', processMediaUrl(product.images[0]));
+                              e.currentTarget.style.border = '2px solid red';
+                            }}
+                          />
                         ) : (
                           <span className="text-2xl">{product.icon || '📦'}</span>
                         )}
@@ -753,7 +773,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       <div className="flex gap-2 border-b py-1">
                         {order.items[0].product?.images?.[0] && (
                           <img 
-                            src={order.items[0].product.images[0]} 
+                            src={processMediaUrl(order.items[0].product.images[0])} 
                             alt={order.items[0].product.title} 
                             className="w-16 h-16 object-cover rounded" 
                           />

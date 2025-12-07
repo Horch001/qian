@@ -25,20 +25,26 @@ const processImageUrl = (imageUrl: string | undefined | null): string => {
   // 如果是相对路径，拼接服务器地址（动态获取）
   if (imageUrl.startsWith('/uploads/')) {
     const serverBaseUrl = getServerBaseUrl();
-    return `${serverBaseUrl}${imageUrl}`;
+    const fullUrl = `${serverBaseUrl}${imageUrl}`;
+    console.log('[processImageUrl] 转换图片URL:', imageUrl, '->', fullUrl);
+    return fullUrl;
   }
+  console.log('[processImageUrl] 未处理的URL:', imageUrl);
   return imageUrl;
 };
 
 // 处理商品对象中的所有图片URL
 const processProductImages = (product: any): any => {
   if (!product) return product;
-  return {
+  console.log('[processProductImages] 处理商品:', product.id, '原始images:', product.images);
+  const processed = {
     ...product,
     images: product.images?.map((img: string) => processImageUrl(img)) || [],
     detailImages: product.detailImages?.map((img: string) => processImageUrl(img)) || [],
     icon: product.icon,
   };
+  console.log('[processProductImages] 处理后images:', processed.images);
+  return processed;
 };
 
 // 获取存储的 token
@@ -287,6 +293,8 @@ export const productApi = {
     categoryType?: string;
     keyword?: string;
     sortBy?: string;
+    province?: string;
+    city?: string;
     page?: number;
     limit?: number;
   }) => {

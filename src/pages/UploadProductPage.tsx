@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus, MapPin, Check } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
 import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize, checkImageQuality } from '../utils/imageCompressor';
+import { LOCATION_DATA } from '../constants/locations';
 
 interface UploadProductPageProps {
   language: Language;
@@ -18,6 +19,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const [allMerchants, setAllMerchants] = useState<Merchant[]>([]);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showServiceAreaModal, setShowServiceAreaModal] = useState(false);
+  const [selectedProvince, setSelectedProvince] = useState('');
+  const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -27,6 +31,8 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     subImages: [] as string[],
     detailImages: [] as string[],
     parameters: [] as { key: string; value: string }[],
+    serviceAreas: {} as Record<string, string[]>,
+    serviceNationwide: false,
   });
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
@@ -75,6 +81,8 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
             subImages: product.images?.slice(1) || [],
             detailImages: product.detailImages || [],
             parameters: params,
+            serviceAreas: product.serviceAreas || {},
+            serviceNationwide: product.serviceNationwide || false,
           });
         }
       } catch (error) {
@@ -123,6 +131,8 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         images: allImages,
         detailImages: formData.detailImages,
         parameters: Object.keys(parametersObj).length > 0 ? parametersObj : undefined,
+        serviceAreas: Object.keys(formData.serviceAreas).length > 0 ? formData.serviceAreas : undefined,
+        serviceNationwide: formData.serviceNationwide,
       };
       
       if (isEditMode && stateData?.editProduct) {
@@ -458,6 +468,79 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
             className="w-full text-sm text-gray-600 leading-relaxed border border-gray-200 rounded-lg p-3 focus:border-purple-500 focus:outline-none resize-none"
           />
         </div>
+
+        {/* 服务区域选择 - 仅针对上门服务和线下陪玩 */}
+        {(merchant?.category === 'SERVICE' || merchant?.category === 'OFFLINE_PLAY') && (
+          <div className="bg-white p-4">
+            <h3 className="font-bold text-gray-800 text-sm mb-3 flex items-center gap-2">
+              <MapPin size={16} className="text-purple-600" />
+              {getText({ zh: '服务区域', en: 'Service Area', ko: '서비스 지역', vi: 'Khu vực dịch vụ' })}
+            </h3>
+            
+            {/* 全国服务选项 */}
+            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={formData.serviceNationwide}
+                onChange={(e) => {
+                  setFormData({ 
+                    ...formData, 
+                    serviceNationwide: e.target.checked,
+                    serviceAreas: e.target.checked ? {} : formData.serviceAreas
+                  });
+                }}
+                className="w-4 h-4 text-purple-600 rounded"
+              />
+              <span className="text-sm text-gray-700">
+                {getText({ zh: '全国服务', en: 'Nationwide Service', ko: '전국 서비스', vi: 'Dịch vụ toàn quốc' })}
+              </span>
+            </label>
+
+            {!formData.serviceNationwide && (
+              <>
+                {/* 已选择的服务区域 */}
+                {Object.keys(formData.serviceAreas).length > 0 && (
+                  <div className="mb-3 space-y-2">
+                    {Object.entries(formData.serviceAreas).map(([province, cities]) => (
+                      <div key={province} className="bg-purple-50 rounded-lg p-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-bold text-purple-900">{province}</span>
+                          <button
+                            onClick={() => {
+                              const newAreas = { ...formData.serviceAreas };
+                              delete newAreas[province];
+                              setFormData({ ...formData, serviceAreas: newAreas });
+                            }}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {cities.map(city => (
+                            <span key={city} className="text-xs bg-white px-2 py-1 rounded text-gray-700">
+                              {city}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* 添加服务区域按钮 */}
+                <button
+                  type="button"
+                  onClick={() => setShowServiceAreaModal(true)}
+                  className="w-full py-2 border-2 border-dashed border-purple-300 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Plus size={16} />
+                  {getText({ zh: '添加服务区域', en: 'Add Service Area', ko: '서비스 지역 추가', vi: 'Thêm khu vực dịch vụ' })}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         
         {/* 详情图展示和编辑 */}
         <div className="bg-white">
@@ -515,6 +598,105 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           )}
         </div>
       </main>
+
+      {/* 服务区域选择模态框 */}
+      {showServiceAreaModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="font-bold text-gray-800">
+                {getText({ zh: '选择服务区域', en: 'Select Service Area', ko: '서비스 지역 선택', vi: 'Chọn khu vực dịch vụ' })}
+              </h3>
+              <button onClick={() => {
+                setShowServiceAreaModal(false);
+                setSelectedProvince('');
+                setSelectedCities([]);
+              }} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {!selectedProvince ? (
+                /* 选择省份 */
+                <div className="space-y-2">
+                  {LOCATION_DATA[0]?.regions.map(region => (
+                    <button
+                      key={region.name}
+                      onClick={() => setSelectedProvince(region.name)}
+                      className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-purple-50 rounded-lg transition-colors"
+                    >
+                      <span className="text-sm font-medium text-gray-700">{region.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                /* 选择城市 */
+                <div>
+                  <button
+                    onClick={() => {
+                      setSelectedProvince('');
+                      setSelectedCities([]);
+                    }}
+                    className="mb-3 text-sm text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                  >
+                    ← {getText({ zh: '返回选择省份', en: 'Back to provinces', ko: '지역 선택으로 돌아가기', vi: 'Quay lại chọn tỉnh' })}
+                  </button>
+                  <div className="space-y-2">
+                    {LOCATION_DATA[0]?.regions
+                      .find(r => r.name === selectedProvince)
+                      ?.cities.map(city => (
+                        <label
+                          key={city}
+                          className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-purple-50 rounded-lg cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedCities.includes(city)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCities([...selectedCities, city]);
+                              } else {
+                                setSelectedCities(selectedCities.filter(c => c !== city));
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 rounded"
+                          />
+                          <span className="text-sm text-gray-700">{city}</span>
+                          {selectedCities.includes(city) && (
+                            <Check size={14} className="ml-auto text-purple-600" />
+                          )}
+                        </label>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selectedProvince && selectedCities.length > 0 && (
+              <div className="p-4 border-t">
+                <button
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      serviceAreas: {
+                        ...formData.serviceAreas,
+                        [selectedProvince]: selectedCities,
+                      },
+                    });
+                    setShowServiceAreaModal(false);
+                    setSelectedProvince('');
+                    setSelectedCities([]);
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  {getText({ zh: '确认添加', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

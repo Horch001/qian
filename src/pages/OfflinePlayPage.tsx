@@ -1,22 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown, Loader2 } from 'lucide-react';
+import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown, Check, Search, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
+import { LOCATION_DATA } from '../constants/locations';
 
 export const OfflinePlaYPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedActivity, setSelectedActivity] = useState<string | null>(null);
+  const [selectedProvince, setSelectedProvince] = useState('');
+  const [selectedCity, setSelectedCity] = useState('');
+  const [searchText, setSearchText] = useState('');
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
   const navigate = useNavigate();
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const cacheKey = `products:OFFLINE_PLAY:${sortBy}:${searchKeyword}`;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const cacheKey = `products:OFFLINE_PLAY:${sortBy}:${searchText}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -31,8 +45,10 @@ export const OfflinePlaYPage: React.FC = () => {
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'OFFLINE_PLAY',
-          keyword: searchKeyword || undefined,
+          keyword: searchText || undefined,
           sortBy: sortBy === 'default' ? undefined : sortBy,
+          province: selectedProvince || undefined,
+          city: selectedCity || undefined,
         });
         setProducts(response.items);
         // 不再缓存商品列表到localStorage，避免存储空间超限
@@ -69,11 +85,7 @@ export const OfflinePlaYPage: React.FC = () => {
     return () => {
       window.removeEventListener('product:updated', handleProductUpdate as any);
     };
-  }, [sortBy, searchKeyword]);
-
-  const handleSearch = (keyword: string) => {
-    setSearchKeyword(keyword);
-  };
+  }, [sortBy, searchText, selectedProvince, selectedCity]);
 
   const goToDetail = (product: Product) => {
     navigate('/detail', { 
@@ -88,6 +100,24 @@ export const OfflinePlaYPage: React.FC = () => {
         pageType: 'service' 
       } 
     });
+  };
+
+  // 获取省份列表
+  const provinces = LOCATION_DATA[0]?.regions.map(r => r.name) || [];
+  
+  // 获取城市列表
+  const cities = selectedProvince 
+    ? LOCATION_DATA[0]?.regions.find(r => r.name === selectedProvince)?.cities || []
+    : [];
+
+  const getCurrentLocationLabel = () => {
+    if (!selectedProvince) {
+      return language === 'zh' ? '全国' : language === 'en' ? 'Nationwide' : language === 'ko' ? '전국' : 'Toàn quốc';
+    }
+    if (selectedCity) {
+      return selectedCity;
+    }
+    return selectedProvince;
   };
 
   const sortOptions = [
@@ -121,7 +151,61 @@ export const OfflinePlaYPage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      <SimpleSearchBar language={language} translations={translations} categoryType="OFFLINE_PLAY" onSearch={handleSearch} />
+      <div className="relative w-full" ref={dropdownRef}>
+        <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
+          <button onClick={() => setShowLocationDropdown(!showLocationDropdown)}
+            className="flex items-center gap-1 pl-3 pr-2 h-9 cursor-pointer group hover:bg-gray-50 rounded-l-lg transition-colors shrink-0">
+            <MapPin size={14} className="text-purple-600" strokeWidth={2.5} />
+            <span className="text-[13px] font-bold text-gray-700 truncate max-w-[4.5rem]">{getCurrentLocationLabel()}</span>
+            <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${showLocationDropdown ? 'rotate-180' : ''}`} strokeWidth={2.5} />
+          </button>
+          <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
+          <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+            placeholder={translations.searchPlaceholder[language]}
+            className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0" />
+          <div className="absolute right-3 text-gray-500 pointer-events-none"><Search size={18} strokeWidth={2.5} /></div>
+        </div>
+        {showLocationDropdown && (
+          <div className="absolute top-full left-0 mt-1.5 w-48 bg-white/95 backdrop-blur-xl rounded-lg border border-white/50 shadow-xl overflow-hidden max-h-[60vh] flex flex-col z-50">
+            <div className="px-3 py-2 border-b border-gray-100 bg-purple-50/50 flex-none">
+              <span className="text-[11px] font-bold text-purple-900">
+                {!selectedProvince ? (language === 'zh' ? '选择省份' : 'Select Province') : (language === 'zh' ? '选择城市' : 'Select City')}
+              </span>
+              {selectedProvince && (
+                <button onClick={() => { setSelectedProvince(''); setSelectedCity(''); }}
+                  className="ml-2 text-[10px] text-purple-600 hover:text-purple-800">
+                  {language === 'zh' ? '返回' : 'Back'}
+                </button>
+              )}
+            </div>
+            <div className="overflow-y-auto p-1">
+              {!selectedProvince ? (
+                <>
+                  <button onClick={() => { setSelectedProvince(''); setSelectedCity(''); setShowLocationDropdown(false); }}
+                    className="w-full text-left px-3 py-2 text-[12px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded flex items-center justify-between">
+                    <span>🌍 {language === 'zh' ? '全国' : language === 'en' ? 'Nationwide' : language === 'ko' ? '전국' : 'Toàn quốc'}</span>
+                    {!selectedProvince && <Check size={12} className="text-purple-600" strokeWidth={3} />}
+                  </button>
+                  {provinces.map((province) => (
+                    <button key={province} onClick={() => setSelectedProvince(province)}
+                      className="w-full text-left px-3 py-2 text-[12px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded">
+                      {province}
+                    </button>
+                  ))}
+                </>
+              ) : (
+                cities.map((city) => (
+                  <button key={city} onClick={() => { setSelectedCity(city); setShowLocationDropdown(false); }}
+                    className="w-full text-left px-3 py-2 text-[12px] font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 rounded flex items-center justify-between">
+                    <span>{city}</span>
+                    {selectedCity === city && <Check size={12} className="text-purple-600" strokeWidth={3} />}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
       
       <div className="grid grid-cols-4 gap-1.5">
         {features.map((feature, idx) => (

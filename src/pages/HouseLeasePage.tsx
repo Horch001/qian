@@ -49,8 +49,8 @@ export const HouseLeasePage: React.FC = () => {
         setProducts(response.items);
         // 不再缓存商品列表到localStorage，避免存储空间超限
       } catch (err: any) {
-        console.error('获取房源失败:', err);
-        if (!cached) setError(err.message || '获取房源失败');
+        console.error('获取商业租赁失败:', err);
+        if (!cached) setError(err.message || '获取商业租赁失败');
       } finally {
         setLoading(false);
       }
@@ -79,7 +79,7 @@ export const HouseLeasePage: React.FC = () => {
           title: { zh: product.title, en: product.titleEn || product.title, ko: product.title, vi: product.title },
           type: { zh: product.title, en: product.titleEn || product.title, ko: product.title, vi: product.title },
           images: product.images || [],
-          shop: { zh: product.merchant?.shopName || '房源中心', en: product.merchant?.shopName || 'Housing Center', ko: product.merchant?.shopName || '주택 센터', vi: product.merchant?.shopName || 'Trung tâm nhà' },
+          shop: { zh: product.merchant?.shopName || '商业租赁', en: product.merchant?.shopName || 'Commercial Lease', ko: product.merchant?.shopName || '상업 임대', vi: product.merchant?.shopName || 'Cho thuê thương mại' },
         }, 
         pageType: 'house' 
       } 
@@ -98,7 +98,7 @@ export const HouseLeasePage: React.FC = () => {
   ];
 
   const features = [
-    { icon: Home, text: { zh: '真实房源', en: 'Real Listings', ko: '실제 매물', vi: 'Nhà thật' } },
+    { icon: Home, text: { zh: '真实资产', en: 'Real Assets', ko: '실제 자산', vi: 'Tài sản thật' } },
     { icon: ShieldCheck, text: { zh: '安全可靠', en: 'Safe & Reliable', ko: '안전 신뢰', vi: 'An toàn tin cậy' } },
     { icon: FileCheck, text: { zh: '合同保障', en: 'Contract Protected', ko: '계약 보호', vi: 'Hợp đồng bảo vệ' } },
     { icon: MapPin, text: { zh: '覆盖全国', en: 'Nationwide', ko: '전국 커버', vi: 'Toàn quốc' } },
@@ -127,7 +127,7 @@ export const HouseLeasePage: React.FC = () => {
           </button>
           <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
           <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
-            placeholder={language === 'zh' ? '搜索房源...' : 'Search listings...'}
+            placeholder={language === 'zh' ? '搜索商业租赁...' : 'Search commercial lease...'}
             className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0" />
           <div className="absolute right-3 text-gray-500 pointer-events-none"><Search size={18} strokeWidth={2.5} /></div>
         </div>
@@ -184,7 +184,7 @@ export const HouseLeasePage: React.FC = () => {
           ))}
         </div>
       ) : products.length === 0 ? (
-        <div className="text-center py-10 text-gray-500">{language === 'zh' ? '暂无房源' : 'No listings'}</div>
+        <div className="text-center py-10 text-gray-500">{language === 'zh' ? '暂无商业租赁' : 'No commercial lease'}</div>
       ) : (
         <div className="space-y-2">
           {products.map((product) => (
@@ -219,7 +219,7 @@ export const HouseLeasePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="text-[10px] text-gray-400 leading-none">
-                    {product.merchant?.shopName || '房源中心'}
+                    {product.merchant?.shopName || '商业租赁'}
                   </div>
                 </div>
                 <button onClick={(e) => { e.stopPropagation(); goToDetail(product); }}

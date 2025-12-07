@@ -239,9 +239,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     const savedIsMerchant = localStorage.getItem('isMerchant');
     if (savedIsMerchant === 'true') {
       setIsMerchant(true);
-      console.log('[ProfilePage] 从localStorage加载商家身份: true');
-    } else {
-      console.log('[ProfilePage] 从localStorage加载商家身份: false');
     }
     
     const savedReceiverName = localStorage.getItem('receiverName');
@@ -398,16 +395,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           // 获取密码状态
           setHasPassword(userData.hasPassword || false);
           setPasswordEnabled(userData.passwordEnabled || false);
-          // 🔥 从后端获取商家身份
-          console.log('[ProfilePage] 后端返回用户角色:', userData.role);
+          // 从后端获取商家身份
           if (userData.role === 'MERCHANT') {
             setIsMerchant(true);
             localStorage.setItem('isMerchant', 'true');
-            console.log('[ProfilePage] 设置商家身份: true');
           } else {
             setIsMerchant(false);
             localStorage.setItem('isMerchant', 'false');
-            console.log('[ProfilePage] 设置商家身份: false');
           }
         }
 
@@ -528,13 +522,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   useEffect(() => {
     // 监听收藏更新
     const handleFavoriteUpdate = () => {
-      console.log('[ProfilePage] Favorite updated via WebSocket');
       refreshFavorites();
     };
 
     // 监听订单更新 - 优化版：直接更新订单列表
     const handleOrderUpdate = (updatedOrder: any) => {
-      console.log('[ProfilePage] Order updated via WebSocket:', updatedOrder);
       
       if (!updatedOrder || !updatedOrder.id) {
         // 如果没有订单数据，则刷新整个列表
@@ -575,7 +567,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
 
     // 监听购物车更新
     const handleCartUpdate = () => {
-      console.log('[ProfilePage] Cart updated via WebSocket');
       // 可以在这里更新购物车数量
     };
 
