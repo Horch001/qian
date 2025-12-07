@@ -7,6 +7,18 @@ import { usePiPayment } from '../hooks/usePiPayment';
 import { orderApi, authApi, userApi, chatApi, favoriteApi } from '../services/api';
 import eventsSocketService from '../services/eventsSocket';
 
+// 处理图片URL
+const processImageUrl = (imageUrl: string | undefined | null): string => {
+  if (!imageUrl) return '';
+  if (imageUrl.startsWith('data:image/')) return imageUrl;
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) return imageUrl;
+  if (imageUrl.startsWith('/uploads/')) {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    return `${API_URL}${imageUrl}`;
+  }
+  return imageUrl;
+};
+
 interface ProfilePageProps {
   language: Language;
   translations: Translations;
@@ -276,7 +288,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           id: fav.product?.id || fav.id,
           title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
           icon: fav.product?.icon || '📦',
-          images: fav.product?.images || [],
+          images: (fav.product?.images || []).map((img: string) => processImageUrl(img)),
           price: fav.product?.price,
           rating: fav.product?.rating || 5.0,
           sales: fav.product?.sales || 0,
@@ -445,7 +457,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         id: fav.product?.id || fav.id,
         title: { zh: fav.product?.title, en: fav.product?.titleEn || fav.product?.title },
         icon: fav.product?.icon || '📦',
-        images: fav.product?.images || [],
+        images: (fav.product?.images || []).map((img: string) => processImageUrl(img)),
         price: fav.product?.price,
         rating: fav.product?.rating || 5.0,
         sales: fav.product?.sales || 0,
@@ -1478,8 +1490,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 >
                                   {getText({ zh: '联系商家', en: 'Contact', ko: '연락', vi: 'Liên hệ' })}
                                 </button>
-                                {/* 查看物流按钮 - 已发货和已完成订单可查看 */}
-                                {(order.status === 'shipped' || order.status === 'completed') && (
+                                {/* 查看物流按钮 - 已发货和已完成订单可查看，但在待评价标签页隐藏 */}
+                                {(order.status === 'shipped' || order.status === 'completed') && selectedOrderTab !== 'review' && (
                                   <button 
                                     onClick={() => {
                                       navigate('/logistics', { 
@@ -1523,8 +1535,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                     {getText({ zh: '确认收货', en: 'Confirm', ko: '수령 확인', vi: 'Xác nhận' })}
                                   </button>
                                 )}
-                                {/* 评价按钮 - 合并商品和商家评价 */}
-                                {order.status === 'completed' && (!order.reviewed || !order.merchantReviewed) && (
+                                {/* 评价按钮 - 只在待评价标签页显示 */}
+                                {selectedOrderTab === 'review' && order.status === 'completed' && (!order.reviewed || !order.merchantReviewed) && (
                                   <button 
                                     onClick={() => {
                                       navigate('/review', { 
@@ -1543,12 +1555,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                                 )}
                               </div>
                             )}
-                            {/* 售后处理中提示 */}
-                            {order.hasActiveAfterSale && (
+                            {/* 售后处理中 - 可点击查看详情 */}
+                            {order.hasActiveAfterSale && order.afterSale && (
                               <div className="flex gap-2 mt-1">
-                                <div className="flex-1 py-1.5 bg-orange-100 text-orange-600 text-[10px] font-bold rounded-lg text-center">
-                                  {getText({ zh: '售后处理中', en: 'After-sale Processing', ko: '애프터 서비스 처리 중', vi: 'Đang xử lý bảo hành' })}
-                                </div>
+                                <button
+                                  onClick={() => {
+                                    navigate('/after-sale-detail', { 
+                                      state: { afterSaleId: order.afterSale.id } 
+                                    });
+                                  }}
+                                  className="flex-1 py-1.5 bg-orange-500 text-white text-[10px] font-bold rounded-lg hover:bg-orange-600"
+                                >
+                                  {getText({ zh: '查看售后详情', en: 'View After-sale', ko: '애프터 서비스 보기', vi: 'Xem chi tiết' })}
+                                </button>
                               </div>
                             )}
                             {/* 退款/退货按钮 - 只在没有售后的情况下显示 */}

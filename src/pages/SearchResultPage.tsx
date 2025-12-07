@@ -184,17 +184,13 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
                       {language === 'en' && product.titleEn ? product.titleEn : product.title}
                     </h3>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-red-600 font-bold text-lg">{product.price}π</span>
+                      <span className="text-red-600 font-bold text-lg">{Number(product.price).toFixed(2)}π</span>
                       {product.originalPrice && (
                         <span className="text-gray-400 text-xs line-through">{product.originalPrice}π</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <span>{product.merchant?.shopName || '官方店铺'}</span>
-                      <span className="flex items-center gap-0.5 text-yellow-600">
-                        <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-bold">{product.rating || 5.0}</span>
-                      </span>
                       <span>{getText({ zh: '已售', en: 'Sold', ko: '판매', vi: 'Đã bán' })} {product.sales}</span>
                     </div>
                   </div>

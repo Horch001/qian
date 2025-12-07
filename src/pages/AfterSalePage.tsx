@@ -105,29 +105,57 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
     }
   };
 
-  const handleReply = async (id: string, agreed: boolean) => {
-    const reply = prompt(getText({ 
-      zh: agreed ? '请输入同意理由（可选）' : '请输入拒绝理由', 
-      en: agreed ? 'Enter reason (optional)' : 'Enter rejection reason',
-      ko: agreed ? '이유 입력 (선택)' : '거부 이유 입력',
-      vi: agreed ? 'Nhập lý do (tùy chọn)' : 'Nhập lý do từ chối'
-    }));
-    
-    if (!agreed && !reply) return;
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [selectedAfterSale, setSelectedAfterSale] = useState<any>(null);
+  const [replyData, setReplyData] = useState({
+    agreed: true,
+    reply: '',
+    returnAddress: '',
+    returnContact: '',
+    returnPhone: ''
+  });
+
+  const handleReply = async (item: any, agreed: boolean) => {
+    setSelectedAfterSale(item);
+    setReplyData({
+      agreed,
+      reply: '',
+      returnAddress: '',
+      returnContact: '',
+      returnPhone: ''
+    });
+    setShowReplyModal(true);
+  };
+
+  const handleSubmitReply = async () => {
+    if (!replyData.agreed && !replyData.reply.trim()) {
+      alert(getText({ zh: '拒绝时必须填写理由', en: 'Reason required', ko: '이유 필요', vi: 'Cần lý do' }));
+      return;
+    }
+
+    // 如果同意退货退款，必须填写退货地址
+    if (replyData.agreed && selectedAfterSale.type === 'RETURN_REFUND') {
+      if (!replyData.returnAddress.trim() || !replyData.returnContact.trim() || !replyData.returnPhone.trim()) {
+        alert(getText({ zh: '退货退款需要填写退货地址、联系人和电话', en: 'Return address required', ko: '반품 주소 필요', vi: 'Cần địa chỉ trả hàng' }));
+        return;
+      }
+    }
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/v1/after-sales/${id}/merchant-reply`, {
+      const response = await fetch(`${API_URL}/api/v1/after-sales/${selectedAfterSale.id}/merchant-reply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ agreed, reply: reply || '' }),
+        body: JSON.stringify(replyData),
       });
 
       if (response.ok) {
         alert(getText({ zh: '操作成功', en: 'Success', ko: '성공', vi: 'Thành công' }));
+        setShowReplyModal(false);
+        setSelectedAfterSale(null);
         fetchAfterSales();
       } else {
         const error = await response.json();
@@ -294,13 +322,21 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
 
                     {/* 商品简要信息 - 始终显示 */}
                     {!isExpanded && item.order?.items && item.order.items.length > 0 && (
-                      <div className="flex justify-between items-center text-xs text-gray-600 ml-7">
-                        <span className="truncate flex-1">
-                          {item.order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })}
-                        </span>
-                        <span className="font-bold text-red-600 ml-2">
-                          {Number(item.order.items[0].price).toFixed(2)}π
-                        </span>
+                      <div className="ml-7 space-y-1">
+                        <div className="flex justify-between items-center text-xs text-gray-600">
+                          <span className="truncate flex-1">
+                            {item.order.items[0].product?.title || getText({ zh: '商品', en: 'Product', ko: '상품', vi: 'Sản phẩm' })}
+                          </span>
+                          <span className="font-bold text-red-600 ml-2">
+                            {Number(item.order.items[0].price).toFixed(2)}π
+                          </span>
+                        </div>
+                        {/* 物流信息快速预览 */}
+                        {item.returnCompany && item.returnTrackingNo && (
+                          <div className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                            🚚 {item.returnCompany}: {item.returnTrackingNo}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -365,10 +401,31 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
                       </p>
                     </div>
                   )}
+                  {/* 退货地址（商家同意退货退款后显示） */}
+                  {item.returnAddress && (
+                    <div className="border-b py-2 pl-[4.5rem] bg-blue-50 rounded">
+                      <p className="text-xs text-blue-800 font-bold mb-1">
+                        📦 {getText({ zh: '退货地址', en: 'Return Address', ko: '반품 주소', vi: 'Địa chỉ trả hàng' })}
+                      </p>
+                      <p className="text-xs text-gray-800 font-medium">
+                        {item.returnContact} {item.returnPhone}
+                      </p>
+                      <p className="text-xs text-gray-700 mt-0.5">
+                        {item.returnAddress}
+                      </p>
+                    </div>
+                  )}
+                  {/* 退货物流信息（买家填写后显示） */}
                   {item.returnCompany && item.returnTrackingNo && (
-                    <div className="border-b py-1 pl-[4.5rem]">
-                      <p className="text-xs text-gray-700">
-                        {item.returnCompany} - {item.returnTrackingNo}
+                    <div className="border-b py-2 pl-[4.5rem] bg-green-50 rounded">
+                      <p className="text-xs text-green-800 font-bold mb-1">
+                        🚚 {getText({ zh: '买家退货物流', en: 'Return Logistics', ko: '반품 물류', vi: 'Vận chuyển trả hàng' })}
+                      </p>
+                      <p className="text-xs text-gray-800 font-medium">
+                        {getText({ zh: '物流公司', en: 'Company', ko: '택배사', vi: 'Công ty' })}: {item.returnCompany}
+                      </p>
+                      <p className="text-xs text-gray-800 font-medium mt-0.5">
+                        {getText({ zh: '运单号', en: 'Tracking', ko: '운송장', vi: 'Mã vận đơn' })}: {item.returnTrackingNo}
                       </p>
                     </div>
                   )}
@@ -399,13 +456,13 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
                         {item.status === 'PENDING' && (
                           <div className="flex gap-2 py-1">
                             <button
-                              onClick={() => handleReply(item.id, false)}
+                              onClick={() => handleReply(item, false)}
                               className="flex-1 py-2 bg-red-500 text-white rounded-lg text-sm font-bold hover:bg-red-600"
                             >
                               {getText({ zh: '拒绝', en: 'Reject', ko: '거부', vi: 'Từ chối' })}
                             </button>
                             <button
-                              onClick={() => handleReply(item.id, true)}
+                              onClick={() => handleReply(item, true)}
                               className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-bold hover:bg-green-600"
                             >
                               {getText({ zh: '同意', en: 'Agree', ko: '동의', vi: 'Đồng ý' })}
@@ -432,6 +489,101 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
           )}
         </div>
       </div>
+
+      {/* 回复弹窗 */}
+      {showReplyModal && selectedAfterSale && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-4 border-b sticky top-0 bg-white">
+              <h3 className="text-lg font-bold text-gray-800">
+                {replyData.agreed 
+                  ? getText({ zh: '同意售后', en: 'Agree', ko: '동의', vi: 'Đồng ý' })
+                  : getText({ zh: '拒绝售后', en: 'Reject', ko: '거부', vi: 'Từ chối' })}
+              </h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {/* 退货地址信息（仅退货退款时显示） */}
+              {replyData.agreed && selectedAfterSale.type === 'RETURN_REFUND' && (
+                <div className="space-y-3 bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm font-medium text-blue-800">
+                    {getText({ zh: '请填写退货地址信息', en: 'Return Address', ko: '반품 주소', vi: 'Địa chỉ trả hàng' })}
+                  </p>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {getText({ zh: '联系人', en: 'Contact', ko: '연락처', vi: 'Liên hệ' })} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={replyData.returnContact}
+                      onChange={(e) => setReplyData({ ...replyData, returnContact: e.target.value })}
+                      placeholder={getText({ zh: '请输入联系人姓名', en: 'Enter name', ko: '이름 입력', vi: 'Nhập tên' })}
+                      className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {getText({ zh: '联系电话', en: 'Phone', ko: '전화', vi: 'Điện thoại' })} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={replyData.returnPhone}
+                      onChange={(e) => setReplyData({ ...replyData, returnPhone: e.target.value })}
+                      placeholder={getText({ zh: '请输入联系电话', en: 'Enter phone', ko: '전화 입력', vi: 'Nhập SĐT' })}
+                      className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {getText({ zh: '退货地址', en: 'Address', ko: '주소', vi: 'Địa chỉ' })} <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={replyData.returnAddress}
+                      onChange={(e) => setReplyData({ ...replyData, returnAddress: e.target.value })}
+                      placeholder={getText({ zh: '请输入完整的退货地址', en: 'Enter address', ko: '주소 입력', vi: 'Nhập địa chỉ' })}
+                      rows={2}
+                      className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  {replyData.agreed 
+                    ? getText({ zh: '回复内容（可选）', en: 'Reply (optional)', ko: '답변 (선택)', vi: 'Phản hồi (tùy chọn)' })
+                    : getText({ zh: '拒绝理由（必填）', en: 'Reason (required)', ko: '이유 (필수)', vi: 'Lý do (bắt buộc)' })}
+                </label>
+                <textarea
+                  value={replyData.reply}
+                  onChange={(e) => setReplyData({ ...replyData, reply: e.target.value })}
+                  placeholder={getText({ zh: '请输入...', en: 'Enter...', ko: '입력...', vi: 'Nhập...' })}
+                  rows={3}
+                  className="w-full p-2 border rounded-lg text-sm focus:outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t flex gap-2">
+              <button
+                onClick={() => {
+                  setShowReplyModal(false);
+                  setSelectedAfterSale(null);
+                }}
+                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium"
+              >
+                {getText({ zh: '取消', en: 'Cancel', ko: '취소', vi: 'Hủy' })}
+              </button>
+              <button
+                onClick={handleSubmitReply}
+                className={`flex-1 py-2 text-white rounded-lg text-sm font-bold ${
+                  replyData.agreed ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'
+                }`}
+              >
+                {getText({ zh: '确认', en: 'Confirm', ko: '확인', vi: 'Xác nhận' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

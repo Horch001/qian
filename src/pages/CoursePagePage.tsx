@@ -92,7 +92,6 @@ export const CoursePagePage: React.FC = () => {
     { value: 'review_count', label: { zh: '按评价从多到少', en: 'Most Reviewed', ko: '리뷰 많은순', vi: 'Nhiều đánh giá nhất' } },
     { value: 'merchant_rating', label: { zh: '按商家评分从高到低', en: 'Merchant Rating', ko: '판매자 평점순', vi: 'Đánh giá người bán' } },
     { value: 'merchant_oldest', label: { zh: '按商家入驻时间从早到晚', en: 'Oldest Merchant', ko: '오래된 판매자순', vi: 'Người bán lâu năm' } },
-    { value: 'location', label: { zh: '按商家发货地从近到远', en: 'Nearest Location', ko: '가까운 위치순', vi: 'Vị trí gần nhất' } },
   ];
 
   const features = [
@@ -169,12 +168,12 @@ export const CoursePagePage: React.FC = () => {
                     <div className="w-full h-full flex items-center justify-center text-3xl">{product.icon || '📚'}</div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col pr-16">
-                  <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
+                <div className="flex-1 min-w-0 flex flex-col justify-between h-14 pr-20">
+                  <h3 className="font-bold text-gray-800 text-sm line-clamp-1">
                     {language === 'en' && product.titleEn ? product.titleEn : product.title}
                   </h3>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-red-600 font-bold text-base leading-none">{product.price}π</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-red-600 font-bold text-base leading-none">{Number(product.price).toFixed(2)}π</span>
                     <div className="flex gap-2">
                       <div className="flex flex-col items-center">
                         <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '已售' : 'Sold'}</span>
@@ -186,20 +185,15 @@ export const CoursePagePage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <Award className="w-3 h-3 text-purple-600" />
-                    <span>{product.merchant?.shopName || '课程平台'}</span>
-                    <span className="flex items-center gap-0.5 text-yellow-600">
-                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                      <span className="font-bold">{product.merchant?.rating || 5.0}</span>
-                    </span>
+                  <div className="text-[10px] text-gray-400 leading-none">
+                    {product.merchant?.shopName || '课程平台'}
                   </div>
                 </div>
+                <button onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
+                  className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+                  {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
+                </button>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
-                className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
-                {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
-              </button>
             </div>
           ))}
         </div>

@@ -45,6 +45,7 @@ import { ReviewPage } from './pages/ReviewPage';
 import { LogisticsPage } from './pages/LogisticsPage';
 import { MerchantReviewPage } from './pages/MerchantReviewPage';
 import { AfterSalePage } from './pages/AfterSalePage';
+import { AfterSaleDetailPage } from './pages/AfterSaleDetailPage';
 import { SettlementPage } from './pages/SettlementPage';
 import { MerchantReviewsPage } from './pages/MerchantReviewsPage';
 import eventsSocketService from './services/eventsSocket';
@@ -327,6 +328,11 @@ export const App: React.FC = () => {
   // After sale page
   if (location.pathname === '/after-sale') {
     return <AfterSalePage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // After sale detail page
+  if (location.pathname === '/after-sale-detail') {
+    return <AfterSaleDetailPage language={language} translations={TRANSLATIONS} />;
   }
 
   // Settlement page

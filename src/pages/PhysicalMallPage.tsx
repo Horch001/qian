@@ -103,7 +103,7 @@ export const PhysicalMallPage: React.FC = () => {
 
   const features = [
     { icon: Shield, text: { zh: '正品保证', en: 'Genuine', ko: '정품 보증', vi: 'Chính hãng' } },
-    { icon: Truck, text: { zh: '24h发货', en: '24h Ship', ko: '24시간 발송', vi: 'Giao 24h' } },
+    { icon: Truck, text: { zh: '24h内发货', en: '24h Ship', ko: '24시간 내 발송', vi: 'Giao trong 24h' } },
     { icon: Package, text: { zh: '7天无理由', en: '7-Day Return', ko: '7일 반품', vi: 'Trả 7 ngày' } },
     { icon: ShoppingBag, text: { zh: '全国包邮', en: 'Free Ship', ko: '무료 배송', vi: 'Miễn phí ship' } },
   ];
@@ -117,7 +117,6 @@ export const PhysicalMallPage: React.FC = () => {
     { value: 'review_count', label: { zh: '按评价从多到少', en: 'Most Reviewed', ko: '리뷰 많은순', vi: 'Nhiều đánh giá nhất' } },
     { value: 'merchant_rating', label: { zh: '按商家评分从高到低', en: 'Merchant Rating', ko: '판매자 평점순', vi: 'Đánh giá người bán' } },
     { value: 'merchant_oldest', label: { zh: '按商家入驻时间从早到晚', en: 'Oldest Merchant', ko: '오래된 판매자순', vi: 'Người bán lâu năm' } },
-    { value: 'location', label: { zh: '按商家发货地从近到远', en: 'Nearest Location', ko: '가까운 위치순', vi: 'Vị trí gần nhất' } },
   ];
 
   // 错误状态（只在非加载状态且有错误时显示）
@@ -210,7 +209,7 @@ export const PhysicalMallPage: React.FC = () => {
                 </div>
               )}
               
-              <div className="flex gap-2 relative">
+              <div className="flex gap-2 h-14">
                 <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner overflow-hidden">
                   {product.images && product.images.length > 0 ? (
                     <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain bg-white" loading="lazy" />
@@ -220,12 +219,12 @@ export const PhysicalMallPage: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0 flex flex-col pr-16">
-                  <h3 className="font-bold text-gray-800 text-sm mb-0.5 line-clamp-1">
+                <div className="flex-1 min-w-0 flex flex-col justify-between h-14 pr-20">
+                  <h3 className="font-bold text-gray-800 text-sm line-clamp-1">
                     {language === 'en' && product.titleEn ? product.titleEn : product.title}
                   </h3>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-red-600 font-bold text-base leading-none">{product.price}π</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-red-600 font-bold text-base leading-none">{Number(product.price).toFixed(2)}π</span>
                     <div className="flex gap-2">
                       <div className="flex flex-col items-center">
                         <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '库存' : 'Stock'}</span>
@@ -241,20 +240,16 @@ export const PhysicalMallPage: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                    <span>{product.merchant?.shopName || '官方店铺'}</span>
-                    <span className="flex items-center gap-0.5 text-yellow-600">
-                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                      <span className="font-bold">{product.merchant?.rating || 5.0}</span>
-                    </span>
+                  <div className="text-[10px] text-gray-400 leading-none">
+                    {product.merchant?.shopName || '官方店铺'}
                   </div>
                 </div>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
+                  className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
+                  {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
+                </button>
               </div>
-              <button 
-                onClick={(e) => { e.stopPropagation(); goToDetail(product); }}
-                className="absolute bottom-1 right-1 px-3 py-1 bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold rounded-lg hover:from-red-700 hover:to-red-600 active:scale-95 transition-all shadow-md">
-                {language === 'zh' ? '购买' : language === 'en' ? 'Buy' : language === 'ko' ? '구매' : 'Mua'}
-              </button>
             </div>
           ))}
         </div>
