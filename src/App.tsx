@@ -16,6 +16,7 @@ import { OfflinePlaYPage } from './pages/OfflinePlayPage';
 import { CoursePagePage } from './pages/CoursePagePage';
 import { PrivateDetectivePage } from './pages/PrivateDetectivePage';
 import { PrivateTreeHolePage } from './pages/PrivateTreeHolePage';
+import { TreeHoleNotificationPage } from './pages/TreeHoleNotificationPage';
 import { CasualGamesPage } from './pages/CasualGamesPage';
 
 import { EscrowTradePage } from './pages/EscrowTradePage';
@@ -293,6 +294,11 @@ export const App: React.FC = () => {
   // Notification detail page
   if (location.pathname === '/notification-detail') {
     return <NotificationDetailPage language={language} translations={TRANSLATIONS} />;
+  }
+
+  // Tree hole notification page
+  if (location.pathname === '/tree-hole-notifications') {
+    return <TreeHoleNotificationPage language={language} translations={TRANSLATIONS} />;
   }
 
   // Search result page

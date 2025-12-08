@@ -843,29 +843,93 @@ export interface TreeHoleComment {
 export const treeHoleApi = {
   // 获取树洞列表
   getTreeHoles: (page = 1, limit = 20) =>
-    request<{ items: TreeHole[]; total: number; page: number; limit: number }>(`/tree-hole?page=${page}&limit=${limit}`),
+    request<{ items: TreeHole[]; total: number; page: number; limit: number }>(`/tree-holes?page=${page}&limit=${limit}`),
 
   // 获取树洞详情
   getTreeHole: (id: string) =>
-    request<TreeHole & { comments: TreeHoleComment[] }>(`/tree-hole/${id}`),
+    request<TreeHole & { comments: TreeHoleComment[] }>(`/tree-holes/${id}`),
 
   // 发布树洞
   createTreeHole: (data: { content: string; isAnonymous?: boolean }) =>
-    request<TreeHole>('/tree-hole', {
+    request<TreeHole>('/tree-holes', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // 评论树洞
-  commentTreeHole: (id: string, data: { content: string; isAnonymous?: boolean }) =>
-    request<TreeHoleComment>(`/tree-hole/${id}/comment`, {
+  commentTreeHole: (id: string, data: { content: string; isAnonymous?: boolean; parentId?: string }) =>
+    request<TreeHoleComment>(`/tree-holes/${id}/comments`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   // 点赞树洞
   likeTreeHole: (id: string) =>
-    request(`/tree-hole/${id}/like`, { method: 'POST' }),
+    request(`/tree-holes/${id}/like`, { method: 'POST' }),
+
+  // 收藏树洞
+  favoriteTreeHole: (id: string) =>
+    request(`/tree-holes/${id}/favorite`, { method: 'POST' }),
+
+  // 获取我的帖子
+  getMyPosts: () =>
+    request<TreeHole[]>('/tree-holes/my/posts'),
+
+  // 获取我的收藏
+  getMyFavorites: () =>
+    request<TreeHole[]>('/tree-holes/my/favorites'),
+
+  // 获取我的评论
+  getMyComments: () =>
+    request<any[]>('/tree-holes/my/comments'),
+
+  // 删除评论
+  deleteComment: (commentId: string) =>
+    request(`/tree-holes/comments/${commentId}/delete`, { method: 'POST' }),
+
+  // 获取通知列表
+  getNotifications: () =>
+    request<any[]>('/tree-holes/notifications'),
+
+  // 获取未读通知数
+  getUnreadNotificationCount: () =>
+    request<{ count: number }>('/tree-holes/notifications/unread-count'),
+
+  // 标记通知为已读
+  markNotificationAsRead: (id: string) =>
+    request(`/tree-holes/notifications/${id}/read`, { method: 'POST' }),
+
+  // ==================== 审核相关 ====================
+  
+  // 申请成为验证员
+  applyReviewer: () =>
+    request('/tree-holes/review/reviewer/apply', { method: 'POST' }),
+
+  // 退出验证员
+  quitReviewer: () =>
+    request('/tree-holes/review/reviewer/quit', { method: 'POST' }),
+
+  // 获取验证员信息
+  getReviewerInfo: () =>
+    request<any>('/tree-holes/review/reviewer/info'),
+
+  // 提交帖子审核
+  submitForReview: (data: { content: string; isAnonymous?: boolean }) =>
+    request('/tree-holes/review/submit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取我的审核任务
+  getReviewTasks: () =>
+    request<any[]>('/tree-holes/review/tasks'),
+
+  // 提交审核投票
+  submitVote: (voteId: string, data: { vote: 'APPROVE' | 'REJECT'; rejectReason?: string }) =>
+    request(`/tree-holes/review/vote/${voteId}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ==================== 悬赏大厅 API ====================
