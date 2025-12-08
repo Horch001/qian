@@ -745,6 +745,25 @@ export const api = {
   stats: statsApi,
   merchant: merchantApi,
   announcement: announcementApi,
+  // 通用请求方法
+  get: <T = any>(endpoint: string, options?: { params?: any }) => {
+    const url = options?.params 
+      ? `${endpoint}?${new URLSearchParams(options.params).toString()}`
+      : endpoint;
+    return request<T>(url, { method: 'GET' });
+  },
+  post: <T = any>(endpoint: string, data?: any) =>
+    request<T>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  put: <T = any>(endpoint: string, data?: any) =>
+    request<T>(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: <T = any>(endpoint: string) =>
+    request<T>(endpoint, { method: 'DELETE' }),
 };
 
 export default api;
@@ -1007,7 +1026,35 @@ export const friendlyLinkApi = {
   // 获取友情链接列表
   getLinks: () => request<FriendlyLink[]>('/friendly-links'),
 
-  // 申请友情链接
+  // 获取已通过的友情链接
+  getApprovedLinks: () => request<any[]>('/friendly-links/approved'),
+
+  // 获取价格配置
+  getPrices: () => request<Record<string, number>>('/friendly-links/prices'),
+
+  // 创建申请
+  createApplication: (data: {
+    websiteName: string;
+    websiteUrl: string;
+    logo?: string;
+    description?: string;
+    duration: string;
+  }) =>
+    request('/friendly-links/applications', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 获取我的申请列表
+  getMyApplications: () => request<any[]>('/friendly-links/applications/my'),
+
+  // 支付申请
+  payApplication: (id: string) =>
+    request(`/friendly-links/applications/${id}/pay`, {
+      method: 'POST',
+    }),
+
+  // 申请友情链接（旧接口，保留兼容）
   applyLink: (data: { name: string; url: string; description?: string }) =>
     request('/friendly-links/apply', {
       method: 'POST',
@@ -1071,7 +1118,21 @@ export const escrowApi = {
 
   // 确认完成
   completeTrade: (id: string) =>
-    request(`/escrow/${id}/complete`, { method: 'POST' }),
+    request(`/escrow/${id}/complete`, { method: 'PUT' }),
+
+  // 取消交易
+  cancelTrade: (id: string, reason?: string) =>
+    request(`/escrow/${id}/cancel`, {
+      method: 'PUT',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // 发起纠纷
+  createDispute: (id: string, data: { reason: string; evidence?: string[] }) =>
+    request(`/escrow/${id}/dispute`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ==================== 售后管理 API ====================

@@ -29,15 +29,7 @@ export const EscrowTradePage: React.FC = () => {
   }, []);
 
   const goToDetail = (trade: EscrowTrade) => {
-    navigate('/escrow-detail', { 
-      state: { 
-        item: {
-          ...trade,
-          title: { zh: trade.title, en: trade.title, ko: trade.title, vi: trade.title },
-          description: { zh: trade.description || '', en: trade.description || '', ko: trade.description || '', vi: trade.description || '' },
-        } 
-      } 
-    });
+    navigate(`/escrow/${trade.id}`);
   };
 
   // 格式化时间

@@ -22,6 +22,8 @@ import { CasualGamesPage } from './pages/CasualGamesPage';
 import { EscrowTradePage } from './pages/EscrowTradePage';
 import { FriendlyLinksPage } from './pages/FriendlyLinksPage';
 import { SeekResourcesPage } from './pages/SeekResourcesPage';
+import { BountyDetailPage } from './pages/BountyDetailPage';
+import { PublishBountyPage } from './pages/PublishBountyPage';
 import { DetailPage } from './pages/DetailPage';
 import { TreeHoleDetailPage } from './pages/TreeHoleDetailPage';
 import { ResourceDetailPage } from './pages/ResourceDetailPage';
@@ -49,6 +51,9 @@ import { AfterSalePage } from './pages/AfterSalePage';
 import { AfterSaleDetailPage } from './pages/AfterSaleDetailPage';
 import { SettlementPage } from './pages/SettlementPage';
 import { MerchantReviewsPage } from './pages/MerchantReviewsPage';
+import { AuctionPage } from './pages/AuctionPage';
+import { AuctionDetailPage } from './pages/AuctionDetailPage';
+import { CreateAuctionPage } from './pages/CreateAuctionPage';
 import eventsSocketService from './services/eventsSocket';
 import './index.css';
 
@@ -245,7 +250,7 @@ export const App: React.FC = () => {
     return <ResourceDetailPage language={language} translations={TRANSLATIONS} />;
   }
   if (location.pathname === '/escrow-detail') {
-    return <EscrowDetailPage language={language} translations={TRANSLATIONS} />;
+    return <EscrowDetailPage />;
   }
   if (location.pathname === '/link-detail') {
     return <LinkDetailPage language={language} translations={TRANSLATIONS} />;
@@ -363,10 +368,15 @@ export const App: React.FC = () => {
         <Route path="/detective" element={<PrivateDetectivePage />} />
         <Route path="/tree-hole" element={<PrivateTreeHolePage />} />
         <Route path="/casual-games" element={<CasualGamesPage />} />
-        <Route path="/venture-capital" element={<div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex items-center justify-center p-4"><div className="text-center"><p className="text-xl text-purple-600 font-bold">拍卖功能开发中...</p></div></div>} />
+        <Route path="/venture-capital" element={<AuctionPage language={language} />} />
+        <Route path="/auction/:id" element={<AuctionDetailPage language={language} />} />
+        <Route path="/create-auction" element={<CreateAuctionPage language={language} />} />
         <Route path="/escrow-trade" element={<EscrowTradePage />} />
+        <Route path="/escrow/:id" element={<EscrowDetailPage />} />
         <Route path="/friendly-links" element={<FriendlyLinksPage />} />
         <Route path="/seek-resources" element={<SeekResourcesPage />} />
+        <Route path="/bounty/:id" element={<BountyDetailPage />} />
+        <Route path="/publish-bounty" element={<PublishBountyPage />} />
         <Route path="/merchant/:id" element={
           <React.Suspense fallback={<div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div></div>}>
             {React.createElement(
