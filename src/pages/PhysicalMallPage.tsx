@@ -15,20 +15,58 @@ export const PhysicalMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（后端已有Redis缓存，前端不再缓存）
+  // 从后端获取商品数据（先显示缓存，后台更新）
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        // 1. 先从缓存加载（立即显示，即使过期）
+        const cacheKey = `mall_products_PHYSICAL_${sortBy}`;
+        const cached = safeStorage.getItem(cacheKey);
+        if (cached && typeof cached === 'string') {
+          try {
+            const { data } = JSON.parse(cached);
+            setProducts(data);
+            setLoading(false); // 立即显示缓存数据
+            // 预加载图片
+            data.forEach((p: any) => {
+              if (p.images?.[0]) {
+                const img = new Image();
+                img.src = p.images[0];
+              }
+            });
+          } catch (e) {
+            console.warn('缓存解析失败:', e);
+          }
+        }
         
+        // 2. 后台请求最新数据
+        setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
         
+        // 3. 更新页面显示
         setProducts(response.items);
+        
+        // 预加载新图片
+        response.items.forEach((p: any) => {
+          if (p.images?.[0]) {
+            const img = new Image();
+            img.src = p.images[0];
+          }
+        });
+        
+        // 4. 更新缓存
+        try {
+          safeStorage.setItem(cacheKey, JSON.stringify({
+            data: response.items,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {
+          console.warn('缓存失败:', e);
+        }
       } catch (err: any) {
         console.error('获取商品失败:', err);
         setError(err.message || '获取商品失败');

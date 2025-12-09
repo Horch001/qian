@@ -34,15 +34,41 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 从后端加载购物车数据
+  // 从后端加载购物车数据（先显示缓存，后台更新）
   useEffect(() => {
     const loadCartItems = async () => {
       try {
+        // 1. 先从缓存加载（立即显示，即使过期）
+        const cached = localStorage.getItem('cachedCart');
+        if (cached) {
+          try {
+            const { data } = JSON.parse(cached);
+            setCartItems(data);
+            setIsLoading(false); // 立即显示缓存数据
+          } catch (e) {
+            console.warn('缓存解析失败:', e);
+          }
+        }
+        
+        // 2. 后台请求最新数据
         const items = await userApi.getCartItems();
-        setCartItems(items.map((item: any) => ({
+        const formattedItems = items.map((item: any) => ({
           ...item,
-          selected: false, // 默认不选中，避免购物车图标一直显示红点
-        })));
+          selected: false,
+        }));
+        
+        // 3. 更新页面显示
+        setCartItems(formattedItems);
+        
+        // 4. 更新缓存
+        try {
+          localStorage.setItem('cachedCart', JSON.stringify({
+            data: formattedItems,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {
+          console.warn('缓存购物车失败:', e);
+        }
       } catch (error) {
         console.error('加载购物车失败:', error);
       } finally {

@@ -207,7 +207,19 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
     if (activeTab === 'orders' && merchant) {
       const loadOrders = async () => {
         try {
-          // 获取该商家的所有店铺ID
+          // 1. 先从缓存加载（立即显示，即使过期）
+          const cacheKey = `merchant_orders_${merchant.id}`;
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            try {
+              const { data } = JSON.parse(cached);
+              setOrders(data); // 立即显示缓存数据
+            } catch (e) {
+              console.warn('缓存解析失败:', e);
+            }
+          }
+          
+          // 2. 后台请求最新数据
           const allMerchants = await merchantApi.getMyAllMerchants();
           const allMerchantIds = allMerchants.map((m: any) => m.id);
           
@@ -215,11 +227,23 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
           // 筛选该商家所有店铺的订单，并排除有售后的订单
           const currentMerchantOrders = (ordersData || []).filter((o: any) => 
             o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
-            !o.hasActiveAfterSale  // 排除有售后的订单
+            !o.hasActiveAfterSale
           );
           // 默认只显示待发货订单
           const paidOrders = currentMerchantOrders.filter((o: any) => o.orderStatus === 'PAID');
+          
+          // 3. 更新页面显示
           setOrders(paidOrders);
+          
+          // 4. 更新缓存
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              data: paidOrders,
+              timestamp: Date.now(),
+            }));
+          } catch (e) {
+            console.warn('缓存订单失败:', e);
+          }
         } catch (error: any) {
           console.error('加载订单失败:', error);
         }

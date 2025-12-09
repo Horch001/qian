@@ -42,11 +42,36 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
 
   const fetchShops = async () => {
     try {
-      const data = await merchantApi.getMyAllMerchants();
-      setShops(data || []);
-      setLoading(false); // 先显示店铺列表
+      // 1. 先从缓存加载（立即显示，即使过期）
+      const cached = localStorage.getItem('cachedMyShops');
+      if (cached) {
+        try {
+          const { data } = JSON.parse(cached);
+          setShops(data);
+          setLoading(false); // 立即显示缓存数据
+        } catch (e) {
+          console.warn('缓存解析失败:', e);
+        }
+      }
       
-      // 异步获取每个店铺的商品和订单数量（不阻塞页面显示）
+      // 2. 后台请求最新数据
+      const data = await merchantApi.getMyAllMerchants();
+      
+      // 3. 更新页面显示
+      setShops(data || []);
+      setLoading(false);
+      
+      // 4. 更新缓存
+      try {
+        localStorage.setItem('cachedMyShops', JSON.stringify({
+          data: data || [],
+          timestamp: Date.now(),
+        }));
+      } catch (e) {
+        console.warn('缓存店铺列表失败:', e);
+      }
+      
+      // 异步获取统计数据（不阻塞页面）
       if (data && data.length > 0) {
         const stats: { [key: string]: { productCount: number; orderCount: number } } = {};
         for (const shop of data) {

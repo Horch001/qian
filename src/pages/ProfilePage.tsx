@@ -210,7 +210,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     if (user) {
       setUserInfo(user);
       setUsername(user.username || '');
-      setIsLoading(false); // 立即显示用户信息，不等待后端
+      setIsLoading(false); // 立即显示，不等待后端
     }
     
     // 加载地址信息
@@ -372,7 +372,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
     };
     loadOrders();
     
-    // 从后端获取最新用户信息和钱包信息（静默更新，不显示loading）
+    // 从后端获取最新用户信息和钱包信息（后台静默更新）
     const loadBackendData = async () => {
       try {
         // 并行加载用户信息、钱包信息和收货地址
@@ -446,9 +446,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           localStorage.removeItem('walletAddress');
         }
       } catch (error) {
-        console.error('后台更新数据失败:', error);
+        console.error('后台更新失败:', error);
       }
-      // 不设置setIsLoading(false)，因为已经在前面设置过了
+      // 不设置setIsLoading(false)，因为已经在前面立即显示了
     };
     loadBackendData();
   }, []);
