@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown, Check, Search, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { productApi, Product } from '../services/api';
+import { preloadImages } from '../services/imagePreloader';
 import { LOCATION_DATA } from '../constants/locations';
 
 export const OfflinePlaYPage: React.FC = () => {
@@ -51,7 +52,27 @@ export const OfflinePlaYPage: React.FC = () => {
           city: selectedCity || undefined,
         });
         setProducts(response.items);
-        // 不再缓存商品列表到localStorage，避免存储空间超限
+        
+        // 🔥 立即预加载所有商品的主图和副图
+        const allMainAndSubImages: string[] = [];
+        response.items.forEach((product: Product) => {
+          if (product.images && Array.isArray(product.images)) {
+            allMainAndSubImages.push(...product.images);
+          }
+        });
+        if (allMainAndSubImages.length > 0) {
+          preloadImages(allMainAndSubImages, 8000).then(() => {
+            console.log(`[OfflinePlay] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+          });
+        }
+        // 后台预加载详情图
+        setTimeout(() => {
+          response.items.forEach((product: Product) => {
+            if (product.detailImages && product.detailImages.length > 0) {
+              preloadImages(product.detailImages, 10000);
+            }
+          });
+        }, 2000);
       } catch (err: any) {
         console.error('获取陪玩服务失败:', err);
         if (!cached) setError(err.message || '获取陪玩服务失败');

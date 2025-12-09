@@ -7,6 +7,7 @@ import { productApi, Product } from '../services/api';
 import { 
   preloadProductImages, 
   preloadProductListImages, 
+  preloadImages,
   getCachedProducts,
   updateCachedProducts,
   areAllImagesLoaded,
@@ -23,54 +24,78 @@ export const PhysicalMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 获取商品数据（App启动时已预加载好图片，直接显示）
+  // 获取商品数据：先显示缓存，后台更新
   useEffect(() => {
+    const cacheKey = `products_PHYSICAL_${sortBy}`;
+    
+    // 1. 先从缓存加载（立即显示）
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // 缓存10分钟内有效，直接显示
+        if (Date.now() - timestamp < 10 * 60 * 1000 && data.length > 0) {
+          setProducts(data);
+          setLoading(false);
+        }
+      }
+    } catch (e) {
+      // 忽略缓存错误
+    }
+    
+    // 2. 后台请求最新数据
     const fetchProducts = async () => {
       try {
-        // 1. 优先使用预加载缓存（App启动时已加载数据和图片）
-        const cachedProducts = getCachedProducts('PHYSICAL');
-        
-        if (cachedProducts.length > 0 && sortBy === 'default') {
-          // 直接使用缓存数据（图片已预加载）
-          setProducts(cachedProducts);
-          setLoading(false);
-          console.log('[PhysicalMall] 使用预加载数据，直接显示');
-          
-          // 后台预加载所有商品的详情图（为进入详情页做准备）
-          cachedProducts.forEach(product => {
-            preloadProductImages(product);
-          });
-          return;
-        }
-        
-        // 2. 没有缓存时请求数据
-        setLoading(true);
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
-        const productList = response.items;
+        const productList = response.items || [];
         
-        // 更新缓存
-        if (sortBy === 'default') {
-          updateCachedProducts('PHYSICAL', productList);
-        }
-        
-        // 等待主图加载完成后再显示
-        await preloadProductListImages(productList);
         setProducts(productList);
         setLoading(false);
         setError(null);
         
-        // 后台预加载所有商品的详情图
+        // 更新缓存
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: productList,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {
+          // 忽略缓存错误
+        }
+        
+        // 🔥 立即预加载所有商品的主图和副图（为进入详情页做准备）
+        const allMainAndSubImages: string[] = [];
         productList.forEach(product => {
-          preloadProductImages(product);
+          if (product.images && Array.isArray(product.images)) {
+            allMainAndSubImages.push(...product.images);
+          }
         });
+        
+        if (allMainAndSubImages.length > 0) {
+          preloadImages(allMainAndSubImages, 8000).then(() => {
+            console.log(`[PhysicalMall] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+          });
+        }
+        
+        // 后台预加载详情图（不急）
+        setTimeout(() => {
+          productList.forEach(product => {
+            if (product.detailImages && product.detailImages.length > 0) {
+              preloadImages(product.detailImages, 10000);
+            }
+          });
+        }, 2000);
         
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        setError(err.message || '获取商品失败');
+        // 只有在没有缓存数据时才显示错误
+        if (products.length === 0) {
+          setError(err.message || '获取商品失败');
+        }
         setLoading(false);
       }
     };
@@ -107,7 +132,7 @@ export const PhysicalMallPage: React.FC = () => {
     };
   }, [sortBy]);
 
-  // 点击进入详情页（直接跳转，图片已在后台预加载）
+  // 点击进入详情页（主图副图已在列表页预加载）
   const goToDetail = (product: Product) => {
     navigate('/detail', { 
       state: { 
@@ -126,8 +151,8 @@ export const PhysicalMallPage: React.FC = () => {
             vi: product.title,
           },
           images: product.images || [],
-          detailImages: product.detailImages || [], // 传递详情图
-          description: product.description, // 传递商品描述
+          detailImages: product.detailImages || [],
+          description: product.description,
           shop: {
             zh: product.merchant?.shopName || '官方店铺',
             en: product.merchant?.shopName || 'Official Store',

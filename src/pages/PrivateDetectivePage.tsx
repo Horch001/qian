@@ -4,6 +4,7 @@ import { Star, Users, Clock, MapPin, ChevronDown, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
+import { preloadImages } from '../services/imagePreloader';
 
 export const PrivateDetectivePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
@@ -33,7 +34,27 @@ export const PrivateDetectivePage: React.FC = () => {
           sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
-        // 不再缓存商品列表到localStorage，避免存储空间超限
+        
+        // 🔥 立即预加载所有商品的主图和副图
+        const allMainAndSubImages: string[] = [];
+        response.items.forEach((product: Product) => {
+          if (product.images && Array.isArray(product.images)) {
+            allMainAndSubImages.push(...product.images);
+          }
+        });
+        if (allMainAndSubImages.length > 0) {
+          preloadImages(allMainAndSubImages, 8000).then(() => {
+            console.log(`[Detective] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+          });
+        }
+        // 后台预加载详情图
+        setTimeout(() => {
+          response.items.forEach((product: Product) => {
+            if (product.detailImages && product.detailImages.length > 0) {
+              preloadImages(product.detailImages, 10000);
+            }
+          });
+        }, 2000);
       } catch (err: any) {
         console.error('获取服务失败:', err);
         if (!cached) setError(err.message || '获取服务失败');

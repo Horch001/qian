@@ -7,6 +7,7 @@ import { productApi, Product } from '../services/api';
 import { 
   preloadProductImages, 
   preloadProductListImages, 
+  preloadImages,
   getCachedProducts,
   updateCachedProducts,
   isImageLoaded
@@ -21,52 +22,76 @@ export const VirtualMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 获取商品数据（App启动时已预加载好图片，直接显示）
+  // 获取商品数据：先显示缓存，后台更新
   useEffect(() => {
+    const cacheKey = `products_VIRTUAL_${sortBy}`;
+    
+    // 1. 先从缓存加载（立即显示）
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 10 * 60 * 1000 && data.length > 0) {
+          setProducts(data);
+          setLoading(false);
+        }
+      }
+    } catch (e) {
+      // 忽略缓存错误
+    }
+    
+    // 2. 后台请求最新数据
     const fetchProducts = async () => {
       try {
-        // 1. 优先使用预加载缓存
-        const cachedProducts = getCachedProducts('VIRTUAL');
-        
-        if (cachedProducts.length > 0 && sortBy === 'default') {
-          setProducts(cachedProducts);
-          setLoading(false);
-          console.log('[VirtualMall] 使用预加载数据，直接显示');
-          
-          // 后台预加载所有商品的详情图
-          cachedProducts.forEach(product => {
-            preloadProductImages(product);
-          });
-          return;
-        }
-        
-        // 2. 没有缓存时请求数据
-        setLoading(true);
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
-        const productList = response.items;
+        const productList = response.items || [];
         
-        if (sortBy === 'default') {
-          updateCachedProducts('VIRTUAL', productList);
-        }
-        
-        // 等待主图加载完成后再显示
-        await preloadProductListImages(productList);
         setProducts(productList);
         setLoading(false);
         setError(null);
         
-        // 后台预加载所有商品的详情图
+        // 更新缓存
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: productList,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {
+          // 忽略缓存错误
+        }
+        
+        // 🔥 立即预加载所有商品的主图和副图（为进入详情页做准备）
+        const allMainAndSubImages: string[] = [];
         productList.forEach(product => {
-          preloadProductImages(product);
+          if (product.images && Array.isArray(product.images)) {
+            allMainAndSubImages.push(...product.images);
+          }
         });
+        
+        if (allMainAndSubImages.length > 0) {
+          preloadImages(allMainAndSubImages, 8000).then(() => {
+            console.log(`[VirtualMall] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+          });
+        }
+        
+        // 后台预加载详情图（不急）
+        setTimeout(() => {
+          productList.forEach(product => {
+            if (product.detailImages && product.detailImages.length > 0) {
+              preloadImages(product.detailImages, 10000);
+            }
+          });
+        }, 2000);
         
       } catch (err: any) {
         console.error('获取商品失败:', err);
-        setError(err.message || '获取商品失败');
+        if (products.length === 0) {
+          setError(err.message || '获取商品失败');
+        }
         setLoading(false);
       }
     };

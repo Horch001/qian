@@ -3,6 +3,7 @@ import { useOutletContext, useNavigate } from 'react-router-dom';
 import { Star, UserCheck, ShieldCheck, BadgeCheck, MapPin, ChevronDown, Check, Search, Loader2 } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { productApi, Product } from '../services/api';
+import { preloadImages } from '../services/imagePreloader';
 import { safeStorage } from '../utils/safeStorage';
 import { LOCATION_DATA } from '../constants/locations';
 
@@ -44,6 +45,27 @@ export const HomeServicePage: React.FC = () => {
           limit: 20,
         });
         setProducts(response.items);
+        
+        // 🔥 立即预加载所有商品的主图和副图
+        const allMainAndSubImages: string[] = [];
+        response.items.forEach((product: Product) => {
+          if (product.images && Array.isArray(product.images)) {
+            allMainAndSubImages.push(...product.images);
+          }
+        });
+        if (allMainAndSubImages.length > 0) {
+          preloadImages(allMainAndSubImages, 8000).then(() => {
+            console.log(`[HomeService] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+          });
+        }
+        // 后台预加载详情图
+        setTimeout(() => {
+          response.items.forEach((product: Product) => {
+            if (product.detailImages && product.detailImages.length > 0) {
+              preloadImages(product.detailImages, 10000);
+            }
+          });
+        }, 2000);
       } catch (err: any) {
         console.error('获取服务失败:', err);
         setError(err.message || '获取服务失败');

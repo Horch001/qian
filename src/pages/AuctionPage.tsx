@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Language } from '../types';
 import api from '../services/api';
+import { preloadImages } from '../services/imagePreloader';
 
 interface AuctionPageProps {
   language: Language;
@@ -47,7 +48,21 @@ export const AuctionPage: React.FC<AuctionPageProps> = ({ language }) => {
       
       // 处理多种可能的数据结构
       const auctionData = response.data?.data || response.data || [];
-      setAuctions(Array.isArray(auctionData) ? auctionData : []);
+      const auctionList = Array.isArray(auctionData) ? auctionData : [];
+      setAuctions(auctionList);
+      
+      // 🔥 立即预加载所有拍卖的图片
+      const allImages: string[] = [];
+      auctionList.forEach((auction: any) => {
+        if (auction.images && Array.isArray(auction.images)) {
+          allImages.push(...auction.images);
+        }
+      });
+      if (allImages.length > 0) {
+        preloadImages(allImages, 8000).then(() => {
+          console.log(`[Auction] 图片预加载完成: ${allImages.length}张`);
+        });
+      }
     } catch (error) {
       console.error('加载拍卖失败:', error);
     } finally {
