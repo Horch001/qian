@@ -14,12 +14,30 @@ import {
   isImageLoaded
 } from '../services/imagePreloader';
 
+// 初始化时检查缓存
+const getInitialState = (sortBy: string) => {
+  try {
+    const cacheKey = `products_PHYSICAL_${sortBy}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < 10 * 60 * 1000 && data && data.length > 0) {
+        return { products: data, loading: false };
+      }
+    }
+  } catch (e) {}
+  return { products: [], loading: true };
+};
+
 export const PhysicalMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState('default');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  
+  // 🔥 初始化时就从缓存读取，避免骨架屏闪烁
+  const initialState = getInitialState('default');
+  const [products, setProducts] = useState<Product[]>(initialState.products);
+  const [loading, setLoading] = useState(initialState.loading);
   const [imagesReady, setImagesReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -43,12 +61,12 @@ export const PhysicalMallPage: React.FC = () => {
       // 忽略缓存错误
     }
     
-    // 2. 后台请求最新数据
+    // 2. 后台请求最新数据（只获取推广/热门商品）
     const fetchProducts = async () => {
       try {
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
-          sortBy: sortBy === 'default' ? undefined : sortBy,
+          promoted: true, // 🔥 只获取推广/热门商品
           limit: 20,
         });
         const productList = response.items || [];
@@ -256,7 +274,7 @@ export const PhysicalMallPage: React.FC = () => {
           {error || (language === 'zh' ? '暂无商品' : 'No products')}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 pb-4">
           {products.map((product) => (
             <div
               key={product.id}
@@ -274,17 +292,17 @@ export const PhysicalMallPage: React.FC = () => {
               )}
               
               <div className="flex gap-2 h-14">
-                <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner overflow-hidden">
-                  {product.images && product.images.length > 0 ? (
+                <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner overflow-hidden relative">
+                  {/* 默认占位图标（图片加载完成后被覆盖） */}
+                  <div className="absolute inset-0 flex items-center justify-center text-2xl bg-gradient-to-br from-purple-100 to-pink-100">
+                    {product.icon || '📦'}
+                  </div>
+                  {product.images && product.images.length > 0 && (
                     <img 
                       src={product.images[0]} 
                       alt={product.title} 
-                      className="w-full h-full object-contain bg-white"
+                      className="relative w-full h-full object-contain bg-white z-10"
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl">
-                      {product.icon || '📦'}
-                    </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-between h-14 pr-20">
@@ -320,6 +338,14 @@ export const PhysicalMallPage: React.FC = () => {
               </div>
             </div>
           ))}
+          
+          {/* 🔥 底部提示：更多商品请搜索 */}
+          <div className="text-center py-6 text-gray-500 text-sm">
+            <p>{language === 'zh' ? '— 以上为推荐商品 —' : '— Recommended Products —'}</p>
+            <p className="mt-1 text-purple-600 font-medium">
+              {language === 'zh' ? '更多商品请使用搜索功能' : 'Search for more products'}
+            </p>
+          </div>
         </div>
       )}
     </div>

@@ -297,6 +297,7 @@ export const productApi = {
     city?: string;
     page?: number;
     limit?: number;
+    promoted?: boolean; // 只返回推广/热门商品（首页使用）
   }) => {
     const searchParams = new URLSearchParams();
     if (params) {

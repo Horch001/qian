@@ -39,7 +39,7 @@ export const HomeServicePage: React.FC = () => {
         const response = await productApi.getProducts({ 
           categoryType: 'SERVICE',
           keyword: searchText || undefined,
-          sortBy: sortBy === 'default' ? undefined : sortBy,
+          promoted: !searchText, // 🔥 无搜索时只获取推广商品，有搜索时获取全部
           province: selectedProvince || undefined,
           city: selectedCity || undefined,
           limit: 20,
@@ -305,6 +305,15 @@ export const HomeServicePage: React.FC = () => {
               </div>
             </div>
           ))}
+          {/* 底部提示 */}
+          {!searchText && (
+            <div className="text-center py-6 text-gray-500 text-sm">
+              <p>{language === 'zh' ? '— 以上为推荐服务 —' : '— Recommended Services —'}</p>
+              <p className="mt-1 text-purple-600 font-medium">
+                {language === 'zh' ? '更多服务请使用搜索功能' : 'Search for more services'}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -31,7 +31,8 @@ export const PrivateDetectivePage: React.FC = () => {
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'DETECTIVE',
-          sortBy: sortBy === 'default' ? undefined : sortBy,
+          promoted: true, // 🔥 只获取推广/热门商品
+          limit: 20,
         });
         setProducts(response.items);
         
@@ -218,6 +219,13 @@ export const PrivateDetectivePage: React.FC = () => {
               </div>
             </div>
           ))}
+          {/* 底部提示 */}
+          <div className="text-center py-6 text-gray-500 text-sm">
+            <p>{language === 'zh' ? '— 以上为推荐服务 —' : '— Recommended Services —'}</p>
+            <p className="mt-1 text-purple-600 font-medium">
+              {language === 'zh' ? '更多服务请使用搜索功能' : 'Search for more services'}
+            </p>
+          </div>
         </div>
       )}
     </div>
