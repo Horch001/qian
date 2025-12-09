@@ -175,6 +175,13 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             description: productData.description || '',
             parameters: productData.parameters || null,
           };
+          
+          // 🔥 调试日志
+          console.log('[DetailPage] 商品数据加载完成');
+          console.log('[DetailPage] 原始 detailImages:', productData.detailImages);
+          console.log('[DetailPage] 处理后 detailImages:', fullData.detailImages);
+          console.log('[DetailPage] detailImages 数量:', fullData.detailImages?.length);
+          
           setItem(fullData);
           
           // 缓存到sessionStorage（5分钟有效）
@@ -891,7 +898,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         </div>
         
         {/* 详情图展示 - 占满宽度，可点击放大 */}
-        {item.detailImages && item.detailImages.length > 0 && (
+        {item.detailImages && item.detailImages.length > 0 ? (
           <div className="bg-white">
             {item.detailImages.map((img: string, idx: number) => (
               <div 
@@ -902,9 +909,25 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                   setShowImageViewer(true);
                 }}
               >
-                <img src={img} alt={`详情图 ${idx + 1}`} className="w-full h-auto" />
+                <img 
+                  src={img} 
+                  alt={`详情图 ${idx + 1}`} 
+                  className="w-full h-auto"
+                  onLoad={() => console.log(`详情图${idx + 1}加载成功:`, img)}
+                  onError={(e) => {
+                    console.error(`详情图${idx + 1}加载失败:`, img);
+                    e.currentTarget.style.border = '2px solid red';
+                  }}
+                />
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="bg-gray-100 p-8 text-center text-gray-500 text-sm">
+            <p>暂无详情图</p>
+            <p className="text-xs text-red-500 mt-2">
+              调试：detailImages = {JSON.stringify(item.detailImages)}
+            </p>
           </div>
         )}
 
