@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Package, ChevronDown, ChevronUp } from 'lucide-react';
 import { Language, Translations } from '../types';
+import eventsSocketService from '../services/eventsSocket';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -40,6 +41,21 @@ export const AfterSalePage: React.FC<AfterSalePageProps> = ({ language }) => {
 
   useEffect(() => {
     fetchAfterSales();
+
+    // 🔥 监听订单更新（售后也是订单的一部分）
+    const handleOrderUpdate = (order: any) => {
+      console.log('[AfterSalePage] 收到订单更新:', order);
+      // 如果订单有售后，重新加载售后列表
+      if (order.hasActiveAfterSale || order.afterSales) {
+        fetchAfterSales();
+      }
+    };
+
+    eventsSocketService.on('order:updated', handleOrderUpdate);
+
+    return () => {
+      eventsSocketService.off('order:updated', handleOrderUpdate);
+    };
   }, []);
 
   const fetchAfterSales = async () => {

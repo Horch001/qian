@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Store } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { userApi } from '../services/api';
+import eventsSocketService from '../services/eventsSocket';
 
 interface CartItem {
   id: string;
@@ -76,6 +77,19 @@ export const CartPage: React.FC<CartPageProps> = ({ language }) => {
       }
     };
     loadCartItems();
+
+    // 🔥 监听购物车更新（WebSocket 实时推送）
+    const handleCartUpdate = (cart: any) => {
+      console.log('[CartPage] 收到购物车更新:', cart);
+      // 重新加载购物车
+      loadCartItems();
+    };
+
+    eventsSocketService.on('cart:updated', handleCartUpdate);
+
+    return () => {
+      eventsSocketService.off('cart:updated', handleCartUpdate);
+    };
   }, []);
 
   const updateQuantity = async (id: string, delta: number) => {
