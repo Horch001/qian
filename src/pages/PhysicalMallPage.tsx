@@ -15,7 +15,7 @@ export const PhysicalMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（禁用缓存 - 确保功能可用）
+  // 从后端获取商品数据（后端已有Redis缓存，前端不再缓存）
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -25,7 +25,7 @@ export const PhysicalMallPage: React.FC = () => {
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
-          limit: 20, // 明确指定每页 20 条
+          limit: 20,
         });
         
         setProducts(response.items);
