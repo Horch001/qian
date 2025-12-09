@@ -5,6 +5,7 @@ import { Language, Translations } from '../types';
 import { chatApi, ChatMessage, orderApi, authApi, userApi, favoriteApi } from '../services/api';
 import socketService from '../services/socket';
 import { ProductReviews } from '../components/ProductReviews';
+import { preloadImages, isImageLoaded, preloadProductImages } from '../services/imagePreloader';
 
 interface DetailPageProps {
   language: Language;
@@ -115,6 +116,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   });
   const [loadingDetail, setLoadingDetail] = useState(false);
   
+
+  
   // 判断是否是线下服务商品
   const isServiceProduct = item?.category?.type === 'SERVICE' || item?.category?.type === 'OFFLINE_PLAY';
   
@@ -125,6 +128,33 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     const fetchProductDetail = async () => {
       const productId = location.state?.item?.id;
       if (!productId) return;
+
+      // 🔥 清理旧的商品缓存，避免 QuotaExceededError
+      try {
+        const keys = Object.keys(sessionStorage);
+        const productKeys = keys.filter(k => k.startsWith('product_'));
+        
+        // 如果缓存的商品超过 10 个，删除最旧的
+        if (productKeys.length > 10) {
+          const cacheData = productKeys.map(key => {
+            try {
+              const data = JSON.parse(sessionStorage.getItem(key) || '{}');
+              return { key, timestamp: data.timestamp || 0 };
+            } catch {
+              return { key, timestamp: 0 };
+            }
+          });
+          
+          // 按时间排序，删除最旧的
+          cacheData.sort((a, b) => a.timestamp - b.timestamp);
+          const toDelete = cacheData.slice(0, productKeys.length - 10);
+          toDelete.forEach(item => sessionStorage.removeItem(item.key));
+          
+          console.log(`清理了 ${toDelete.length} 个旧的商品缓存`);
+        }
+      } catch (e) {
+        console.warn('清理缓存失败:', e);
+      }
 
       // 检查sessionStorage缓存（会话级别，关闭标签页后清除）
       const cacheKey = `product_detail_${productId}`;
@@ -176,18 +206,28 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             parameters: productData.parameters || null,
           };
           
-          // 🔥 调试日志
-          console.log('[DetailPage] 商品数据加载完成');
-          console.log('[DetailPage] 原始 detailImages:', productData.detailImages);
-          console.log('[DetailPage] 处理后 detailImages:', fullData.detailImages);
-          console.log('[DetailPage] detailImages 数量:', fullData.detailImages?.length);
-          
+          // 立即显示数据
           setItem(fullData);
           
+          // 🔥 后台预加载所有图片（主图+副图+详情图）
+          const allImages = [...(fullData.images || []), ...(fullData.detailImages || [])];
+          if (allImages.length > 0) {
+            preloadImages(allImages, 8000).then(results => {
+              const successCount = results.filter(r => r).length;
+              console.log(`[DetailPage] 图片预加载完成: ${successCount}/${allImages.length}`);
+            });
+          }
+          
           // 缓存到sessionStorage（5分钟有效）
+          // 🔥 缓存详情图 URL（不是图片数据），避免 QuotaExceededError
           try {
+            const cacheData = {
+              ...fullData,
+              // 保留详情图 URL（很小），浏览器会自动缓存图片文件
+              detailImages: fullData.detailImages, 
+            };
             sessionStorage.setItem(cacheKey, JSON.stringify({
-              data: fullData,
+              data: cacheData,
               timestamp: Date.now(),
             }));
           } catch (e) {
@@ -689,8 +729,8 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
   const actionButton = getActionButton();
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
-      <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200">
+    <div className="h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col overflow-hidden">
+      <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -704,7 +744,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         </div>
       </header>
 
-      <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-20">
+      <main className="flex-1 max-w-md w-full mx-auto overflow-y-auto pb-20">
         {/* 主图/视频展示区 - 可点击放大或播放 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden">
           {(() => {
@@ -748,7 +788,11 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                     }`}
                     onClick={() => setCurrentImageIndex(idx)}
                   >
-                    <img src={img} alt={`图片 ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={img} 
+                      alt={`图片 ${idx + 1}`} 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 ))}
               </div>
@@ -913,11 +957,6 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                   src={img} 
                   alt={`详情图 ${idx + 1}`} 
                   className="w-full h-auto"
-                  onLoad={() => console.log(`详情图${idx + 1}加载成功:`, img)}
-                  onError={(e) => {
-                    console.error(`详情图${idx + 1}加载失败:`, img);
-                    e.currentTarget.style.border = '2px solid red';
-                  }}
                 />
               </div>
             ))}
@@ -925,9 +964,6 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
         ) : (
           <div className="bg-gray-100 p-8 text-center text-gray-500 text-sm">
             <p>暂无详情图</p>
-            <p className="text-xs text-red-500 mt-2">
-              调试：detailImages = {JSON.stringify(item.detailImages)}
-            </p>
           </div>
         )}
 

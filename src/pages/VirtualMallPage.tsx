@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, Zap, Shield, Award, DollarSign, ChevronDown, Loader2 } from 'lucide-react';
+import { Zap, Shield, Award, DollarSign, ChevronDown } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
-import { safeStorage } from '../utils/safeStorage';
+import { 
+  preloadProductImages, 
+  preloadProductListImages, 
+  getCachedProducts,
+  updateCachedProducts,
+  isImageLoaded
+} from '../services/imagePreloader';
 
 export const VirtualMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
@@ -15,22 +21,52 @@ export const VirtualMallPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（禁用缓存）
+  // 获取商品数据（App启动时已预加载好图片，直接显示）
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        // 1. 优先使用预加载缓存
+        const cachedProducts = getCachedProducts('VIRTUAL');
+        
+        if (cachedProducts.length > 0 && sortBy === 'default') {
+          setProducts(cachedProducts);
+          setLoading(false);
+          console.log('[VirtualMall] 使用预加载数据，直接显示');
+          
+          // 后台预加载所有商品的详情图
+          cachedProducts.forEach(product => {
+            preloadProductImages(product);
+          });
+          return;
+        }
+        
+        // 2. 没有缓存时请求数据
         setLoading(true);
-        setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
-        setProducts(response.items);
+        const productList = response.items;
+        
+        if (sortBy === 'default') {
+          updateCachedProducts('VIRTUAL', productList);
+        }
+        
+        // 等待主图加载完成后再显示
+        await preloadProductListImages(productList);
+        setProducts(productList);
+        setLoading(false);
+        setError(null);
+        
+        // 后台预加载所有商品的详情图
+        productList.forEach(product => {
+          preloadProductImages(product);
+        });
+        
       } catch (err: any) {
         console.error('获取商品失败:', err);
         setError(err.message || '获取商品失败');
-      } finally {
         setLoading(false);
       }
     };
@@ -67,6 +103,7 @@ export const VirtualMallPage: React.FC = () => {
     };
   }, [sortBy]);
 
+  // 点击进入详情页（直接跳转，图片已在后台预加载）
   const goToDetail = (product: Product) => {
     navigate('/detail', { 
       state: { 
@@ -85,6 +122,7 @@ export const VirtualMallPage: React.FC = () => {
             vi: product.title,
           },
           images: product.images || [],
+          detailImages: product.detailImages || [],
           shop: {
             zh: product.merchant?.shopName || '官方店铺',
             en: product.merchant?.shopName || 'Official Store',
@@ -207,7 +245,11 @@ export const VirtualMallPage: React.FC = () => {
               <div className="flex gap-2 relative">
                 <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 rounded-lg shadow-inner overflow-hidden">
                   {product.images && product.images.length > 0 ? (
-                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain bg-white" loading="lazy" />
+                    <img 
+                      src={product.images[0]} 
+                      alt={product.title} 
+                      className="w-full h-full object-contain bg-white"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl">
                       {product.icon || '🎮'}

@@ -184,9 +184,9 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const allImages = formData.mainImage ? [formData.mainImage, ...formData.subImages] : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col">
+    <div className="h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col overflow-hidden">
       {/* 顶部工具栏 */}
-      <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200">
+      <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -208,7 +208,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         </div>
       </header>
 
-      <main className="flex-1 max-w-md w-full mx-auto overflow-auto pb-4">
+      <main className="flex-1 max-w-md w-full mx-auto overflow-y-auto pb-4">
         {/* 主图展示区 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden relative group">
           {formData.mainImage ? (

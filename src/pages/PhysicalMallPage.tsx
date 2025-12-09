@@ -1,10 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Star, Package, Truck, Shield, ChevronDown, Loader2 } from 'lucide-react';
+import { ShoppingBag, Package, Truck, Shield, ChevronDown } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
-import { safeStorage } from '../utils/safeStorage';
+import { 
+  preloadProductImages, 
+  preloadProductListImages, 
+  getCachedProducts,
+  updateCachedProducts,
+  areAllImagesLoaded,
+  isImageLoaded
+} from '../services/imagePreloader';
 
 export const PhysicalMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
@@ -12,65 +19,58 @@ export const PhysicalMallPage: React.FC = () => {
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [imagesReady, setImagesReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // 从后端获取商品数据（先显示缓存，后台更新）
+  // 获取商品数据（App启动时已预加载好图片，直接显示）
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // 1. 先从缓存加载（立即显示，即使过期）
-        const cacheKey = `mall_products_PHYSICAL_${sortBy}`;
-        const cached = safeStorage.getItem(cacheKey);
-        if (cached && typeof cached === 'string') {
-          try {
-            const { data } = JSON.parse(cached);
-            setProducts(data);
-            setLoading(false); // 立即显示缓存数据
-            // 预加载图片
-            data.forEach((p: any) => {
-              if (p.images?.[0]) {
-                const img = new Image();
-                img.src = p.images[0];
-              }
-            });
-          } catch (e) {
-            console.warn('缓存解析失败:', e);
-          }
+        // 1. 优先使用预加载缓存（App启动时已加载数据和图片）
+        const cachedProducts = getCachedProducts('PHYSICAL');
+        
+        if (cachedProducts.length > 0 && sortBy === 'default') {
+          // 直接使用缓存数据（图片已预加载）
+          setProducts(cachedProducts);
+          setLoading(false);
+          console.log('[PhysicalMall] 使用预加载数据，直接显示');
+          
+          // 后台预加载所有商品的详情图（为进入详情页做准备）
+          cachedProducts.forEach(product => {
+            preloadProductImages(product);
+          });
+          return;
         }
         
-        // 2. 后台请求最新数据
-        setError(null);
+        // 2. 没有缓存时请求数据
+        setLoading(true);
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
           sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
+        const productList = response.items;
         
-        // 3. 更新页面显示
-        setProducts(response.items);
+        // 更新缓存
+        if (sortBy === 'default') {
+          updateCachedProducts('PHYSICAL', productList);
+        }
         
-        // 预加载新图片
-        response.items.forEach((p: any) => {
-          if (p.images?.[0]) {
-            const img = new Image();
-            img.src = p.images[0];
-          }
+        // 等待主图加载完成后再显示
+        await preloadProductListImages(productList);
+        setProducts(productList);
+        setLoading(false);
+        setError(null);
+        
+        // 后台预加载所有商品的详情图
+        productList.forEach(product => {
+          preloadProductImages(product);
         });
         
-        // 4. 更新缓存
-        try {
-          safeStorage.setItem(cacheKey, JSON.stringify({
-            data: response.items,
-            timestamp: Date.now(),
-          }));
-        } catch (e) {
-          console.warn('缓存失败:', e);
-        }
       } catch (err: any) {
         console.error('获取商品失败:', err);
         setError(err.message || '获取商品失败');
-      } finally {
         setLoading(false);
       }
     };
@@ -107,6 +107,7 @@ export const PhysicalMallPage: React.FC = () => {
     };
   }, [sortBy]);
 
+  // 点击进入详情页（直接跳转，图片已在后台预加载）
   const goToDetail = (product: Product) => {
     navigate('/detail', { 
       state: { 
@@ -250,7 +251,11 @@ export const PhysicalMallPage: React.FC = () => {
               <div className="flex gap-2 h-14">
                 <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg shadow-inner overflow-hidden">
                   {product.images && product.images.length > 0 ? (
-                    <img src={product.images[0]} alt={product.title} className="w-full h-full object-contain bg-white" loading="lazy" />
+                    <img 
+                      src={product.images[0]} 
+                      alt={product.title} 
+                      className="w-full h-full object-contain bg-white"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl">
                       {product.icon || '📦'}

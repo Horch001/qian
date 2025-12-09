@@ -55,7 +55,11 @@ import { AuctionPage } from './pages/AuctionPage';
 import { AuctionDetailPage } from './pages/AuctionDetailPage';
 import { CreateAuctionPage } from './pages/CreateAuctionPage';
 import eventsSocketService from './services/eventsSocket';
+import { initializeProductCache } from './services/imagePreloader';
 import './index.css';
+
+// 🔥 App启动时立即预加载商城商品图片
+initializeProductCache();
 
 const HomePage: React.FC<{ 
   language: Language; 
