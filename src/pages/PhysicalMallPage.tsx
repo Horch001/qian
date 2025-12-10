@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Package, Truck, Shield, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Package, Truck, Shield, ChevronDown, Search } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
 import { 
   preloadProductImages, 
@@ -32,6 +31,8 @@ const getInitialState = (sortBy: string) => {
 export const PhysicalMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState(''); // 🔥 输入框的值
+  const [searchText, setSearchText] = useState(''); // 🔥 实际搜索的关键词
   const [sortBy, setSortBy] = useState('default');
   
   // 🔥 初始化时就从缓存读取，避免骨架屏闪烁
@@ -44,7 +45,7 @@ export const PhysicalMallPage: React.FC = () => {
 
   // 获取商品数据：先显示缓存，后台更新
   useEffect(() => {
-    const cacheKey = `products_PHYSICAL_${sortBy}`;
+    const cacheKey = `products_PHYSICAL_${sortBy}_${searchText}`;
     
     // 1. 先从缓存加载（立即显示）
     try {
@@ -61,12 +62,14 @@ export const PhysicalMallPage: React.FC = () => {
       // 忽略缓存错误
     }
     
-    // 2. 后台请求最新数据（只获取推广/热门商品）
+    // 2. 后台请求最新数据
     const fetchProducts = async () => {
       try {
         const response = await productApi.getProducts({ 
           categoryType: 'PHYSICAL',
-          promoted: true, // 🔥 只获取推广/热门商品
+          keyword: searchText || undefined,
+          promoted: !searchText, // 🔥 无搜索时只获取推广商品，有搜索时获取全部
+          sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
         const productList = response.items || [];
@@ -85,28 +88,20 @@ export const PhysicalMallPage: React.FC = () => {
           // 忽略缓存错误
         }
         
-        // 🔥 立即预加载所有商品的主图和副图（为进入详情页做准备）
-        const allMainAndSubImages: string[] = [];
-        productList.forEach(product => {
-          if (product.images && Array.isArray(product.images)) {
-            allMainAndSubImages.push(...product.images);
+        // 🔥 只预加载前5个商品的主图（优化性能）
+        const topProducts = productList.slice(0, 5);
+        const topImages: string[] = [];
+        topProducts.forEach(product => {
+          if (product.images && product.images.length > 0) {
+            topImages.push(product.images[0]); // 只预加载第一张主图
           }
         });
         
-        if (allMainAndSubImages.length > 0) {
-          preloadImages(allMainAndSubImages, 8000).then(() => {
-            console.log(`[PhysicalMall] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
+        if (topImages.length > 0) {
+          preloadImages(topImages, 3000).then(() => {
+            console.log(`[PhysicalMall] 前5个商品主图预加载完成`);
           });
         }
-        
-        // 后台预加载详情图（不急）
-        setTimeout(() => {
-          productList.forEach(product => {
-            if (product.detailImages && product.detailImages.length > 0) {
-              preloadImages(product.detailImages, 10000);
-            }
-          });
-        }, 2000);
         
       } catch (err: any) {
         console.error('获取商品失败:', err);
@@ -148,7 +143,7 @@ export const PhysicalMallPage: React.FC = () => {
     return () => {
       window.removeEventListener('product:updated', handleProductUpdate as any);
     };
-  }, [sortBy]);
+  }, [sortBy, searchText]);
 
   // 点击进入详情页（主图副图已在列表页预加载）
   const goToDetail = (product: Product) => {
@@ -218,8 +213,29 @@ export const PhysicalMallPage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      {/* 搜索框 - 限定在实体商城板块搜索 */}
-      <SimpleSearchBar language={language} translations={translations} categoryType="PHYSICAL" />
+      {/* 搜索框 */}
+      <div className="relative w-full">
+        <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
+          <input 
+            type="text" 
+            value={searchInput} 
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setSearchText(searchInput.trim());
+              }
+            }}
+            placeholder={translations.searchPlaceholder[language]}
+            className="flex-1 px-3 py-2 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-9 rounded-lg" 
+          />
+          <button 
+            onClick={() => setSearchText(searchInput.trim())}
+            className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
+          >
+            <Search size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
       
       {/* 特色功能 */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -231,19 +247,21 @@ export const PhysicalMallPage: React.FC = () => {
         ))}
       </div>
 
-      {/* 筛选下拉框 */}
-      <div className="relative">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
-        >
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label[language]}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      </div>
+      {/* 排序筛选框 - 只在有搜索结果时显示 */}
+      {!loading && searchText && products.length > 0 && (
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label[language]}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      )}
 
       {/* 商品列表 */}
       {loading ? (

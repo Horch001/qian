@@ -15,6 +15,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const navigate = useNavigate();
   const location = useLocation();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // 🔥 初始加载状态
   const [merchant, setMerchant] = useState<any>(null);
   const [allMerchants, setAllMerchants] = useState<Merchant[]>([]);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
@@ -47,12 +48,22 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     CASUAL_GAME: { zh: '休闲游戏', en: 'Casual Games', ko: '캐주얼 게임', vi: 'Trò chơi giải trí' },
   };
 
-  const stateData = location.state as { merchantId?: string; shopName?: string; editProduct?: any } | null;
+  const stateData = location.state as { merchant?: Merchant; merchantId?: string; shopName?: string; editProduct?: any } | null;
   const isEditMode = !!stateData?.editProduct;
 
   useEffect(() => {
     const fetchMerchants = async () => {
       try {
+        // 🔥 如果已经传递了完整的商家对象，直接使用，不显示加载动画
+        if (stateData?.merchant && stateData.merchant.status === 'APPROVED') {
+          setMerchant(stateData.merchant);
+          setSelectedMerchantId(stateData.merchant.id);
+          setAllMerchants([stateData.merchant]);
+          setInitialLoading(false);
+          return;
+        }
+
+        setInitialLoading(true); // 🔥 开始加载
         const merchants = await merchantApi.getMyAllMerchants();
         const approvedMerchants = merchants.filter(m => m.status === 'APPROVED');
         setAllMerchants(approvedMerchants);
@@ -87,6 +98,8 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         }
       } catch (error) {
         console.error('Failed to fetch merchants:', error);
+      } finally {
+        setInitialLoading(false); // 🔥 加载完成
       }
     };
     fetchMerchants();
@@ -157,6 +170,32 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
     }
   };
 
+  // 🔥 初始加载中 - 显示加载动画
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
+        <div className="w-full max-w-md flex flex-col min-h-screen">
+          <header className="p-4 flex items-center justify-center relative">
+            <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
+            <h1 className="text-lg font-bold text-white">
+              {isEditMode 
+                ? getText({ zh: '编辑商品', en: 'Edit Product', ko: '상품 편집', vi: 'Chỉnh sửa sản phẩm' })
+                : getText({ zh: '上传商品', en: 'Upload Product', ko: '상품 업로드', vi: 'Tải lên sản phẩm' })
+              }
+            </h1>
+          </header>
+          <div className="flex-1 flex items-center justify-center p-8 text-center">
+            <div className="text-white">
+              <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+              <p>{getText({ zh: '加载中...', en: 'Loading...', ko: '로딩 중...', vi: 'Đang tải...' })}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 🔥 加载完成后检查商家状态
   if (!merchant || merchant.status !== 'APPROVED') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">

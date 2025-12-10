@@ -218,7 +218,7 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
                         <span className="text-[9px] text-gray-700 font-medium leading-tight">{getText({ zh: '店铺装修', en: 'Edit', ko: '편집', vi: 'Sửa' })}</span>
                       </button>
                       <button
-                        onClick={() => navigate('/upload-product', { state: { merchantId: shop.id, shopName: shop.shopName } })}
+                        onClick={() => navigate('/upload-product', { state: { merchant: shop } })}
                         className="flex flex-col items-center gap-1 py-2.5 px-0.5 bg-white rounded-lg hover:bg-purple-50 transition-colors"
                       >
                         <Upload className="w-5 h-5 text-blue-500" />

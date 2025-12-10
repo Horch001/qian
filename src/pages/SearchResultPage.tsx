@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, Star, Loader2, Package } from 'lucide-react';
+import { ArrowLeft, Search, Star, Loader2, Package, ChevronDown } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { productApi, Product } from '../services/api';
 
@@ -20,6 +20,7 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchKeyword, setSearchKeyword] = useState(keyword);
+  const [sortBy, setSortBy] = useState('default');
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
@@ -34,6 +35,18 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
     CASUAL_GAME: { zh: '休闲游戏', en: 'Casual Games', ko: '캐주얼 게임', vi: 'Trò chơi giải trí' },
   };
 
+  // 排序选项
+  const sortOptions = [
+    { value: 'default', label: { zh: '默认排序', en: 'Default', ko: '기본', vi: 'Mặc định' } },
+    { value: 'sales_desc', label: { zh: '按销量从高到低', en: 'Sales: High to Low', ko: '판매량: 높은순', vi: 'Doanh số: Cao đến thấp' } },
+    { value: 'price_desc', label: { zh: '按价格从高到低', en: 'Price: High to Low', ko: '가격: 높은순', vi: 'Giá: Cao đến thấp' } },
+    { value: 'price_asc', label: { zh: '按价格从低到高', en: 'Price: Low to High', ko: '가격: 낮은순', vi: 'Giá: Thấp đến cao' } },
+    { value: 'newest', label: { zh: '按上架时间从近到远', en: 'Newest First', ko: '최신순', vi: 'Mới nhất' } },
+    { value: 'review_count', label: { zh: '按评价从多到少', en: 'Most Reviewed', ko: '리뷰 많은순', vi: 'Nhiều đánh giá nhất' } },
+    { value: 'merchant_rating', label: { zh: '按商家评分从高到低', en: 'Merchant Rating', ko: '판매자 평점순', vi: 'Đánh giá người bán' } },
+    { value: 'merchant_oldest', label: { zh: '按商家入驻时间从早到晚', en: 'Oldest Merchant', ko: '오래된 판매자순', vi: 'Người bán lâu năm' } },
+  ];
+
   useEffect(() => {
     const fetchProducts = async () => {
       if (!keyword) {
@@ -46,6 +59,7 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
         const response = await productApi.getProducts({
           keyword,
           categoryType: categoryType || undefined,
+          sortBy: sortBy === 'default' ? undefined : sortBy,
         });
         setProducts(response.items);
       } catch (err: any) {
@@ -56,7 +70,7 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
       }
     };
     fetchProducts();
-  }, [keyword, categoryType]);
+  }, [keyword, categoryType, sortBy]);
 
   const handleSearch = () => {
     const trimmed = searchKeyword.trim();
@@ -130,6 +144,24 @@ export const SearchResultPage: React.FC<SearchResultPageProps> = ({ language, tr
             </span>
           )}
         </div>
+
+        {/* 排序筛选框 - 只在有搜索结果时显示 */}
+        {!loading && products.length > 0 && (
+          <div className="px-4 pb-2">
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="w-full px-3 py-2 bg-white/90 backdrop-blur-sm border border-white/20 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-white"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{getText(option.label)}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
 
       {/* 内容区域 */}
       <main className="flex-1 overflow-auto p-4">

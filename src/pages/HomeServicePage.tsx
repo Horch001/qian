@@ -12,7 +12,8 @@ export const HomeServicePage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
-  const [searchText, setSearchText] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // 🔥 输入框的值
+  const [searchText, setSearchText] = useState(''); // 🔥 实际搜索的关键词
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
@@ -178,10 +179,24 @@ export const HomeServicePage: React.FC = () => {
             <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 ${showLocationDropdown ? 'rotate-180' : ''}`} strokeWidth={2.5} />
           </button>
           <div className="w-[1px] h-4 bg-gray-300 mx-1"></div>
-          <input type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
+          <input 
+            type="text" 
+            value={searchInput} 
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setSearchText(searchInput.trim());
+              }
+            }}
             placeholder={translations.searchPlaceholder[language]}
-            className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0" />
-          <div className="absolute right-3 text-gray-500 pointer-events-none"><Search size={18} strokeWidth={2.5} /></div>
+            className="flex-1 py-1.5 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-full min-w-0" 
+          />
+          <button 
+            onClick={() => setSearchText(searchInput.trim())}
+            className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
+          >
+            <Search size={18} strokeWidth={2.5} />
+          </button>
         </div>
         {showLocationDropdown && (
           <div className="absolute top-full left-0 mt-1.5 w-48 bg-white/95 backdrop-blur-xl rounded-lg border border-white/50 shadow-xl overflow-hidden max-h-[60vh] flex flex-col z-50">
@@ -234,15 +249,21 @@ export const HomeServicePage: React.FC = () => {
         ))}
       </div>
 
-      <div className="relative">
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400">
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label[language]}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      </div>
+      {/* 排序筛选框 - 只在有搜索结果时显示 */}
+      {!loading && searchText && products.length > 0 && (
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label[language]}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">

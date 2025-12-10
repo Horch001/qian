@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Zap, Shield, Award, DollarSign, ChevronDown } from 'lucide-react';
+import { Zap, Shield, Award, DollarSign, ChevronDown, Search } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
 import { 
   preloadProductImages, 
@@ -31,6 +30,8 @@ const getInitialState = (sortBy: string) => {
 export const VirtualMallPage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [sortBy, setSortBy] = useState('default');
   
   // 🔥 初始化时就从缓存读取，避免骨架屏闪烁
@@ -42,7 +43,7 @@ export const VirtualMallPage: React.FC = () => {
 
   // 获取商品数据：先显示缓存，后台更新
   useEffect(() => {
-    const cacheKey = `products_VIRTUAL_${sortBy}`;
+    const cacheKey = `products_VIRTUAL_${sortBy}_${searchText}`;
     
     // 1. 先从缓存加载（立即显示）
     try {
@@ -63,7 +64,9 @@ export const VirtualMallPage: React.FC = () => {
       try {
         const response = await productApi.getProducts({ 
           categoryType: 'VIRTUAL',
-          promoted: true, // 🔥 只获取推广/热门商品
+          keyword: searchText || undefined,
+          promoted: !searchText,
+          sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
         const productList = response.items || [];
@@ -144,7 +147,7 @@ export const VirtualMallPage: React.FC = () => {
     return () => {
       window.removeEventListener('product:updated', handleProductUpdate as any);
     };
-  }, [sortBy]);
+  }, [sortBy, searchText]);
 
   // 点击进入详情页（直接跳转，图片已在后台预加载）
   const goToDetail = (product: Product) => {
@@ -213,8 +216,29 @@ export const VirtualMallPage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      {/* 搜索框 - 限定在虚拟商城板块搜索 */}
-      <SimpleSearchBar language={language} translations={translations} categoryType="VIRTUAL" />
+      {/* 搜索框 */}
+      <div className="relative w-full">
+        <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
+          <input 
+            type="text" 
+            value={searchInput} 
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setSearchText(searchInput.trim());
+              }
+            }}
+            placeholder={translations.searchPlaceholder[language]}
+            className="flex-1 px-3 py-2 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-9 rounded-lg" 
+          />
+          <button 
+            onClick={() => setSearchText(searchInput.trim())}
+            className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
+          >
+            <Search size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
       
       {/* 特色功能 */}
       <div className="grid grid-cols-4 gap-1.5">
@@ -226,19 +250,21 @@ export const VirtualMallPage: React.FC = () => {
         ))}
       </div>
 
-      {/* 筛选下拉框 */}
-      <div className="relative">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
-        >
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label[language]}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      </div>
+      {/* 排序筛选框 - 只在有搜索结果时显示 */}
+      {!loading && searchText && products.length > 0 && (
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label[language]}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      )}
 
       {/* 商品列表 */}
       {loading ? (

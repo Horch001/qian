@@ -668,7 +668,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                     {expandedProduct === product.id && (
                       <div className="px-3 pb-3 flex gap-2">
                         <button
-                          onClick={() => navigate('/upload-product', { state: { merchantId: merchant.id, shopName: merchant.shopName, editProduct: product } })}
+                          onClick={() => navigate('/upload-product', { state: { merchant, editProduct: product } })}
                           className="flex-1 py-2 bg-purple-500 text-white rounded text-xs font-bold hover:bg-purple-600 active:scale-95 transition-all"
                         >
                           {getText({ zh: '编辑', en: 'Edit', ko: '편집', vi: 'Sửa' })}
@@ -1029,7 +1029,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-purple-600 to-transparent pointer-events-none">
             <div className="max-w-md mx-auto pointer-events-auto">
               <button
-                onClick={() => navigate('/upload-product', { state: { merchantId: merchant.id, shopName: merchant.shopName } })}
+                onClick={() => navigate('/upload-product', { state: { merchant } })}
                 className="w-full py-3 bg-white rounded-full flex items-center justify-center gap-2 text-purple-600 font-bold shadow-lg hover:bg-gray-50 active:scale-95 transition-all"
               >
                 <Plus size={20} />

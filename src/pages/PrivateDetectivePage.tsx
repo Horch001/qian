@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { Star, Users, Clock, MapPin, ChevronDown, Loader2 } from 'lucide-react';
+import { Star, Users, Clock, MapPin, ChevronDown, Loader2, Search } from 'lucide-react';
 import { Language, Translations } from '../types';
-import { SimpleSearchBar } from '../components/SimpleSearchBar';
 import { productApi, Product } from '../services/api';
 import { preloadImages } from '../services/imagePreloader';
 
 export const PrivateDetectivePage: React.FC = () => {
   const { language, translations } = useOutletContext<{ language: Language; translations: Translations }>();
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchText, setSearchText] = useState('');
   const [sortBy, setSortBy] = useState('default');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export const PrivateDetectivePage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const cacheKey = `products:DETECTIVE:${sortBy}`;
+    const cacheKey = `products:DETECTIVE:${sortBy}:${searchText}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
@@ -31,7 +32,9 @@ export const PrivateDetectivePage: React.FC = () => {
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'DETECTIVE',
-          promoted: true, // 🔥 只获取推广/热门商品
+          keyword: searchText || undefined,
+          promoted: !searchText,
+          sortBy: sortBy === 'default' ? undefined : sortBy,
           limit: 20,
         });
         setProducts(response.items);
@@ -89,7 +92,7 @@ export const PrivateDetectivePage: React.FC = () => {
     return () => {
       window.removeEventListener('product:updated', handleProductUpdate as any);
     };
-  }, [sortBy]);
+  }, [sortBy, searchText]);
 
   const goToDetail = (product: Product) => {
     navigate('/detail', { 
@@ -137,7 +140,29 @@ export const PrivateDetectivePage: React.FC = () => {
 
   return (
     <div className="space-y-1">
-      <SimpleSearchBar language={language} translations={translations} categoryType="DETECTIVE" />
+      {/* 搜索框 */}
+      <div className="relative w-full">
+        <div className="relative flex items-center w-full rounded-lg border border-gray-400 bg-white shadow-sm transition-colors focus-within:border-purple-500">
+          <input 
+            type="text" 
+            value={searchInput} 
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setSearchText(searchInput.trim());
+              }
+            }}
+            placeholder={translations.searchPlaceholder[language]}
+            className="flex-1 px-3 py-2 pr-10 outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400 h-9 rounded-lg" 
+          />
+          <button 
+            onClick={() => setSearchText(searchInput.trim())}
+            className="absolute right-3 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer"
+          >
+            <Search size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
       
       <div className="grid grid-cols-4 gap-1.5">
         {features.map((feature, idx) => (
@@ -148,15 +173,21 @@ export const PrivateDetectivePage: React.FC = () => {
         ))}
       </div>
 
-      <div className="relative">
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}
-          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400">
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>{option.label[language]}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-      </div>
+      {/* 排序筛选框 - 只在有搜索结果时显示 */}
+      {!loading && searchText && products.length > 0 && (
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 appearance-none cursor-pointer focus:outline-none focus:border-purple-400"
+          >
+            {sortOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label[language]}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">
