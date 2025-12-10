@@ -100,10 +100,21 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
   const announcementText = getAnnouncementText();
   const announcementContent = getAnnouncementContent();
 
+  // 处理公告点击
+  const handleAnnouncementClick = () => {
+    // 如果有跳转链接，直接跳转
+    if (announcement?.link) {
+      window.open(announcement.link, '_blank');
+    } else {
+      // 否则打开详情弹窗
+      setIsModalOpen(true);
+    }
+  };
+
   return (
     <>
       <div 
-        onClick={() => setIsModalOpen(true)}
+        onClick={handleAnnouncementClick}
         className="w-full bg-purple-900/5 backdrop-blur-sm border-b border-purple-900/5 h-7 flex items-center overflow-hidden px-3 cursor-pointer active:bg-purple-900/10 transition-colors"
       >
         <div className="flex items-center gap-1.5 text-yellow-300 z-10 bg-transparent pr-2 shrink-0">
