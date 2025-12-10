@@ -27,9 +27,14 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
     fetchAnnouncement();
     
     // 监听WebSocket公告更新 - 实时同步
-    const handleAnnouncementUpdate = (data: Announcement) => {
+    const handleAnnouncementUpdate = (data: any) => {
       console.log('[AnnouncementBar] Received announcement update:', data);
-      setAnnouncement(data);
+      // 如果是删除事件，清空公告
+      if (data.deleted) {
+        setAnnouncement(null);
+      } else {
+        setAnnouncement(data);
+      }
     };
     
     eventsSocketService.on('announcement:updated', handleAnnouncementUpdate);
