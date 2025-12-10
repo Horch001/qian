@@ -35,38 +35,49 @@ export const HomeServicePage: React.FC = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        const cacheKey = `service_${selectedProvince}_${selectedCity}_${searchText}`;
+        
+        // 先从缓存读取
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            if (Date.now() - timestamp < 30 * 60 * 1000) {
+              setProducts(data);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {}
+        
         setLoading(true);
         setError(null);
         const response = await productApi.getProducts({ 
           categoryType: 'SERVICE',
           keyword: searchText || undefined,
-          promoted: !searchText, // 🔥 无搜索时只获取推广商品，有搜索时获取全部
+          promoted: !searchText,
           province: selectedProvince || undefined,
           city: selectedCity || undefined,
           limit: 20,
         });
         setProducts(response.items);
         
-        // 🔥 立即预加载所有商品的主图和副图
-        const allMainAndSubImages: string[] = [];
-        response.items.forEach((product: Product) => {
-          if (product.images && Array.isArray(product.images)) {
-            allMainAndSubImages.push(...product.images);
+        // 保存到缓存
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ data: response.items, timestamp: Date.now() }));
+        } catch (e) {}
+        
+        // 只预加载前5个商品的主图
+        const topProducts = response.items.slice(0, 5);
+        const topImages: string[] = [];
+        topProducts.forEach((product: Product) => {
+          if (product.images && product.images.length > 0) {
+            topImages.push(product.images[0]);
           }
         });
-        if (allMainAndSubImages.length > 0) {
-          preloadImages(allMainAndSubImages, 8000).then(() => {
-            console.log(`[HomeService] 主图副图预加载完成: ${allMainAndSubImages.length}张`);
-          });
+        if (topImages.length > 0) {
+          preloadImages(topImages, 3000);
         }
-        // 后台预加载详情图
-        setTimeout(() => {
-          response.items.forEach((product: Product) => {
-            if (product.detailImages && product.detailImages.length > 0) {
-              preloadImages(product.detailImages, 10000);
-            }
-          });
-        }, 2000);
       } catch (err: any) {
         console.error('获取服务失败:', err);
         setError(err.message || '获取服务失败');
