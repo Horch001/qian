@@ -534,7 +534,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           
           const payment = await Pi.createPayment({
             amount: totalPrice,
-            memo: `购买商品: ${item.title?.[language] || item.title || '商品'}`,
+            memo: `购买商品: ${typeof item.title === 'string' ? item.title : (item.title?.[language] || item.title || '商品')}`,
             metadata: { orderId: order.id },
           }, {
             onReadyForServerApproval: async (paymentId: string) => {
@@ -761,7 +761,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             return (
               <img 
                 src={currentImage} 
-                alt={item.title?.[language] || '商品'} 
+                alt={typeof item.title === 'string' ? item.title : (item.title?.[language] || '商品')} 
                 className="w-full h-full object-cover cursor-pointer" 
                 onClick={() => {
                   setViewerImage(currentImage);
@@ -805,7 +805,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
           <div className="mb-2">
             <span className="text-2xl font-bold text-red-600">{item.price}π</span>
           </div>
-          <h2 className="text-base font-bold text-gray-800 leading-relaxed">{item.title?.[language] || item.name?.[language] || item.resource?.[language] || '商品'}</h2>
+          <h2 className="text-base font-bold text-gray-800 leading-relaxed">
+            {typeof item.title === 'string' ? item.title : (item.title?.[language] || item.name?.[language] || item.resource?.[language] || '商品')}
+          </h2>
           <div className="flex items-center gap-4 text-sm text-gray-600 mt-3">
             <span>{language === 'zh' ? '评分' : language === 'en' ? 'Rating' : language === 'ko' ? '평점' : 'Đánh giá'} <span className="font-bold">{item.rating || 4.8}</span></span>
             <span>|</span>
@@ -1003,7 +1005,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
                 )}
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-gray-800">{item.title?.[language] || '商品'}</h3>
+                <h3 className="font-bold text-gray-800">
+                  {typeof item.title === 'string' ? item.title : (item.title?.[language] || '商品')}
+                </h3>
                 <p className="text-red-600 font-bold text-lg">{item.price}π</p>
               </div>
               <button onClick={() => setShowCartModal(false)} className="p-1"><X className="w-5 h-5 text-gray-400" /></button>
@@ -1201,7 +1205,9 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
             )}
 
             <div className="bg-gray-50 rounded-lg p-3 mb-4 text-left text-sm">
-              <p><span className="text-gray-500">{language === 'zh' ? '商品：' : 'Item: '}</span>{item.title?.[language]}</p>
+              <p><span className="text-gray-500">{language === 'zh' ? '商品：' : 'Item: '}</span>
+                {typeof item.title === 'string' ? item.title : item.title?.[language]}
+              </p>
               <p><span className="text-gray-500">{language === 'zh' ? '规格：' : 'Spec: '}</span>{selectedSpec}</p>
               <p><span className="text-gray-500">{language === 'zh' ? '数量：' : 'Qty: '}</span>{quantity}</p>
               <p><span className="text-gray-500">{language === 'zh' ? '金额：' : 'Amount: '}</span><span className="text-red-600 font-bold">{item.price * quantity}π</span></p>
