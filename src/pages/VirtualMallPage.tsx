@@ -46,6 +46,7 @@ export const VirtualMallPage: React.FC = () => {
     const cacheKey = `products_VIRTUAL_${sortBy}_${searchText}`;
     
     // 1. 先从缓存加载（立即显示）
+    let hasCache = false;
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -53,13 +54,20 @@ export const VirtualMallPage: React.FC = () => {
         if (Date.now() - timestamp < 30 * 60 * 1000 && data.length > 0) {
           setProducts(data);
           setLoading(false);
+          hasCache = true;
+          // 有缓存就不再请求API，直接返回
+          return;
         }
       }
     } catch (e) {
       // 忽略缓存错误
     }
     
-    // 2. 后台请求最新数据
+    // 2. 只有没有缓存时才请求API
+    if (!hasCache) {
+      setLoading(true);
+    }
+    
     const fetchProducts = async () => {
       try {
         const response = await productApi.getProducts({ 
