@@ -19,7 +19,7 @@ const getInitialState = (sortBy: string) => {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < 10 * 60 * 1000 && data && data.length > 0) {
+      if (Date.now() - timestamp < 30 * 60 * 1000 && data && data.length > 0) {
         return { products: data, loading: false };
       }
     }
@@ -50,7 +50,7 @@ export const VirtualMallPage: React.FC = () => {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 10 * 60 * 1000 && data.length > 0) {
+        if (Date.now() - timestamp < 30 * 60 * 1000 && data.length > 0) {
           setProducts(data);
           setLoading(false);
         }
