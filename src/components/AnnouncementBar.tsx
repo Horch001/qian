@@ -100,21 +100,10 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
   const announcementText = getAnnouncementText();
   const announcementContent = getAnnouncementContent();
 
-  // 处理公告点击
-  const handleAnnouncementClick = () => {
-    // 如果有跳转链接，直接跳转
-    if (announcement?.link) {
-      window.open(announcement.link, '_blank');
-    } else {
-      // 否则打开详情弹窗
-      setIsModalOpen(true);
-    }
-  };
-
   return (
     <>
       <div 
-        onClick={handleAnnouncementClick}
+        onClick={() => setIsModalOpen(true)}
         className="w-full bg-purple-900/5 backdrop-blur-sm border-b border-purple-900/5 h-7 flex items-center overflow-hidden px-3 cursor-pointer active:bg-purple-900/10 transition-colors"
       >
         <div className="flex items-center gap-1.5 text-yellow-300 z-10 bg-transparent pr-2 shrink-0">
@@ -152,12 +141,25 @@ export const AnnouncementBar: React.FC<AnnouncementBarProps> = ({ language, tran
               {announcementContent}
             </div>
 
-            <button 
-              onClick={() => setIsModalOpen(false)}
-              className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition-colors shadow-lg shadow-purple-500/30"
-            >
-              {translations.iKnow[language]}
-            </button>
+            <div className="flex gap-3">
+              {announcement?.link && (
+                <button 
+                  onClick={() => {
+                    window.open(announcement.link, '_blank');
+                    setIsModalOpen(false);
+                  }}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm transition-colors shadow-lg shadow-blue-500/30"
+                >
+                  查看详情 →
+                </button>
+              )}
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className={`${announcement?.link ? 'flex-1' : 'w-full'} py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm transition-colors shadow-lg shadow-purple-500/30`}
+              >
+                {translations.iKnow[language]}
+              </button>
+            </div>
           </div>
         </div>
       )}

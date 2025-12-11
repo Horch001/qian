@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus, MapPin, Check } from 'lucide-react';
+import { ArrowLeft, Upload, AlertTriangle, X, ImagePlus, Store, Eye, Edit3, Save, Plus, MapPin, Check, Shield } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi, Merchant } from '../services/api';
 import { compressImage, COMPRESS_PRESETS, formatFileSize, getCompressedSize, checkImageQuality } from '../utils/imageCompressor';
 import { LOCATION_DATA } from '../constants/locations';
+import { ReviewRulesModal } from '../components/ReviewRulesModal';
 
 interface UploadProductPageProps {
   language: Language;
@@ -21,6 +22,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const [selectedMerchantId, setSelectedMerchantId] = useState<string>('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showServiceAreaModal, setShowServiceAreaModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
   const [selectedProvince, setSelectedProvince] = useState('');
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
   const [formData, setFormData] = useState({
@@ -248,6 +250,23 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
       </header>
 
       <main className="flex-1 max-w-md w-full mx-auto overflow-y-auto pb-4">
+        {/* AI自动审核提示 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mx-4 mb-4 flex gap-3">
+          <Shield className="text-blue-600 flex-shrink-0" size={24} />
+          <div>
+            <h3 className="font-bold text-blue-900 mb-1">{getText({ zh: 'AI自动审核', en: 'AI Auto Review', ko: 'AI 자동 심사', vi: 'Xét duyệt tự động AI' })}</h3>
+            <p className="text-sm text-blue-800 mb-2">
+              {getText({ zh: '商品提交后将自动审核，符合规则的商品几分钟内上架', en: 'Auto-review enabled, compliant products listed in minutes', ko: 'AI 자동 심사 활성화, 규정 준수 상품은 몇 분 내에 등록됩니다', vi: 'Xét duyệt tự động được bật, sản phẩm tuân thủ được niêm yết trong vài phút' })}
+            </p>
+            <button
+              onClick={() => setShowRulesModal(true)}
+              className="text-sm text-blue-600 font-bold underline"
+            >
+              {getText({ zh: '查看审核规则和违规处罚 →', en: 'View Rules & Penalties →', ko: '규칙 및 처벌 보기 →', vi: 'Xem quy tắc & hình phạt →' })}
+            </button>
+          </div>
+        </div>
+
         {/* 主图展示区 */}
         <div className="bg-white w-full aspect-square flex items-center justify-center overflow-hidden relative group">
           {formData.mainImage ? (
@@ -736,6 +755,13 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
           </div>
         </div>
       )}
+
+      {/* 审核规则弹窗 */}
+      <ReviewRulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        type="product"
+      />
     </div>
   );
 };

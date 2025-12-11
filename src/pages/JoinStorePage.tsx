@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Store, User, Building2, Package, FileText, AlertCircle, CheckCircle, Loader2, Mail, Upload, CreditCard } from 'lucide-react';
+import { ArrowLeft, Store, User, Building2, Package, FileText, AlertCircle, CheckCircle, Loader2, Mail, Upload, CreditCard, Shield } from 'lucide-react';
 import { Language, Translations } from '../types';
 import { merchantApi } from '../services/api';
+import { ReviewRulesModal } from '../components/ReviewRulesModal';
 
 interface JoinStorePageProps {
   language: Language;
@@ -30,6 +31,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
@@ -134,6 +136,23 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
 
         <main className="flex-1 overflow-auto p-4">
         {error && <div className="bg-red-500/20 rounded-xl p-3 mb-4"><p className="text-white text-sm">{error}</p></div>}
+
+        {/* AI自动审核提示 */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
+          <Shield className="text-blue-600 flex-shrink-0" size={24} />
+          <div>
+            <h3 className="font-bold text-blue-900 mb-1">{getText({ zh: 'AI自动审核', en: 'AI Auto Review', ko: 'AI 자동 심사', vi: 'Xét duyệt tự động AI' })}</h3>
+            <p className="text-sm text-blue-800 mb-2">
+              {getText({ zh: '本平台采用AI智能审核，符合规则的申请将在几分钟内自动通过', en: 'AI auto-review enabled, compliant applications approved in minutes', ko: 'AI 자동 심사 활성화, 규정 준수 신청은 몇 분 내에 승인됩니다', vi: 'Xét duyệt tự động AI được bật, đơn đăng ký tuân thủ được phê duyệt trong vài phút' })}
+            </p>
+            <button
+              onClick={() => setShowRulesModal(true)}
+              className="text-sm text-blue-600 font-bold underline"
+            >
+              {getText({ zh: '查看审核规则和违规处罚 →', en: 'View Rules & Penalties →', ko: '규칙 및 처벌 보기 →', vi: 'Xem quy tắc & hình phạt →' })}
+            </button>
+          </div>
+        </div>
 
         <div className="bg-white rounded-xl p-4 space-y-4">
           {/* 入驻板块 - 移到第一个 */}
@@ -298,6 +317,13 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
         <p className="mt-1">{getText({ zh: '当前余额', en: 'Balance', ko: '잔액', vi: 'Số dư' })}: <span className={userBalance >= 1 ? 'text-green-300 font-bold' : 'text-red-300 font-bold'}>{userBalance}π</span></p>
       </div>
       </div>
+
+      {/* 审核规则弹窗 */}
+      <ReviewRulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        type="merchant"
+      />
     </div>
   );
 };
