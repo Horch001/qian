@@ -52,16 +52,23 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
     const piUser = localStorage.getItem('piUserInfo');
     const emailUser = localStorage.getItem('userInfo');
     const user = piUser ? JSON.parse(piUser) : emailUser ? JSON.parse(emailUser) : null;
-    if (user) setUserBalance(parseFloat(user.balance) || 0);
+    if (user) {
+      setUserBalance(parseFloat(user.balance) || 0);
+    }
+    
+    // 自动填充邮箱（从单独的存储中读取）
+    const savedEmail = localStorage.getItem('userEmail');
+    if (savedEmail) {
+      setFormData(prev => ({ ...prev, email: savedEmail }));
+    } else if (user?.email) {
+      // 如果userEmail不存在，尝试从user对象读取
+      setFormData(prev => ({ ...prev, email: user.email }));
+    }
   }, []);
 
 
   const handleSubmit = async () => {
     setError('');
-    if (userBalance < 1) {
-      setError(getText({ zh: '账户余额不足1π，无法申请入驻', en: 'Balance less than 1π', ko: '잔액이 1π 미만입니다', vi: 'Số dư dưới 1π' }));
-      return;
-    }
     if (!formData.storeName.trim()) {
       setError(getText({ zh: '请输入店铺名称', en: 'Please enter store name', ko: '상점 이름을 입력하세요', vi: 'Vui lòng nhập tên cửa hàng' }));
       return;
@@ -127,14 +134,14 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
-      <div className="w-full max-w-md flex flex-col min-h-screen">
-        <header className="p-4 flex items-center justify-center relative">
+    <div className="bg-gradient-to-b from-purple-600 to-pink-500 min-h-screen">
+      <div className="max-w-md mx-auto">
+        <header className="p-4 flex items-center justify-center relative sticky top-0 bg-purple-600 z-10">
           <button onClick={() => navigate(-1)} className="text-white absolute left-4"><ArrowLeft size={24} /></button>
           <h1 className="text-lg font-bold text-white">{getText({ zh: '商家入驻申请', en: 'Seller Application', ko: '판매자 신청', vi: 'Đăng ký bán hàng' })}</h1>
         </header>
 
-        <main className="flex-1 overflow-auto p-4">
+        <main className="p-4 pb-6">
         {error && <div className="bg-red-500/20 rounded-xl p-3 mb-4"><p className="text-white text-sm">{error}</p></div>}
 
         {/* AI自动审核提示 */}
@@ -206,7 +213,8 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
           {/* 邮箱 */}
           <div>
             <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><Mail className="w-4 h-4" />{getText({ zh: '邮箱', en: 'Email', ko: '이메일', vi: 'Email' })} *</label>
-            <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="example@email.com" className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm" />
+            <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="example@email.com" className="w-full px-4 py-3 bg-gray-100 rounded-lg text-sm" disabled />
+            <p className="text-xs text-gray-500 mt-1">{getText({ zh: '已自动填充您的账号邮箱', en: 'Auto-filled from your account', ko: '계정에서 자동 입력됨', vi: 'Tự động điền từ tài khoản' })}</p>
           </div>
 
           {/* 主体类型 */}
@@ -304,18 +312,17 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
           </div>
 
           {/* 提交按钮 */}
-          <button onClick={handleSubmit} disabled={userBalance < 1 || isSubmitting} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold disabled:opacity-50 disabled:bg-gray-400 flex items-center justify-center gap-2">
+          <button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white rounded-xl font-bold disabled:opacity-50 disabled:bg-gray-400 flex items-center justify-center gap-2">
             {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
             {isSubmitting ? getText({ zh: '提交中...', en: 'Submitting...', ko: '제출 중...', vi: 'Đang gửi...' }) : getText({ zh: '提交申请', en: 'Submit', ko: '제출', vi: 'Gửi' })}
           </button>
         </div>
-      </main>
 
-      {/* 底部余额提示 */}
-      <div className="p-4 text-center text-white text-xs bg-purple-700/30">
-        <p>💡 {getText({ zh: '提示：入驻需要账户余额≥1π', en: 'Tip: Balance ≥1π required', ko: '팁: 잔액 ≥1π 필요', vi: 'Mẹo: Cần số dư ≥1π' })}</p>
-        <p className="mt-1">{getText({ zh: '当前余额', en: 'Balance', ko: '잔액', vi: 'Số dư' })}: <span className={userBalance >= 1 ? 'text-green-300 font-bold' : 'text-red-300 font-bold'}>{userBalance}π</span></p>
-      </div>
+        {/* 底部提示 */}
+        <div className="mt-4 p-4 text-center text-white text-xs bg-purple-700/30 rounded-xl">
+          <p>💡 {getText({ zh: '提示：提交申请后将进入AI智能审核流程', en: 'Tip: AI review after submission', ko: '팁: 제출 후 AI 심사', vi: 'Mẹo: Xét duyệt AI sau khi gửi' })}</p>
+        </div>
+      </main>
       </div>
 
       {/* 审核规则弹窗 */}
