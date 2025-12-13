@@ -72,6 +72,11 @@ class EventsSocketService {
     this.socket.on('wallet:updated', (wallet) => {
       this.emit('wallet:updated', wallet);
     });
+
+    // 系统设置更新事件
+    this.socket.on('system:settings-updated', (settings) => {
+      this.emit('system:settings-updated', settings);
+    });
   }
 
   on(event: string, callback: Function) {

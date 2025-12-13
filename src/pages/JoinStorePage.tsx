@@ -4,6 +4,7 @@ import { ArrowLeft, Store, User, Building2, Package, FileText, AlertCircle, Chec
 import { Language, Translations } from '../types';
 import { merchantApi } from '../services/api';
 import { ReviewRulesModal } from '../components/ReviewRulesModal';
+import { eventsSocketService } from '../services/eventsSocket';
 
 interface JoinStorePageProps {
   language: Language;
@@ -13,6 +14,7 @@ interface JoinStorePageProps {
 export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   const navigate = useNavigate();
   const [userBalance, setUserBalance] = useState(0);
+  const [depositAmount, setDepositAmount] = useState(100); // 默认100π，从API获取
   const [existingCategories, setExistingCategories] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     storeName: '',
@@ -49,23 +51,30 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
   const needsVerification = false; // 不再要求实名认证
 
   useEffect(() => {
+    // 获取系统设置中的保证金金额
+    const fetchSettings = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${API_URL}/api/v1/system/settings`);
+        if (response.ok) {
+          const settings = await response.json();
+          const deposit = parseFloat(settings.merchantDeposit) || 100;
+          setDepositAmount(deposit);
+        }
+      } catch (err) {
+        console.error('获取系统设置失败:', err);
+        // 失败时使用默认值100
+      }
+    };
+    
+    fetchSettings();
+    
     const piUser = localStorage.getItem('piUserInfo');
     const emailUser = localStorage.getItem('userInfo');
     const user = piUser ? JSON.parse(piUser) : emailUser ? JSON.parse(emailUser) : null;
     if (user) {
       const balance = parseFloat(user.balance) || 0;
       setUserBalance(balance);
-      
-      // 检查余额是否足够（假设保证金为100π）
-      const depositAmount = 100;
-      if (balance < depositAmount) {
-        setError(getText({ 
-          zh: `余额不足！申请入驻需要${depositAmount}π保证金，您当前余额为${balance}π，请先充值`, 
-          en: `Insufficient balance! ${depositAmount}π deposit required, your balance is ${balance}π`, 
-          ko: `잔액 부족! ${depositAmount}π 보증금 필요, 현재 잔액 ${balance}π`, 
-          vi: `Số dư không đủ! Cần ${depositAmount}π tiền đặt cọc, số dư hiện tại ${balance}π` 
-        }));
-      }
     }
     
     // 自动填充邮箱（从单独的存储中读取）
@@ -78,42 +87,104 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
     }
   }, []);
 
-
-  const handleSubmit = async () => {
-    setError('');
-    
-    // 检查余额
-    const depositAmount = 100;
-    if (userBalance < depositAmount) {
+  // 当保证金金额或用户余额变化时，检查余额是否足够
+  useEffect(() => {
+    if (userBalance > 0 && depositAmount > 0 && userBalance < depositAmount) {
       setError(getText({ 
         zh: `余额不足！申请入驻需要${depositAmount}π保证金，您当前余额为${userBalance}π，请先充值`, 
         en: `Insufficient balance! ${depositAmount}π deposit required, your balance is ${userBalance}π`, 
         ko: `잔액 부족! ${depositAmount}π 보증금 필요, 현재 잔액 ${userBalance}π`, 
         vi: `Số dư không đủ! Cần ${depositAmount}π tiền đặt cọc, số dư hiện tại ${userBalance}π` 
       }));
-      return;
+    } else {
+      // 余额足够时清除错误提示
+      if (error.includes('余额不足') || error.includes('Insufficient balance')) {
+        setError('');
+      }
     }
-    
-    if (!formData.storeName.trim()) {
-      setError(getText({ zh: '请输入店铺名称', en: 'Please enter store name', ko: '상점 이름을 입력하세요', vi: 'Vui lòng nhập tên cửa hàng' }));
-      return;
-    }
-    if (!formData.category) {
-      setError(getText({ zh: '请选择入驻板块', en: 'Please select category', ko: '카테고리를 선택하세요', vi: 'Vui lòng chọn danh mục' }));
-      return;
-    }
-    if (!formData.email.trim() || !formData.email.includes('@')) {
-      setError(getText({ zh: '请输入有效的邮箱地址', en: 'Please enter valid email', ko: '유효한 이메일을 입력하세요', vi: 'Vui lòng nhập email hợp lệ' }));
-      return;
-    }
-    // 不再要求实名认证
-    if (formData.businessType === 'enterprise' && !formData.businessLicense) {
-      setError(getText({ zh: '企业入驻需要上传营业执照', en: 'Business license required for enterprise', ko: '기업은 사업자 등록증이 필요합니다', vi: 'Cần giấy phép kinh doanh cho doanh nghiệp' }));
-      return;
+  }, [userBalance, depositAmount]);
+
+  // 🔥 监听WebSocket系统设置更新事件
+  useEffect(() => {
+    // 连接WebSocket
+    const token = localStorage.getItem('token') || localStorage.getItem('piToken');
+    if (token) {
+      eventsSocketService.connect(token);
     }
 
+    // 监听系统设置更新
+    const handleSettingsUpdate = (settings: any) => {
+      console.log('[JoinStorePage] 收到系统设置更新:', settings);
+      const newDeposit = parseFloat(settings.merchantDeposit) || 100;
+      if (newDeposit !== depositAmount) {
+        setDepositAmount(newDeposit);
+        console.log(`[JoinStorePage] 保证金金额已更新: ${depositAmount}π → ${newDeposit}π`);
+      }
+    };
+
+    eventsSocketService.on('system:settings-updated', handleSettingsUpdate);
+
+    // 清理
+    return () => {
+      eventsSocketService.off('system:settings-updated', handleSettingsUpdate);
+    };
+  }, [depositAmount]);
+
+
+  const handleSubmit = async () => {
+    setError('');
     setIsSubmitting(true);
+    
     try {
+      // 🔥 提交前重新获取最新的保证金金额
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const settingsResponse = await fetch(`${API_URL}/api/v1/system/settings`);
+      let latestDepositAmount = depositAmount; // 默认使用当前值
+      
+      if (settingsResponse.ok) {
+        const settings = await settingsResponse.json();
+        latestDepositAmount = parseFloat(settings.merchantDeposit) || 100;
+        
+        // 如果保证金金额变了，更新显示
+        if (latestDepositAmount !== depositAmount) {
+          setDepositAmount(latestDepositAmount);
+        }
+      }
+      
+      // 检查余额（使用最新的保证金金额）
+      if (userBalance < latestDepositAmount) {
+        setError(getText({ 
+          zh: `余额不足！申请入驻需要${latestDepositAmount}π保证金，您当前余额为${userBalance}π，请先充值`, 
+          en: `Insufficient balance! ${latestDepositAmount}π deposit required, your balance is ${userBalance}π`, 
+          ko: `잔액 부족! ${latestDepositAmount}π 보증금 필요, 현재 잔액 ${userBalance}π`, 
+          vi: `Số dư không đủ! Cần ${latestDepositAmount}π tiền đặt cọc, số dư hiện tại ${userBalance}π` 
+        }));
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!formData.storeName.trim()) {
+        setError(getText({ zh: '请输入店铺名称', en: 'Please enter store name', ko: '상점 이름을 입력하세요', vi: 'Vui lòng nhập tên cửa hàng' }));
+        setIsSubmitting(false);
+        return;
+      }
+      if (!formData.category) {
+        setError(getText({ zh: '请选择入驻板块', en: 'Please select category', ko: '카테고리를 선택하세요', vi: 'Vui lòng chọn danh mục' }));
+        setIsSubmitting(false);
+        return;
+      }
+      if (!formData.email.trim() || !formData.email.includes('@')) {
+        setError(getText({ zh: '请输入有效的邮箱地址', en: 'Please enter valid email', ko: '유효한 이메일을 입력하세요', vi: 'Vui lòng nhập email hợp lệ' }));
+        setIsSubmitting(false);
+        return;
+      }
+      // 不再要求实名认证
+      if (formData.businessType === 'enterprise' && !formData.businessLicense) {
+        setError(getText({ zh: '企业入驻需要上传营业执照', en: 'Business license required for enterprise', ko: '기업은 사업자 등록증이 필요합니다', vi: 'Cần giấy phép kinh doanh cho doanh nghiệp' }));
+        setIsSubmitting(false);
+        return;
+      }
+
       await merchantApi.apply({
         shopName: formData.storeName,
         description: formData.description,
@@ -173,7 +244,7 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
           <h3 className="font-bold text-green-900 mb-2">💰 {getText({ zh: '保证金说明', en: 'Deposit Info', ko: '보증금 안내', vi: 'Thông tin đặt cọc' })}</h3>
           <div className="text-sm text-green-800 space-y-1">
-            <p>• {getText({ zh: '提交申请时将扣除100π保证金', en: 'Submit will deduct 100π deposit', ko: '제출 시 100π 보증금 차감', vi: 'Gửi sẽ trừ 100π tiền đặt cọc' })}</p>
+            <p>• {getText({ zh: `提交申请时将扣除${depositAmount}π保证金`, en: `Submit will deduct ${depositAmount}π deposit`, ko: `제출 시 ${depositAmount}π 보증금 차감`, vi: `Gửi sẽ trừ ${depositAmount}π tiền đặt cọc` })}</p>
             <p>• {getText({ zh: '审核不通过：保证金立即原路退还', en: 'Rejected: deposit refunded immediately', ko: '거부됨: 보증금 즉시 환불', vi: 'Bị từ chối: hoàn tiền ngay lập tức' })}</p>
             <p>• {getText({ zh: '审核通过后：正常营业期间，只要没有未完成订单，随时可退', en: 'Approved: refundable anytime without pending orders', ko: '승인됨: 미완료 주문이 없으면 언제든지 환불 가능', vi: 'Được phê duyệt: có thể hoàn tiền bất cứ lúc nào không có đơn hàng đang chờ' })}</p>
             <p className="text-green-900 font-bold">• {getText({ zh: `您当前余额：${userBalance}π`, en: `Your balance: ${userBalance}π`, ko: `현재 잔액: ${userBalance}π`, vi: `Số dư của bạn: ${userBalance}π` })}</p>
