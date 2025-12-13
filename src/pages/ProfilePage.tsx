@@ -859,10 +859,19 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       
       if (feeInfoResponse.ok) {
         const feeInfo = await feeInfoResponse.json();
+        console.log('[提现] 获取费率信息:', feeInfo);
         setWithdrawFeeRate(feeInfo.currentFeeRate);
         setTodayWithdrawCount(feeInfo.todayWithdrawCount);
         setDailyFreeWithdraws(feeInfo.dailyFreeWithdraws);
         setIsExtraFee(feeInfo.isExtraFee);
+      } else {
+        console.error('[提现] 获取费率信息失败:', feeInfoResponse.status, await feeInfoResponse.text());
+        // 如果获取失败，至少获取基础费率
+        const settingsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/system/settings`);
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          setWithdrawFeeRate(settings.withdrawFee !== undefined && settings.withdrawFee !== null ? Number(settings.withdrawFee) : 3);
+        }
       }
       
       const latestWallet = await userApi.getWallet() as { piAddress?: string; isLocked?: boolean } | null;
