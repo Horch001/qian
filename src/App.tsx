@@ -58,9 +58,6 @@ import eventsSocketService from './services/eventsSocket';
 import { initializeProductCache } from './services/imagePreloader';
 import './index.css';
 
-// 🔥 App启动时立即预加载商城商品图片
-initializeProductCache();
-
 const HomePage: React.FC<{ 
   language: Language; 
   onLanguageChange: (lang: Language) => void;
@@ -121,6 +118,14 @@ export const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('preferredLanguage', language);
   }, [language]);
+
+  // 延迟预加载：主页渲染后2秒再开始预加载
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      initializeProductCache();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     // 检查是否已登录
