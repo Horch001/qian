@@ -38,6 +38,16 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
     if (stateData?.expandShopId) {
       setSelectedShop(stateData.expandShopId);
     }
+
+    // 监听商家列表更新事件
+    const handleMerchantListUpdate = () => {
+      fetchShops();
+    };
+    window.addEventListener('merchantListUpdated', handleMerchantListUpdate);
+
+    return () => {
+      window.removeEventListener('merchantListUpdated', handleMerchantListUpdate);
+    };
   }, [location.state]);
 
   const fetchShops = async () => {

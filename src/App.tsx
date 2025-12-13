@@ -164,6 +164,12 @@ export const App: React.FC = () => {
       eventsSocketService.on('product:updated', (product) => {
         window.dispatchEvent(new CustomEvent('product:updated', { detail: product }));
       });
+
+      eventsSocketService.on('merchant:list-updated', (merchant) => {
+        // 清除本地缓存，强制下次刷新
+        localStorage.removeItem('cachedMyShops');
+        window.dispatchEvent(new CustomEvent('merchantListUpdated', { detail: merchant }));
+      });
     }
 
     return () => {
