@@ -290,7 +290,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
           price: fav.product?.price,
           rating: fav.product?.rating || 5.0,
           sales: fav.product?.sales || 0,
-          favorites: fav.product?.favorites || 0,
+          favorites: fav.product?.Favorite || 0,
           shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
           addedAt: fav.createdAt,
         }));
@@ -465,7 +465,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
         price: fav.product?.price,
         rating: fav.product?.rating || 5.0,
         sales: fav.product?.sales || 0,
-        favorites: fav.product?.favorites || 0,
+        favorites: fav.product?.Favorite || 0,
         shop: { zh: fav.product?.merchant?.shopName || '商家', en: fav.product?.merchant?.shopNameEn || fav.product?.merchant?.shopName || 'Shop' },
         addedAt: fav.createdAt,
       }));

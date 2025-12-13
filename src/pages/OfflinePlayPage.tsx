@@ -317,7 +317,7 @@ export const OfflinePlaYPage: React.FC = () => {
                       </div>
                       <div className="flex flex-col items-center">
                         <span className="text-[9px] text-gray-600 leading-none">{language === 'zh' ? '收藏' : 'Favs'}</span>
-                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.favorites || 0}</span>
+                        <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.Favorite || 0}</span>
                       </div>
                     </div>
                   </div>

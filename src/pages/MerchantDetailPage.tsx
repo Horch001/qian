@@ -189,7 +189,7 @@ export const MerchantDetailPage: React.FC<MerchantDetailPageProps> = ({ language
                           </div>
                           <div className="flex flex-col items-center">
                             <span className="text-[9px] text-gray-600 leading-none">{getText({ zh: '收藏', en: 'Favs', ko: '즐겨찾기', vi: 'Yêu thích' })}</span>
-                            <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.favorites || 0}</span>
+                            <span className="text-[10px] text-gray-900 font-bold leading-none mt-0.5">{product.Favorite || 0}</span>
                           </div>
                         </div>
                       </div>

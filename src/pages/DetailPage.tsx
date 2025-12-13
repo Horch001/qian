@@ -270,7 +270,7 @@ export const DetailPage: React.FC<DetailPageProps> = ({ language, translations }
     };
     
     checkFavoriteStatus();
-    setFavoriteCount(item.favorites || 0);
+    setFavoriteCount(item.Favorite || 0);
     if (!selectedSpec) setSelectedSpec(specs[0][language]);
   }, [item.id]);
 

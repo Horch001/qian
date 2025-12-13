@@ -244,7 +244,7 @@ export interface Product {
   originalPrice?: string;
   stock: number;
   sales: number;
-  favorites: number; // 收藏数
+  Favorite: number; // 收藏数（后端字段名为Favorite）
   rating: number;
   icon?: string;
   images: string[];

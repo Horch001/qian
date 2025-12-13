@@ -100,8 +100,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
         const allMerchantIds = allMerchants.map((m: any) => m.id);
         const ordersData = await merchantApi.getMyOrders();
         const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
-          !o.hasActiveAfterSale  // 排除有售后的订单
+          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
         );
         setOrders(currentMerchantOrders);
       } else {
@@ -146,8 +145,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
         const allMerchantIds = allMerchants.map((m: any) => m.id);
         const ordersData = await merchantApi.getMyOrders();
         const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
-          !o.hasActiveAfterSale
+          o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
         );
         setOrders(currentMerchantOrders);
       } else {
@@ -175,6 +173,21 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
   // 从路由state获取指定的店铺ID和tab
   const stateData = location.state as { merchantId?: string; tab?: string; autoEdit?: boolean } | null;
+
+  // 判断返回目标：如果merchantId是'all'（从个人中心订单管理进入），返回profile；否则返回my-shops
+  const getBackPath = () => {
+    if (stateData?.merchantId === 'all') {
+      return '/profile';
+    }
+    return '/my-shops';
+  };
+
+  const getBackState = () => {
+    if (stateData?.merchantId === 'all') {
+      return undefined;
+    }
+    return { expandShopId: merchant?.id };
+  };
 
   useEffect(() => {
     // 根据路由路径自动设置tab
@@ -224,10 +237,9 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
           const allMerchantIds = allMerchants.map((m: any) => m.id);
           
           const ordersData = await merchantApi.getMyOrders();
-          // 筛选该商家所有店铺的订单，并排除有售后的订单
+          // 筛选该商家所有店铺的订单（包括有售后的订单）
           const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-            o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
-            !o.hasActiveAfterSale
+            o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
           );
           // 默认只显示待发货订单
           const paidOrders = currentMerchantOrders.filter((o: any) => o.orderStatus === 'PAID');
@@ -266,13 +278,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
 
       if (!belongsToCurrentShop) return;
 
-      // 🔥 如果订单有售后，从订单列表中移除
-      if (updatedOrder.hasActiveAfterSale) {
-        setOrders(prev => prev.filter(o => o.id !== updatedOrder.id));
-        return;
-      }
-
-      // 🔥 立即更新订单列表
+      // 🔥 立即更新订单列表（包括有售后的订单）
       setOrders(prev => {
         const existingIndex = prev.findIndex(o => o.id === updatedOrder.id);
         
@@ -386,7 +392,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
           <header className="p-4 flex items-center justify-center relative">
-            <button onClick={() => navigate('/my-shops')} className="text-white absolute left-4">
+            <button onClick={() => navigate('/profile')} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
             <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
@@ -411,7 +417,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
           <header className="p-4 flex items-center justify-center relative">
-            <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
+            <button onClick={() => navigate(getBackPath(), { state: getBackState() })} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
             <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
@@ -433,7 +439,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       <div className="min-h-screen bg-gradient-to-b from-purple-600 to-pink-500 flex justify-center">
         <div className="w-full max-w-md flex flex-col min-h-screen">
           <header className="p-4 flex items-center justify-center relative">
-            <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
+            <button onClick={() => navigate(getBackPath(), { state: getBackState() })} className="text-white absolute left-4">
               <ArrowLeft size={24} />
             </button>
             <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
@@ -461,7 +467,7 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
       <div className="w-full max-w-md flex flex-col min-h-screen relative">
         {/* Header */}
         <header className="p-4 flex items-center justify-center relative">
-          <button onClick={() => navigate('/my-shops', { state: { expandShopId: merchant?.id } })} className="text-white absolute left-4">
+          <button onClick={() => navigate(getBackPath(), { state: getBackState() })} className="text-white absolute left-4">
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-lg font-bold text-white">{getPageTitle()}</h1>
@@ -759,10 +765,9 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                       const allMerchants = await merchantApi.getMyAllMerchants();
                       const allMerchantIds = allMerchants.map((m: any) => m.id);
                       const ordersData = await merchantApi.getMyOrders();
-                      // 筛选该商家所有店铺的订单，并排除有售后的订单
+                      // 筛选该商家所有店铺的订单（包括有售后的订单）
                       const currentMerchantOrders = (ordersData || []).filter((o: any) => 
-                        o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId)) &&
-                        !o.hasActiveAfterSale  // 排除有售后的订单
+                        o.items?.some((item: any) => allMerchantIds.includes(item.product?.merchantId))
                       );
                       
                       if (status === 'ALL') {
@@ -815,13 +820,15 @@ export const ShopManagePage: React.FC<ShopManagePageProps> = ({ language }) => {
                           order.orderStatus === 'PAID' ? 'bg-green-100 text-green-600' :
                           order.orderStatus === 'SHIPPED' ? 'bg-blue-100 text-blue-600' :
                           order.orderStatus === 'COMPLETED' ? 'bg-purple-100 text-purple-600' :
+                          order.orderStatus === 'REFUNDED' ? 'bg-red-100 text-red-600' :
                           'bg-gray-100 text-gray-600'
                         }`}>
                           {order.orderStatus === 'PENDING' ? getText({ zh: '待付款', en: 'Pending', ko: '대기', vi: 'Chờ' }) :
-                           order.orderStatus === 'PAID' ? getText({ zh: '待发货', en: 'Paid', ko: '결제됨', vi: 'Đã trả' }) :
+                           order.orderStatus === 'PAID' ? getText({ zh: '待发货', en: 'Paid', ko: '结제됨', vi: 'Đã trả' }) :
                            order.orderStatus === 'SHIPPED' ? getText({ zh: '已发货', en: 'Shipped', ko: '배송됨', vi: 'Đã gửi' }) :
                            order.orderStatus === 'COMPLETED' ? getText({ zh: '已完成', en: 'Done', ko: '완료', vi: 'Xong' }) :
                            order.orderStatus === 'CANCELLED' ? getText({ zh: '已取消', en: 'Cancelled', ko: '취소', vi: 'Đã hủy' }) :
+                           order.orderStatus === 'REFUNDED' ? getText({ zh: '已退款', en: 'Refunded', ko: '환불됨', vi: 'Đã hoàn tiền' }) :
                            order.orderStatus}
                         </span>
                       </div>
