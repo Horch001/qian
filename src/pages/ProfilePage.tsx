@@ -42,6 +42,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawFeeRate, setWithdrawFeeRate] = useState(3); // 提现手续费率（默认3%）
+  const [todayWithdrawCount, setTodayWithdrawCount] = useState(0); // 今日提现次数
+  const [dailyFreeWithdraws, setDailyFreeWithdraws] = useState(3); // 每日免费次数
+  const [isExtraFee, setIsExtraFee] = useState(false); // 是否使用额外费率
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [showBalanceHistory, setShowBalanceHistory] = useState(false);
@@ -845,16 +848,23 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   };
 
   const handleWithdraw = async () => {
-    // 先从后端获取最新钱包信息和系统设置
+    // 先从后端获取最新钱包信息和提现费率信息
     try {
-      // 获取系统设置中的提现手续费
-      const settingsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/system/settings`);
-      if (settingsResponse.ok) {
-        const settings = await settingsResponse.json();
-        if (settings.withdrawFee !== undefined) {
-          setWithdrawFeeRate(Number(settings.withdrawFee));
-        }
+      const token = localStorage.getItem('authToken');
+      
+      // 获取提现手续费信息（含当日次数）
+      const feeInfoResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/user/withdraw-fee-info`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (feeInfoResponse.ok) {
+        const feeInfo = await feeInfoResponse.json();
+        setWithdrawFeeRate(feeInfo.currentFeeRate);
+        setTodayWithdrawCount(feeInfo.todayWithdrawCount);
+        setDailyFreeWithdraws(feeInfo.dailyFreeWithdraws);
+        setIsExtraFee(feeInfo.isExtraFee);
       }
+      
       const latestWallet = await userApi.getWallet() as { piAddress?: string; isLocked?: boolean } | null;
       
       if (!latestWallet || !latestWallet.piAddress || latestWallet.piAddress.trim() === '') {
@@ -2458,7 +2468,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
-                    <span>{getText({ zh: `提现手续费：${withdrawFeeRate}%`, en: `Withdrawal fee: ${withdrawFeeRate}%`, ko: `출금 수수료: ${withdrawFeeRate}%`, vi: `Phí rút tiền: ${withdrawFeeRate}%` })}</span>
+                    <span>{getText({ 
+                      zh: `今日第${todayWithdrawCount + 1}次提现，手续费：${withdrawFeeRate}%${isExtraFee ? `（超出每日${dailyFreeWithdraws}次免费额度）` : ''}`, 
+                      en: `${todayWithdrawCount + 1}${todayWithdrawCount === 0 ? 'st' : todayWithdrawCount === 1 ? 'nd' : todayWithdrawCount === 2 ? 'rd' : 'th'} withdrawal today, fee: ${withdrawFeeRate}%${isExtraFee ? ` (exceeded ${dailyFreeWithdraws} free)` : ''}`, 
+                      ko: `오늘 ${todayWithdrawCount + 1}번째 출금, 수수료: ${withdrawFeeRate}%${isExtraFee ? ` (일일 ${dailyFreeWithdraws}회 무료 초과)` : ''}`, 
+                      vi: `Rút lần ${todayWithdrawCount + 1} hôm nay, phí: ${withdrawFeeRate}%${isExtraFee ? ` (vượt ${dailyFreeWithdraws} lần miễn phí)` : ''}` 
+                    })}</span>
                   </div>
                 </div>
               </div>
