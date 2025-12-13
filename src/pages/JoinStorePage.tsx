@@ -53,7 +53,19 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
     const emailUser = localStorage.getItem('userInfo');
     const user = piUser ? JSON.parse(piUser) : emailUser ? JSON.parse(emailUser) : null;
     if (user) {
-      setUserBalance(parseFloat(user.balance) || 0);
+      const balance = parseFloat(user.balance) || 0;
+      setUserBalance(balance);
+      
+      // 检查余额是否足够（假设保证金为100π）
+      const depositAmount = 100;
+      if (balance < depositAmount) {
+        setError(getText({ 
+          zh: `余额不足！申请入驻需要${depositAmount}π保证金，您当前余额为${balance}π，请先充值`, 
+          en: `Insufficient balance! ${depositAmount}π deposit required, your balance is ${balance}π`, 
+          ko: `잔액 부족! ${depositAmount}π 보증금 필요, 현재 잔액 ${balance}π`, 
+          vi: `Số dư không đủ! Cần ${depositAmount}π tiền đặt cọc, số dư hiện tại ${balance}π` 
+        }));
+      }
     }
     
     // 自动填充邮箱（从单独的存储中读取）
@@ -69,6 +81,19 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
 
   const handleSubmit = async () => {
     setError('');
+    
+    // 检查余额
+    const depositAmount = 100;
+    if (userBalance < depositAmount) {
+      setError(getText({ 
+        zh: `余额不足！申请入驻需要${depositAmount}π保证金，您当前余额为${userBalance}π，请先充值`, 
+        en: `Insufficient balance! ${depositAmount}π deposit required, your balance is ${userBalance}π`, 
+        ko: `잔액 부족! ${depositAmount}π 보증금 필요, 현재 잔액 ${userBalance}π`, 
+        vi: `Số dư không đủ! Cần ${depositAmount}π tiền đặt cọc, số dư hiện tại ${userBalance}π` 
+      }));
+      return;
+    }
+    
     if (!formData.storeName.trim()) {
       setError(getText({ zh: '请输入店铺名称', en: 'Please enter store name', ko: '상점 이름을 입력하세요', vi: 'Vui lòng nhập tên cửa hàng' }));
       return;
@@ -143,6 +168,17 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
 
         <main className="p-4 pb-6">
         {error && <div className="bg-red-500/20 rounded-xl p-3 mb-4"><p className="text-white text-sm">{error}</p></div>}
+
+        {/* 保证金提示 */}
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+          <h3 className="font-bold text-green-900 mb-2">💰 {getText({ zh: '保证金说明', en: 'Deposit Info', ko: '보증금 안내', vi: 'Thông tin đặt cọc' })}</h3>
+          <div className="text-sm text-green-800 space-y-1">
+            <p>• {getText({ zh: '提交申请时将扣除100π保证金', en: 'Submit will deduct 100π deposit', ko: '제출 시 100π 보증금 차감', vi: 'Gửi sẽ trừ 100π tiền đặt cọc' })}</p>
+            <p>• {getText({ zh: '审核不通过：保证金立即原路退还', en: 'Rejected: deposit refunded immediately', ko: '거부됨: 보증금 즉시 환불', vi: 'Bị từ chối: hoàn tiền ngay lập tức' })}</p>
+            <p>• {getText({ zh: '审核通过后：正常营业期间，只要没有未完成订单，随时可退', en: 'Approved: refundable anytime without pending orders', ko: '승인됨: 미완료 주문이 없으면 언제든지 환불 가능', vi: 'Được phê duyệt: có thể hoàn tiền bất cứ lúc nào không có đơn hàng đang chờ' })}</p>
+            <p className="text-green-900 font-bold">• {getText({ zh: `您当前余额：${userBalance}π`, en: `Your balance: ${userBalance}π`, ko: `현재 잔액: ${userBalance}π`, vi: `Số dư của bạn: ${userBalance}π` })}</p>
+          </div>
+        </div>
 
         {/* AI自动审核提示 */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex gap-3">
@@ -296,7 +332,8 @@ export const JoinStorePage: React.FC<JoinStorePageProps> = ({ language }) => {
           {/* 商品/服务描述 */}
           <div>
             <label className="flex items-center gap-2 text-gray-700 font-bold text-sm mb-2"><FileText className="w-4 h-4" />{getText({ zh: '商品/服务描述', en: 'Description', ko: '설명', vi: 'Mô tả' })}</label>
-            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={getText({ zh: '请描述您将提供的商品或服务', en: 'Describe your products/services', ko: '상품/서비스를 설명하세요', vi: 'Mô tả sản phẩm/dịch vụ' })} rows={3} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm resize-none" />
+            <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder={getText({ zh: '请描述您将提供的商品或服务（建议尽可能详细，有助于提高审核通过率）', en: 'Describe your products/services (detailed description recommended)', ko: '상품/서비스를 설명하세요 (자세한 설명 권장)', vi: 'Mô tả sản phẩm/dịch vụ (khuyến nghị mô tả chi tiết)' })} rows={3} className="w-full px-4 py-3 bg-gray-50 rounded-lg text-sm resize-none" />
+            <p className="text-xs text-gray-500 mt-1">{getText({ zh: '💡 提示：描述越详细，AI审核通过率越高', en: '💡 Tip: More details = higher approval rate', ko: '💡 팁: 자세할수록 승인률이 높아집니다', vi: '💡 Mẹo: Chi tiết hơn = tỷ lệ phê duyệt cao hơn' })}</p>
           </div>
 
           {/* 联系人 */}

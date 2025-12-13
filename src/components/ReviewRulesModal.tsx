@@ -36,6 +36,19 @@ export const ReviewRulesModal: React.FC<ReviewRulesModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
+          {/* 保证金说明 */}
+          {type === 'merchant' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h3 className="font-bold text-green-900 mb-2">💰 保证金说明</h3>
+              <div className="text-sm text-green-800 space-y-1">
+                <p>• 提交申请时将扣除保证金（具体金额以系统提示为准）</p>
+                <p>• 审核不通过：保证金立即原路退还</p>
+                <p>• 审核通过后：正常营业期间，只要没有未完成订单，随时可以申请退还保证金</p>
+                <p>• 违规处罚：严重违规将扣除保证金</p>
+              </div>
+            </div>
+          )}
+
           {/* 审核标准 */}
           <div>
             <h3 className="font-bold text-gray-800 mb-3">审核标准</h3>
@@ -48,15 +61,15 @@ export const ReviewRulesModal: React.FC<ReviewRulesModalProps> = ({ isOpen, onCl
                   </div>
                   <div className="flex gap-2">
                     <span className="text-green-600">✓</span>
-                    <span>店铺描述详细，不少于10个字符</span>
+                    <span>店铺描述清晰，能够表达清楚经营内容即可（建议尽可能详细）</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-green-600">✓</span>
-                    <span>提供真实有效的联系方式</span>
+                    <span>提供有效的邮箱地址（用于接收通知）</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-green-600">✓</span>
-                    <span>上传营业执照或相关资质证明</span>
+                    <span>企业主体需上传营业执照</span>
                   </div>
                   <div className="flex gap-2">
                     <span className="text-green-600">✓</span>
@@ -151,7 +164,6 @@ export const ReviewRulesModal: React.FC<ReviewRulesModalProps> = ({ isOpen, onCl
                   <p>• 轻微违规：警告并要求整改</p>
                   <p>• 一般违规：下架商品或暂停店铺</p>
                   <p>• 严重违规：关闭店铺，扣除保证金</p>
-                  <p>• 特别严重：永久封禁，移交相关部门</p>
                 </div>
               </div>
             </div>
