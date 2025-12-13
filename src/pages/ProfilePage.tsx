@@ -41,6 +41,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   const [showStoreDetails, setShowStoreDetails] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawFeeRate, setWithdrawFeeRate] = useState(3); // 提现手续费率（默认3%）
   const [showRechargeModal, setShowRechargeModal] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [showBalanceHistory, setShowBalanceHistory] = useState(false);
@@ -844,8 +845,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
   };
 
   const handleWithdraw = async () => {
-    // 先从后端获取最新钱包信息
+    // 先从后端获取最新钱包信息和系统设置
     try {
+      // 获取系统设置中的提现手续费
+      const settingsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/system/settings`);
+      if (settingsResponse.ok) {
+        const settings = await settingsResponse.json();
+        if (settings.withdrawFee !== undefined) {
+          setWithdrawFeeRate(Number(settings.withdrawFee));
+        }
+      }
       const latestWallet = await userApi.getWallet() as { piAddress?: string; isLocked?: boolean } | null;
       
       if (!latestWallet || !latestWallet.piAddress || latestWallet.piAddress.trim() === '') {
@@ -973,7 +982,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
             <h3 class="text-2xl font-bold text-white">${getText({ zh: '提现申请已提交！', en: 'Withdrawal Submitted!', ko: '출금 신청 완료!', vi: 'Đã gửi yêu cầu rút tiền!' })}</h3>
             <div class="space-y-3 text-white/90 w-full">
               <p class="text-lg"><span class="text-white/70">${getText({ zh: '提现金额', en: 'Amount', ko: '금额', vi: 'Số tiền' })}：</span><span class="font-bold">${amount}π</span></p>
-              <p class="text-lg"><span class="text-white/70">${getText({ zh: '到账金额', en: 'Received', ko: '수령 금액', vi: 'Số tiền nhận' })}：</span><span class="font-bold">${(amount * 0.97).toFixed(2)}π</span></p>
+              <p class="text-lg"><span class="text-white/70">${getText({ zh: '到账金额', en: 'Received', ko: '수령 금액', vi: 'Số tiền nhận' })}：</span><span class="font-bold">${(amount * (1 - withdrawFeeRate / 100)).toFixed(2)}π</span></p>
               <div class="text-sm">
                 <p class="text-white/70 mb-1">${getText({ zh: '钱包地址', en: 'Wallet', ko: '지갑', vi: 'Ví' })}</p>
                 <p class="font-mono text-sm break-all" title="${latestWallet.piAddress}">${formatWalletAddressShort(latestWallet.piAddress)}</p>
@@ -2449,7 +2458,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-white/60">·</span>
-                    <span>{getText({ zh: '提现手续费：3%', en: 'Withdrawal fee: 3%', ko: '출금 수수료: 3%', vi: 'Phí rút tiền: 3%' })}</span>
+                    <span>{getText({ zh: `提现手续费：${withdrawFeeRate}%`, en: `Withdrawal fee: ${withdrawFeeRate}%`, ko: `출금 수수료: ${withdrawFeeRate}%`, vi: `Phí rút tiền: ${withdrawFeeRate}%` })}</span>
                   </div>
                 </div>
               </div>

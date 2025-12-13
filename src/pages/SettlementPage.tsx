@@ -18,6 +18,7 @@ export const SettlementPage: React.FC<SettlementPageProps> = ({ language }) => {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [piAddress, setPiAddress] = useState('');
+  const [withdrawFeeRate, setWithdrawFeeRate] = useState(3); // 提现手续费率（默认3%）
 
   const getText = (obj: { [key: string]: string }) => obj[language] || obj.zh;
 
@@ -29,13 +30,14 @@ export const SettlementPage: React.FC<SettlementPageProps> = ({ language }) => {
     try {
       const token = localStorage.getItem('authToken');
       
-      const [accountRes, statsRes] = await Promise.all([
+      const [accountRes, statsRes, settingsRes] = await Promise.all([
         fetch(`${API_URL}/api/v1/settlement/account`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
         fetch(`${API_URL}/api/v1/settlement/stats`, {
           headers: { 'Authorization': `Bearer ${token}` },
         }),
+        fetch(`${API_URL}/api/v1/system/settings`),
       ]);
 
       if (accountRes.ok) {
@@ -46,6 +48,13 @@ export const SettlementPage: React.FC<SettlementPageProps> = ({ language }) => {
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
+      }
+
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        if (settings.withdrawFee !== undefined) {
+          setWithdrawFeeRate(Number(settings.withdrawFee));
+        }
       }
     } catch (error) {
       console.error('加载数据失败:', error);
@@ -299,7 +308,7 @@ export const SettlementPage: React.FC<SettlementPageProps> = ({ language }) => {
                   />
                 </div>
                 <p className="text-xs text-gray-500">
-                  {getText({ zh: '提现手续费1%，预计1-3个工作日到账', en: '1% fee, 1-3 days', ko: '수수료 1%, 1-3일', vi: 'Phí 1%, 1-3 ngày' })}
+                  {getText({ zh: `提现手续费${withdrawFeeRate}%，预计1-3个工作日到账`, en: `${withdrawFeeRate}% fee, 1-3 days`, ko: `수수료 ${withdrawFeeRate}%, 1-3일`, vi: `Phí ${withdrawFeeRate}%, 1-3 ngày` })}
                 </p>
               </div>
               <div className="p-4 border-t flex gap-3">
