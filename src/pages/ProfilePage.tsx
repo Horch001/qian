@@ -853,7 +853,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ language, translations
       const token = localStorage.getItem('authToken');
       
       // 获取提现手续费信息（含当日次数）
-      const feeInfoResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/user/withdraw-fee-info`, {
+      const feeInfoResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/users/withdraw-fee-info`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
