@@ -42,13 +42,17 @@ export const MyShopsPage: React.FC<MyShopsPageProps> = ({ language }) => {
 
   const fetchShops = async () => {
     try {
-      // 1. 先从缓存加载（立即显示，即使过期）
+      // 1. 先从缓存加载（立即显示）
       const cached = localStorage.getItem('cachedMyShops');
+      let hasCachedData = false;
       if (cached) {
         try {
           const { data } = JSON.parse(cached);
-          setShops(data);
-          setLoading(false); // 立即显示缓存数据
+          if (data && data.length > 0) {
+            setShops(data);
+            setLoading(false); // 立即显示缓存数据
+            hasCachedData = true;
+          }
         } catch (e) {
           console.warn('缓存解析失败:', e);
         }

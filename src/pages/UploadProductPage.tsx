@@ -225,10 +225,11 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
   const allImages = formData.mainImage ? [formData.mainImage, ...formData.subImages] : [];
 
   return (
-    <div className="h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gradient-to-b from-blue-200 to-blue-300 flex justify-center overflow-hidden">
+      <div className="w-full max-w-md flex flex-col overflow-hidden">
       {/* 顶部工具栏 */}
       <header className="bg-white/90 backdrop-blur-sm sticky top-0 z-40 border-b border-gray-200 flex-shrink-0">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
@@ -249,7 +250,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         </div>
       </header>
 
-      <main className="flex-1 max-w-md w-full mx-auto overflow-y-auto pb-4">
+      <main className="flex-1 w-full overflow-y-auto pb-4">
         {/* AI自动审核提示 */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mx-4 mb-4 flex gap-3">
           <Shield className="text-blue-600 flex-shrink-0" size={24} />
@@ -762,6 +763,7 @@ export const UploadProductPage: React.FC<UploadProductPageProps> = ({ language }
         onClose={() => setShowRulesModal(false)}
         type="product"
       />
+      </div>
     </div>
   );
 };
